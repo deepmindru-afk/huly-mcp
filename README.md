@@ -371,6 +371,7 @@ MCP_TRANSPORT=http MCP_HTTP_PORT=8080 MCP_HTTP_HOST=0.0.0.0 npx -y @firfi/huly-m
 | `get_user_profile` | Get the current user's profile information including bio, location, and social links. |
 | `update_user_profile` | Update the current user's profile. Supports bio, city, country, website, social links, and public visibility. |
 | `update_guest_settings` | Update workspace guest settings. Control read-only guest access and guest sign-up permissions. |
+| `create_access_link` | Create a Huly workspace access link. Defaults to role GUEST. Supports anonymous reusable guest links by setting personalized=false with notBefore and expiration, and can restrict access to specific Huly space IDs via spaces. |
 | `get_regions` | Get available regions for workspace creation. Returns region codes and display names. |
 
 ### Cards

@@ -1,6 +1,6 @@
 import { JSONSchema, Schema } from "effect"
 
-import type { PersonName, UrlString } from "./shared.js"
+import type { PersonName, SpaceId as SpaceIdType, UrlString } from "./shared.js"
 import {
   AccountId,
   Email,
@@ -9,6 +9,7 @@ import {
   NonEmptyString,
   PersonUuid,
   RegionId,
+  SpaceId,
   UrlString as UrlStringSchema,
   WorkspaceMode,
   WorkspaceName,
@@ -199,6 +200,96 @@ export const UpdateGuestSettingsParamsSchema = Schema.Struct({
 
 export type UpdateGuestSettingsParams = Schema.Schema.Type<typeof UpdateGuestSettingsParamsSchema>
 
+const MAX_UNIX_SECONDS_TIMESTAMP = 9_999_999_999
+
+const UnixSecondsTimestamp = Schema.Number.pipe(
+  Schema.int(),
+  Schema.nonNegative(),
+  Schema.lessThanOrEqualTo(MAX_UNIX_SECONDS_TIMESTAMP)
+).annotations({
+  identifier: "UnixSecondsTimestamp",
+  title: "UnixSecondsTimestamp",
+  description: "Unix timestamp in seconds (non-negative integer)"
+})
+
+const AccessLinkCommonParamsSchema = Schema.Struct({
+  role: Schema.optional(
+    AccountRoleSchema.annotations({
+      description: "Workspace role granted by the link. Defaults to GUEST."
+    })
+  ),
+  firstName: Schema.optional(
+    NonEmptyString.annotations({
+      description: "Optional first name for personalized links."
+    })
+  ),
+  lastName: Schema.optional(
+    NonEmptyString.annotations({
+      description: "Optional last name for personalized links."
+    })
+  ),
+  navigateUrl: Schema.optional(
+    Schema.String.annotations({
+      description: "Optional URL/path Huly should open after the link is used."
+    })
+  ),
+  spaces: Schema.optional(
+    Schema.Array(SpaceId).annotations({
+      description:
+        "Optional Huly space IDs this link should grant access to. Use list_teamspaces, list_card_spaces, or other list tools to discover space IDs."
+    })
+  )
+})
+
+const PersonalizedAccessLinkParamsSchema = Schema.Struct({
+  ...AccessLinkCommonParamsSchema.fields,
+  notBefore: Schema.optional(
+    UnixSecondsTimestamp.annotations({
+      description: "Unix timestamp in seconds before which the link is invalid."
+    })
+  ),
+  expiration: Schema.optional(
+    UnixSecondsTimestamp.annotations({
+      description: "Unix timestamp in seconds after which the link expires."
+    })
+  ),
+  personalized: Schema.optional(
+    Schema.Literal(true).annotations({
+      description: "Whether the link is bound to one person. Defaults to Huly's personalized-link behavior."
+    })
+  )
+})
+
+const AnonymousAccessLinkParamsSchema = Schema.Struct({
+  ...AccessLinkCommonParamsSchema.fields,
+  notBefore: UnixSecondsTimestamp.annotations({
+    description: "Unix timestamp in seconds before which a non-personalized link is invalid."
+  }),
+  expiration: UnixSecondsTimestamp.annotations({
+    description: "Unix timestamp in seconds after which the link expires."
+  }),
+  personalized: Schema.Literal(false).annotations({
+    description: "Set false for anonymous reusable guest links. Anonymous links require notBefore and expiration."
+  })
+})
+
+export const CreateAccessLinkParamsSchema = Schema.Union(
+  PersonalizedAccessLinkParamsSchema,
+  AnonymousAccessLinkParamsSchema
+).pipe(
+  Schema.filter((params) => {
+    if (params.notBefore !== undefined && params.expiration !== undefined && params.expiration <= params.notBefore) {
+      return "expiration must be greater than notBefore."
+    }
+    return undefined
+  })
+).annotations({
+  title: "CreateAccessLinkParams",
+  description: "Parameters for creating a Huly workspace access link"
+})
+
+export type CreateAccessLinkParams = Schema.Schema.Type<typeof CreateAccessLinkParamsSchema>
+
 export const GetRegionsParamsSchema = EmptyParamsSchema
 
 export type GetRegionsParams = Schema.Schema.Type<typeof GetRegionsParamsSchema>
@@ -209,6 +300,7 @@ export const listWorkspacesParamsJsonSchema = JSONSchema.make(ListWorkspacesPara
 export const createWorkspaceParamsJsonSchema = JSONSchema.make(CreateWorkspaceParamsSchema)
 export const updateUserProfileParamsJsonSchema = JSONSchema.make(UpdateUserProfileParamsSchema)
 export const updateGuestSettingsParamsJsonSchema = JSONSchema.make(UpdateGuestSettingsParamsSchema)
+export const createAccessLinkParamsJsonSchema = JSONSchema.make(CreateAccessLinkParamsSchema)
 export const getRegionsParamsJsonSchema = JSONSchema.make(GetRegionsParamsSchema)
 
 export const parseListWorkspaceMembersParams = Schema.decodeUnknown(ListWorkspaceMembersParamsSchema)
@@ -217,6 +309,7 @@ export const parseListWorkspacesParams = Schema.decodeUnknown(ListWorkspacesPara
 export const parseCreateWorkspaceParams = Schema.decodeUnknown(CreateWorkspaceParamsSchema)
 export const parseUpdateUserProfileParams = Schema.decodeUnknown(UpdateUserProfileParamsSchema)
 export const parseUpdateGuestSettingsParams = Schema.decodeUnknown(UpdateGuestSettingsParamsSchema)
+export const parseCreateAccessLinkParams = Schema.decodeUnknown(CreateAccessLinkParamsSchema)
 export const parseGetRegionsParams = Schema.decodeUnknown(GetRegionsParamsSchema)
 
 // No codec needed — internal type, not used for runtime validation
@@ -244,6 +337,13 @@ export interface UpdateGuestSettingsResult {
   readonly updated: boolean
   readonly allowReadOnly?: boolean | undefined
   readonly allowSignUp?: boolean | undefined
+}
+
+export interface CreateAccessLinkResult {
+  readonly link: UrlString
+  readonly role: AccountRole
+  readonly spaces?: ReadonlyArray<SpaceIdType> | undefined
+  readonly personalized?: boolean | undefined
 }
 
 export const WorkspaceMemberSchema = Schema.Struct({
@@ -315,6 +415,13 @@ export const UpdateGuestSettingsResultSchema = Schema.Struct({
   updated: Schema.Boolean,
   allowReadOnly: Schema.optional(Schema.Boolean),
   allowSignUp: Schema.optional(Schema.Boolean)
+})
+
+export const CreateAccessLinkResultSchema = Schema.Struct({
+  link: UrlStringSchema,
+  role: AccountRoleSchema,
+  spaces: Schema.optional(Schema.Array(SpaceId)),
+  personalized: Schema.optional(Schema.Boolean)
 })
 
 export const ListWorkspaceMembersResultSchema = Schema.Array(WorkspaceMemberSchema)

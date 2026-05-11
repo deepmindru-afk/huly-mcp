@@ -1105,6 +1105,10 @@ run_test "get_workspace_info" \
   '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"get_workspace_info","arguments":{}},"id":2}'
 run_test "list_workspace_members" \
   '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_workspace_members","arguments":{}},"id":2}'
+ACCESS_LINK_NOT_BEFORE="$(date +%s)"
+ACCESS_LINK_EXPIRATION="$((ACCESS_LINK_NOT_BEFORE + 300))"
+run_test "create_access_link(anonymous_guest)" \
+  "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_access_link\",\"arguments\":{\"role\":\"GUEST\",\"personalized\":false,\"notBefore\":${ACCESS_LINK_NOT_BEFORE},\"expiration\":${ACCESS_LINK_EXPIRATION}}},\"id\":2}"
 # list_workspaces, create_workspace, delete_workspace, get_regions, update_member_role, update_guest_settings
 # — workspace management tools are dangerous for integration tests, skip
 skip_test "list_workspaces" "workspace management"

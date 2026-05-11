@@ -19,6 +19,8 @@ import {
 } from "../../domain/schemas/shared.js"
 import type {
   AccountRole,
+  CreateAccessLinkParams,
+  CreateAccessLinkResult,
   CreateWorkspaceParams,
   CreateWorkspaceResult,
   DeleteWorkspaceResult,
@@ -64,12 +66,27 @@ type DeleteWorkspaceError = WorkspaceClientError
 type GetUserProfileError = WorkspaceClientError
 type UpdateUserProfileError = WorkspaceClientError
 type UpdateGuestSettingsError = WorkspaceClientError
+type CreateAccessLinkError = WorkspaceClientError
 type GetRegionsError = WorkspaceClientError
 
 const formatVersion = (info: WorkspaceInfoWithStatus): string =>
   `${info.versionMajor}.${info.versionMinor}.${info.versionPatch}`
 
 const nullToUndefined = <T>(value: T | null | undefined): T | undefined => value ?? undefined
+
+type CreateAccessLinkOptions = Parameters<WorkspaceClient["Type"]["createAccessLink"]>[1]
+
+const toCreateAccessLinkOptions = (params: CreateAccessLinkParams): CreateAccessLinkOptions => {
+  return {
+    ...(params.firstName !== undefined ? { firstName: params.firstName } : {}),
+    ...(params.lastName !== undefined ? { lastName: params.lastName } : {}),
+    ...(params.navigateUrl !== undefined ? { navigateUrl: params.navigateUrl } : {}),
+    ...(params.spaces !== undefined ? { spaces: params.spaces } : {}),
+    ...(params.notBefore !== undefined ? { notBefore: params.notBefore } : {}),
+    ...(params.expiration !== undefined ? { expiration: params.expiration } : {}),
+    ...(params.personalized !== undefined ? { personalized: params.personalized } : {})
+  }
+}
 
 export const listWorkspaceMembers = (
   params: ListWorkspaceMembersParams
@@ -268,6 +285,23 @@ export const updateGuestSettings = (
       updated,
       allowReadOnly: params.allowReadOnly,
       allowSignUp: params.allowSignUp
+    }
+  })
+
+export const createAccessLink = (
+  params: CreateAccessLinkParams
+): Effect.Effect<CreateAccessLinkResult, CreateAccessLinkError, WorkspaceClient> =>
+  Effect.gen(function*() {
+    const ops = yield* WorkspaceClient
+    const role = params.role ?? "GUEST"
+
+    const link = yield* ops.createAccessLink(toHulyAccountRole(role), toCreateAccessLinkOptions(params))
+
+    return {
+      link: UrlString.make(link),
+      role,
+      spaces: params.spaces,
+      personalized: params.personalized
     }
   })
 

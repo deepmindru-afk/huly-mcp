@@ -63,6 +63,7 @@ const noopWorkspaceClient: WorkspaceClientOperations = {
   deleteWorkspace: () => Effect.die(new Error("not implemented")),
   getUserProfile: () => Effect.succeed(null),
   setMyProfile: () => Effect.die(new Error("not implemented")),
+  createAccessLink: () => Effect.die(new Error("not implemented")),
   updateAllowReadOnlyGuests: () => Effect.die(new Error("not implemented")),
   updateAllowGuestSignUp: () => Effect.die(new Error("not implemented")),
   getRegionInfo: () => Effect.succeed([])

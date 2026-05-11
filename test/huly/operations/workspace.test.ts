@@ -6,6 +6,7 @@ import { expect } from "vitest"
 
 import type { InvalidPersonUuidError } from "../../../src/huly/errors.js"
 import {
+  createAccessLink,
   createWorkspace,
   deleteWorkspace,
   getRegions,
@@ -18,7 +19,7 @@ import {
   updateUserProfile
 } from "../../../src/huly/operations/workspace.js"
 import { WorkspaceClient, type WorkspaceClientUserProfile } from "../../../src/huly/workspace-client.js"
-import { accountId, regionId } from "../../helpers/brands.js"
+import { accountId, regionId, spaceBrandId, type SpaceId } from "../../helpers/brands.js"
 
 const mkAccountUuid = (id: string): AccountUuid => {
   const pu = id as PersonUuid
@@ -533,6 +534,73 @@ describe("updateGuestSettings", () => {
       expect(result.updated).toBe(true)
       expect(readOnlyCalled).toBe(true)
       expect(signUpCalled).toBe(true)
+    }))
+})
+
+describe("createAccessLink", () => {
+  // test-revizorro: approved
+  it.effect("creates guest link with defaults", () =>
+    Effect.gen(function*() {
+      let capturedRole: AccountRole | undefined
+
+      const testLayer = WorkspaceClient.testLayer({
+        createAccessLink: (role) => {
+          capturedRole = role
+          return Effect.succeed("https://huly.test/guest")
+        }
+      })
+
+      const result = yield* createAccessLink({}).pipe(Effect.provide(testLayer))
+
+      expect(result.link).toBe("https://huly.test/guest")
+      expect(result.role).toBe("GUEST")
+      expect(result.spaces).toBeUndefined()
+      expect(capturedRole).toBe(AccountRole.Guest)
+    }))
+
+  // test-revizorro: approved
+  it.effect("passes anonymous link options and space restrictions", () =>
+    Effect.gen(function*() {
+      let capturedRole: AccountRole | undefined
+      let capturedOptions:
+        | {
+          readonly spaces?: ReadonlyArray<SpaceId>
+          readonly personalized?: boolean
+          readonly notBefore?: number
+          readonly expiration?: number
+          readonly navigateUrl?: string
+        }
+        | undefined
+
+      const testLayer = WorkspaceClient.testLayer({
+        createAccessLink: (role, options) => {
+          capturedRole = role
+          capturedOptions = options
+          return Effect.succeed("https://huly.test/anonymous")
+        }
+      })
+
+      const result = yield* createAccessLink({
+        role: "READONLYGUEST",
+        spaces: [spaceBrandId("space-docs"), spaceBrandId("space-cards")],
+        personalized: false,
+        notBefore: 1,
+        expiration: 2,
+        navigateUrl: "/workbench"
+      }).pipe(Effect.provide(testLayer))
+
+      expect(result.link).toBe("https://huly.test/anonymous")
+      expect(result.role).toBe("READONLYGUEST")
+      expect(result.spaces).toEqual(["space-docs", "space-cards"])
+      expect(result.personalized).toBe(false)
+      expect(capturedRole).toBe(AccountRole.ReadOnlyGuest)
+      expect(capturedOptions).toEqual({
+        navigateUrl: "/workbench",
+        spaces: ["space-docs", "space-cards"],
+        notBefore: 1,
+        expiration: 2,
+        personalized: false
+      })
     }))
 })
 

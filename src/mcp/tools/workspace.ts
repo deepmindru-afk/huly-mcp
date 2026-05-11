@@ -1,4 +1,6 @@
 import {
+  createAccessLinkParamsJsonSchema,
+  CreateAccessLinkResultSchema,
   createWorkspaceParamsJsonSchema,
   CreateWorkspaceResultSchema,
   DeleteWorkspaceResultSchema,
@@ -10,6 +12,7 @@ import {
   ListWorkspaceMembersResultSchema,
   listWorkspacesParamsJsonSchema,
   ListWorkspacesResultSchema,
+  parseCreateAccessLinkParams,
   parseCreateWorkspaceParams,
   parseGetRegionsParams,
   parseListWorkspaceMembersParams,
@@ -26,6 +29,7 @@ import {
   WorkspaceInfoSchema
 } from "../../domain/schemas.js"
 import {
+  createAccessLink,
   createWorkspace,
   deleteWorkspace,
   getRegions,
@@ -153,6 +157,19 @@ export const workspaceTools: ReadonlyArray<RegisteredTool> = [
       parseUpdateGuestSettingsParams,
       updateGuestSettings,
       UpdateGuestSettingsResultSchema
+    )
+  },
+  {
+    name: "create_access_link",
+    description:
+      "Create a Huly workspace access link. Defaults to role GUEST. Supports anonymous reusable guest links by setting personalized=false with notBefore and expiration, and can restrict access to specific Huly space IDs via spaces.",
+    category: CATEGORY,
+    inputSchema: createAccessLinkParamsJsonSchema,
+    handler: createEncodedWorkspaceToolHandler(
+      "create_access_link",
+      parseCreateAccessLinkParams,
+      createAccessLink,
+      CreateAccessLinkResultSchema
     )
   },
   {

@@ -18,6 +18,7 @@ import { HulyConfigService } from "../../src/config/config.js"
 import { HulyAuthError, HulyConnectionError } from "../../src/huly/errors.js"
 import { HulySdk, type HulySdkDependencies } from "../../src/huly/sdk-deps.js"
 import { WorkspaceClient, type WorkspaceClientError } from "../../src/huly/workspace-client.js"
+import { spaceBrandId } from "../helpers/brands.js"
 import { mockFn } from "../helpers/mock-fn.js"
 
 // --- factory helpers for type assertions on object literals ---
@@ -39,6 +40,20 @@ const mockCreateWorkspace = mockFn<(name: string, region?: string) => Promise<Wo
 const mockDeleteWorkspace = mockFn<() => Promise<void>>()
 const mockGetUserProfile = mockFn<(personUuid?: PersonUuid) => Promise<PersonWithProfile | null>>()
 const mockSetMyProfile = mockFn<(profile: Record<string, unknown>) => Promise<void>>()
+const mockCreateAccessLink = mockFn<
+  (
+    role: AccountRole,
+    options?: {
+      firstName?: string
+      lastName?: string
+      navigateUrl?: string
+      spaces?: Array<string>
+      notBefore?: number
+      expiration?: number
+      personalized?: boolean
+    }
+  ) => Promise<string>
+>()
 const mockUpdateAllowReadOnlyGuests = mockFn<
   (v: boolean) => Promise<{ guestPerson: Person; guestSocialIds: Array<SocialId> } | undefined>
 >()
@@ -55,6 +70,7 @@ const clearAllMockFns = () => {
   mockDeleteWorkspace.mockClear()
   mockGetUserProfile.mockClear()
   mockSetMyProfile.mockClear()
+  mockCreateAccessLink.mockClear()
   mockUpdateAllowReadOnlyGuests.mockClear()
   mockUpdateAllowGuestSignUp.mockClear()
   mockGetRegionInfo.mockClear()
@@ -71,6 +87,7 @@ const mockAccountClient: AccountClient = {
   deleteWorkspace: mockDeleteWorkspace,
   getUserProfile: mockGetUserProfile,
   setMyProfile: mockSetMyProfile,
+  createAccessLink: mockCreateAccessLink,
   updateAllowReadOnlyGuests: mockUpdateAllowReadOnlyGuests,
   updateAllowGuestSignUp: mockUpdateAllowGuestSignUp,
   getRegionInfo: mockGetRegionInfo
@@ -251,6 +268,31 @@ describe("WorkspaceClient.layer (real layer)", () => {
     }).pipe(Effect.provide(liveLayer)))
 
   // test-revizorro: approved
+  it.effect("createAccessLink delegates to AccountClient", () =>
+    Effect.gen(function*() {
+      mockCreateAccessLink.mockResolvedValue("https://huly.test/invite")
+
+      const client = yield* WorkspaceClient
+      const result = yield* client.createAccessLink(AccountRole.Guest, {
+        spaces: [spaceBrandId("space-1"), spaceBrandId("space-2")],
+        personalized: false,
+        notBefore: 1,
+        expiration: 2
+      })
+
+      expect(result).toBe("https://huly.test/invite")
+      expect(mockCreateAccessLink.mock.calls).toContainEqual([
+        AccountRole.Guest,
+        {
+          spaces: ["space-1", "space-2"],
+          personalized: false,
+          notBefore: 1,
+          expiration: 2
+        }
+      ])
+    }).pipe(Effect.provide(liveLayer)))
+
+  // test-revizorro: approved
   it.effect("updateAllowReadOnlyGuests delegates to AccountClient", () =>
     Effect.gen(function*() {
       mockUpdateAllowReadOnlyGuests.mockResolvedValue(undefined)
@@ -394,6 +436,18 @@ describe("WorkspaceClient.layer (real layer)", () => {
 
         expect(error._tag).toBe("HulyConnectionError")
         expect(error.message).toContain("Failed to set my profile")
+      }).pipe(Effect.provide(liveLayer)))
+
+    // test-revizorro: approved
+    it.effect("wraps createAccessLink rejection", () =>
+      Effect.gen(function*() {
+        mockCreateAccessLink.mockRejectedValue(new Error("link error"))
+
+        const client = yield* WorkspaceClient
+        const error = yield* Effect.flip(client.createAccessLink(AccountRole.Guest))
+
+        expect(error._tag).toBe("HulyConnectionError")
+        expect(error.message).toContain("Failed to create access link")
       }).pipe(Effect.provide(liveLayer)))
 
     // test-revizorro: approved

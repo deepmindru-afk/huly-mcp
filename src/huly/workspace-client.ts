@@ -32,11 +32,22 @@ import type {
 import { Context, Effect, Layer } from "effect"
 
 import { HulyConfigService } from "../config/config.js"
+import type { SpaceId } from "../domain/schemas/shared.js"
 import { authToOptions, type ConnectionConfig, type ConnectionError, connectWithRetry } from "./client.js"
 import { HulyConnectionError } from "./errors.js"
 import { HulySdk, type HulySdkDependencies } from "./sdk-deps.js"
 
 export type WorkspaceClientError = ConnectionError
+
+interface CreateAccessLinkOptions {
+  readonly firstName?: string
+  readonly lastName?: string
+  readonly navigateUrl?: string
+  readonly spaces?: ReadonlyArray<SpaceId>
+  readonly notBefore?: number
+  readonly expiration?: number
+  readonly personalized?: boolean
+}
 
 export type WorkspaceClientUserProfile =
   & Omit<PersonWithProfile, "bio" | "city" | "country" | "website" | "socialLinks">
@@ -62,6 +73,10 @@ export interface WorkspaceClientOperations {
   readonly setMyProfile: (
     profile: Partial<Omit<UserProfile, "personUuid">>
   ) => Effect.Effect<void, WorkspaceClientError>
+  readonly createAccessLink: (
+    role: AccountRole,
+    options?: CreateAccessLinkOptions
+  ) => Effect.Effect<string, WorkspaceClientError>
   readonly updateAllowReadOnlyGuests: (
     readOnlyGuestsAllowed: boolean
   ) => Effect.Effect<{ guestPerson: Person; guestSocialIds: Array<SocialId> } | undefined, WorkspaceClientError>
@@ -104,6 +119,23 @@ export class WorkspaceClient extends Context.Tag("@hulymcp/WorkspaceClient")<
             })
         })
 
+      const toAccountClientAccessLinkOptions = (
+        options: CreateAccessLinkOptions | undefined
+      ): Parameters<AccountClient["createAccessLink"]>[1] => {
+        if (options === undefined) return undefined
+
+        const result: NonNullable<Parameters<AccountClient["createAccessLink"]>[1]> = {
+          ...(options.firstName !== undefined ? { firstName: options.firstName } : {}),
+          ...(options.lastName !== undefined ? { lastName: options.lastName } : {}),
+          ...(options.navigateUrl !== undefined ? { navigateUrl: options.navigateUrl } : {}),
+          ...(options.spaces !== undefined ? { spaces: [...options.spaces] } : {}),
+          ...(options.notBefore !== undefined ? { notBefore: options.notBefore } : {}),
+          ...(options.expiration !== undefined ? { expiration: options.expiration } : {}),
+          ...(options.personalized !== undefined ? { personalized: options.personalized } : {})
+        }
+        return result
+      }
+
       const operations: WorkspaceClientOperations = {
         getWorkspaceMembers: () => withClient((c) => c.getWorkspaceMembers(), "Failed to get workspace members"),
         getPersonInfo: (account) => withClient((c) => c.getPersonInfo(account), "Failed to get person info"),
@@ -117,6 +149,11 @@ export class WorkspaceClient extends Context.Tag("@hulymcp/WorkspaceClient")<
         deleteWorkspace: () => withClient((c) => c.deleteWorkspace(), "Failed to delete workspace"),
         getUserProfile: (personUuid) => withClient((c) => c.getUserProfile(personUuid), "Failed to get user profile"),
         setMyProfile: (profile) => withClient((c) => c.setMyProfile(profile), "Failed to set my profile"),
+        createAccessLink: (role, options) =>
+          withClient(
+            (c) => c.createAccessLink(role, toAccountClientAccessLinkOptions(options)),
+            "Failed to create access link"
+          ),
         updateAllowReadOnlyGuests: (readOnlyGuestsAllowed) =>
           withClient(
             (c) => c.updateAllowReadOnlyGuests(readOnlyGuestsAllowed),
@@ -153,6 +190,7 @@ export class WorkspaceClient extends Context.Tag("@hulymcp/WorkspaceClient")<
       deleteWorkspace: notImplemented("deleteWorkspace"),
       getUserProfile: () => Effect.succeed(null),
       setMyProfile: notImplemented("setMyProfile"),
+      createAccessLink: notImplemented("createAccessLink"),
       updateAllowReadOnlyGuests: notImplemented("updateAllowReadOnlyGuests"),
       updateAllowGuestSignUp: notImplemented("updateAllowGuestSignUp"),
       getRegionInfo: () => Effect.succeed([])

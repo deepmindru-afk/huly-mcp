@@ -1,5 +1,11 @@
 # @firfi/huly-mcp
 
+## 0.11.0
+
+### Minor Changes
+
+- Add the `create_access_link` workspace tool for creating Huly access links, including anonymous reusable guest links with second-based validity windows and optional space restrictions.
+
 ## 0.10.3
 
 ### Patch Changes

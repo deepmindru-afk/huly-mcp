@@ -15,15 +15,19 @@ import type { Employee as HulyEmployee } from "@hcengineering/contact"
 import {
   type AccountUuid as HulyAccountUuid,
   type AttachedData,
+  type Data,
   type DocumentUpdate,
   generateId,
   type Ref,
-  SortingOrder
+  SortingOrder,
+  type Space
 } from "@hcengineering/core"
 import { Clock, Effect } from "effect"
 
 import type { MessageSummary } from "../../domain/schemas/channels.js"
 import type {
+  CreateDirectMessageParams,
+  CreateDirectMessageResult,
   DeleteDmMessageParams,
   DeleteDmMessageResult,
   ListDmMessagesParams,
@@ -35,13 +39,21 @@ import type {
 } from "../../domain/schemas/direct-messages.js"
 import { ChannelId, type DirectMessageIdentifier, MessageId, PersonName } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
-import { DirectMessageIdentifierAmbiguousError, DirectMessageNotFoundError, MessageNotFoundError } from "../errors.js"
+import {
+  CannotDirectMessageSelfError,
+  DirectMessageIdentifierAmbiguousError,
+  DirectMessageNotFoundError,
+  MessageNotFoundError,
+  PersonNotAnEmployeeError,
+  PersonNotFoundError
+} from "../errors.js"
 import { buildSocialIdToPersonNameMap } from "./channels.js"
+import { findPersonByEmailOrName } from "./contacts-shared.js"
 import { markdownToMarkupString, markupToMarkdownString } from "./markup.js"
 import { clampLimit } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
 
-import { chunter, contact } from "../huly-plugins.js"
+import { chunter, contact, core } from "../huly-plugins.js"
 
 // --- Error Types ---
 
@@ -59,6 +71,12 @@ type UpdateDmMessageError =
   | MessageNotFoundError
 
 type DeleteDmMessageError = UpdateDmMessageError
+
+type CreateDirectMessageError =
+  | HulyClientError
+  | PersonNotFoundError
+  | PersonNotAnEmployeeError
+  | CannotDirectMessageSelfError
 
 // --- Helpers ---
 
@@ -288,4 +306,93 @@ export const deleteDirectMessage = (
     )
 
     return { id: MessageId.make(message._id), deleted: true }
+  })
+
+/**
+ * Resolve a person identifier (email or display name) to the `AccountUuid`
+ * carried on the `contact.mixin.Employee` mixin. DMs are addressed by account
+ * UUID; non-employee Persons (external contacts, unaccepted invites) have no
+ * `personUuid` and cannot be DM'd.
+ */
+const resolveEmployeeAccount = (
+  identifier: string
+): Effect.Effect<
+  HulyAccountUuid,
+  HulyClientError | PersonNotFoundError | PersonNotAnEmployeeError,
+  HulyClient
+> =>
+  Effect.gen(function*() {
+    const client = yield* HulyClient
+
+    const person = yield* findPersonByEmailOrName(client, identifier)
+    if (person === undefined) {
+      return yield* new PersonNotFoundError({ identifier })
+    }
+
+    const employee = yield* client.findOne<HulyEmployee>(
+      contact.mixin.Employee,
+      { _id: toRef<HulyEmployee>(person._id) }
+    )
+
+    if (employee?.personUuid === undefined) {
+      return yield* new PersonNotAnEmployeeError({ identifier })
+    }
+
+    return employee.personUuid
+  })
+
+/**
+ * Open a one-to-one direct-message conversation with another workspace member.
+ *
+ * Idempotent: if a one-to-one DM whose members are the authenticated account
+ * and the resolved participant already exists, it is returned with
+ * `created: false` and no new space is created. Otherwise a new DM is created
+ * with `members: [me, other].sort()` to match Huly's convention.
+ *
+ * Mirrors `getDirectChannel` in upstream Huly's chunter plugin:
+ * https://github.com/hcengineering/platform/blob/main/plugins/chunter/src/utils.ts
+ */
+export const createDirectMessage = (
+  params: CreateDirectMessageParams
+): Effect.Effect<CreateDirectMessageResult, CreateDirectMessageError, HulyClient> =>
+  Effect.gen(function*() {
+    const client = yield* HulyClient
+    const me = client.getAccountUuid()
+
+    const other = yield* resolveEmployeeAccount(params.person)
+    if (other === me) {
+      return yield* new CannotDirectMessageSelfError({ identifier: params.person })
+    }
+
+    const existingDms = yield* client.findAll<HulyDirectMessage>(
+      chunter.class.DirectMessage,
+      { members: me }
+    )
+
+    const existing = existingDms.find((dm) =>
+      dm.members.length === ONE_TO_ONE_DM_MEMBER_COUNT
+      && dm.members.includes(other)
+    )
+
+    if (existing !== undefined) {
+      return { id: ChannelId.make(existing._id), created: false }
+    }
+
+    const dmId: Ref<HulyDirectMessage> = generateId()
+    const dmData: Data<HulyDirectMessage> = {
+      name: "",
+      description: "",
+      private: true,
+      archived: false,
+      members: [me, other].sort()
+    }
+
+    yield* client.createDoc(
+      chunter.class.DirectMessage,
+      toRef<Space>(core.space.Space),
+      dmData,
+      dmId
+    )
+
+    return { id: ChannelId.make(dmId), created: true }
   })

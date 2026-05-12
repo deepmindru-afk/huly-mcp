@@ -54,6 +54,46 @@ export class DirectMessageIdentifierAmbiguousError extends Schema.TaggedError<Di
 }
 
 /**
+ * Caller attempted to open a direct-message conversation with themselves.
+ *
+ * Huly models a one-to-one DM as a space whose `members` are the authenticated
+ * account and one other account; a self-DM has only one member and is rejected
+ * upfront rather than producing a malformed space.
+ */
+export class CannotDirectMessageSelfError extends Schema.TaggedError<CannotDirectMessageSelfError>()(
+  "CannotDirectMessageSelfError",
+  {
+    identifier: Schema.String
+  }
+) {
+  override get message(): string {
+    return `Cannot start a direct-message conversation with yourself ('${this.identifier}')`
+  }
+}
+
+/**
+ * Resolved Person has no Huly workspace account.
+ *
+ * DMs are addressed by `AccountUuid`, which is populated only on the Employee
+ * mixin (`contact.mixin.Employee.personUuid`). External contacts and persons
+ * who haven't accepted a workspace invite have no account and cannot be DM'd.
+ *
+ * Upstream reference: only Employees with `personUuid` set are returned by
+ * Huly's account services, so DM membership lists are constructed from those.
+ * See `@hcengineering/chunter/src/utils.ts#getDirectChannel`.
+ */
+export class PersonNotAnEmployeeError extends Schema.TaggedError<PersonNotAnEmployeeError>()(
+  "PersonNotAnEmployeeError",
+  {
+    identifier: Schema.String
+  }
+) {
+  override get message(): string {
+    return `Person '${this.identifier}' is not a workspace member (no Huly account) and cannot receive direct messages`
+  }
+}
+
+/**
  * Message not found in the channel.
  */
 export class MessageNotFoundError extends Schema.TaggedError<MessageNotFoundError>()(

@@ -332,31 +332,18 @@ export const deleteDirectMessage = (
     return { id: MessageId.make(message._id), deleted: true }
   })
 
-/**
- * Resolve a person identifier (email or display name) to the `AccountUuid`
- * carried on the `contact.mixin.Employee` mixin. DMs are addressed by account
- * UUID; non-employee Persons (external contacts, unaccepted invites) have no
- * `personUuid` and cannot be DM'd.
- */
 const findPersonByExactEmail = (
   client: HulyClient["Type"],
   email: Email
 ): Effect.Effect<Person | undefined, HulyClientError | PersonIdentifierAmbiguousError> =>
   Effect.gen(function*() {
-    const socialIdentity = yield* client.findOne<SocialIdentity>(
+    const socialIdentities = yield* client.findAll<SocialIdentity>(
       contact.class.SocialIdentity,
       {
         type: SocialIdType.EMAIL,
         value: email
       }
     )
-
-    if (socialIdentity !== undefined) {
-      return yield* client.findOne<Person>(
-        contact.class.Person,
-        { _id: socialIdentity.attachedTo }
-      )
-    }
 
     const channels = yield* client.findAll<HulyContactChannel>(
       contact.class.Channel,
@@ -366,19 +353,30 @@ const findPersonByExactEmail = (
       }
     )
 
-    const personIds = [...new Set(channels.map((channel) => channel.attachedTo))]
+    const personIds = [
+      ...new Set([
+        ...socialIdentities.map((identity) => identity.attachedTo),
+        ...channels.map((channel) => channel.attachedTo)
+      ])
+    ]
     if (personIds.length === 0) {
       return undefined
     }
 
-    if (personIds.length > 1) {
-      return yield* new PersonIdentifierAmbiguousError({ identifier: email, matches: personIds.length })
+    const persons = yield* client.findAll<Person>(
+      contact.class.Person,
+      { _id: { $in: personIds.map(toRef<Person>) } }
+    )
+
+    if (persons.length === 0) {
+      return undefined
     }
 
-    return yield* client.findOne<Person>(
-      contact.class.Person,
-      { _id: toRef<Person>(personIds[0]) }
-    )
+    if (persons.length > 1) {
+      return yield* new PersonIdentifierAmbiguousError({ identifier: email, matches: persons.length })
+    }
+
+    return persons[0]
   })
 
 const findPersonByExactName = (
@@ -402,6 +400,12 @@ const findPersonByExactName = (
     return persons[0]
   })
 
+/**
+ * Resolve a person identifier (email or display name) to the `AccountUuid`
+ * carried on the `contact.mixin.Employee` mixin. DMs are addressed by account
+ * UUID; non-employee Persons (external contacts, unaccepted invites) have no
+ * `personUuid` and cannot be DM'd.
+ */
 const resolveEmployeeAccount = (
   identifier: PersonRefInput
 ): Effect.Effect<

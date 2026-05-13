@@ -234,12 +234,15 @@ const createTestLayer = (config: MockConfig) => {
       return Effect.succeed(toFindResult(result))
     }
     if (_class === contact.class.SocialIdentity) {
-      const q = query as { _id?: { $in?: Array<PersonId> } }
+      const q = query as { _id?: { $in?: Array<PersonId> }; type?: SocialIdType; value?: string }
       if (q._id?.$in !== undefined) {
         const wanted = q._id.$in
         return Effect.succeed(toFindResult(socialIdentities.filter((si) => wanted.includes(si._id))))
       }
-      return Effect.succeed(toFindResult(socialIdentities))
+      return Effect.succeed(toFindResult(socialIdentities.filter((s) =>
+        (q.type === undefined || s.type === q.type)
+        && (q.value === undefined || s.value === q.value)
+      )))
     }
     return Effect.succeed(toFindResult([]))
   }) as HulyClientOperations["findAll"]
@@ -932,6 +935,36 @@ describe("createDirectMessage", () => {
       expect(result.created).toBe(true)
     }))
 
+  it.effect("falls back to an email channel when a matching social identity points to no person", () =>
+    Effect.gen(function*() {
+      const billAccount = "account-bill" as HulyAccountUuid
+      const billPerson = makePerson({ _id: "person-bill" as Ref<Person>, name: "Smith,Bill" })
+      const billEmployee = makeEmployee({
+        _id: "person-bill" as Ref<HulyEmployee>,
+        name: "Smith,Bill",
+        personUuid: billAccount
+      })
+      const orphanIdentity = makeSocialIdentity({
+        attachedTo: "person-orphan" as Ref<Person>,
+        type: SocialIdType.EMAIL,
+        value: "bill@example.com"
+      })
+      const billChannel = makeContactChannel({
+        attachedTo: "person-bill" as Ref<Person>,
+        value: "bill@example.com"
+      })
+      const layer = createTestLayer({
+        persons: [billPerson],
+        employees: [billEmployee],
+        socialIdentities: [orphanIdentity],
+        contactChannels: [billChannel]
+      })
+
+      const result = yield* createDirectMessage({ person: email("bill@example.com") }).pipe(Effect.provide(layer))
+
+      expect(result.created).toBe(true)
+    }))
+
   it.effect("does not resolve partial display-name matches", () =>
     Effect.gen(function*() {
       const billPerson = makePerson({ _id: "person-bill" as Ref<Person>, name: "Smith,Bill" })
@@ -960,6 +993,37 @@ describe("createDirectMessage", () => {
 
       const exit = yield* Effect.exit(
         createDirectMessage({ person: personName("Smith,Bill") }).pipe(Effect.provide(layer))
+      )
+
+      expect(Exit.isFailure(exit)).toBe(true)
+      if (Exit.isFailure(exit)) {
+        expect(exit.cause.toString()).toContain("PersonIdentifierAmbiguousError")
+      }
+    }))
+
+  it.effect("fails when exact email social identities match multiple persons", () =>
+    Effect.gen(function*() {
+      const firstPerson = makePerson({ _id: "person-first" as Ref<Person>, name: "Smith,Bill" })
+      const secondPerson = makePerson({ _id: "person-second" as Ref<Person>, name: "Jones,Ada" })
+      const firstIdentity = makeSocialIdentity({
+        _id: "social-first" as Ref<SocialIdentity> & PersonId,
+        attachedTo: "person-first" as Ref<Person>,
+        type: SocialIdType.EMAIL,
+        value: "shared@example.com"
+      })
+      const secondIdentity = makeSocialIdentity({
+        _id: "social-second" as Ref<SocialIdentity> & PersonId,
+        attachedTo: "person-second" as Ref<Person>,
+        type: SocialIdType.EMAIL,
+        value: "shared@example.com"
+      })
+      const layer = createTestLayer({
+        persons: [firstPerson, secondPerson],
+        socialIdentities: [firstIdentity, secondIdentity]
+      })
+
+      const exit = yield* Effect.exit(
+        createDirectMessage({ person: email("shared@example.com") }).pipe(Effect.provide(layer))
       )
 
       expect(Exit.isFailure(exit)).toBe(true)

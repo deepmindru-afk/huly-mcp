@@ -779,21 +779,29 @@ else
   skip_test "create_direct_message(rejects_self)" "HULY_EMAIL is not set"
 fi
 SELF_NAME=""
+EMPLOYEES_FOR_DM_TEXT=""
 if [ -n "$HULY_EMAIL" ]; then
   EMPLOYEES_FOR_DM_TEXT=$(run_capture_only \
     '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_employees","arguments":{"limit":200}},"id":2}')
   if [ $? -eq 0 ]; then
-    SELF_NAME=$(echo "$EMPLOYEES_FOR_DM_TEXT" | jq -r --arg email "$HULY_EMAIL" '.[]? | select(.email == $email) | .name // empty' 2>/dev/null | head -1)
+    SELF_NAME=$(echo "$EMPLOYEES_FOR_DM_TEXT" | jq -r --arg email "$HULY_EMAIL" '[.[]? | select(.email == $email) | .name // empty] | unique | if length == 1 then .[0] else empty end' 2>/dev/null)
+  else
+    EMPLOYEES_FOR_DM_TEXT=""
   fi
 fi
 if [ -n "$SELF_NAME" ]; then
-  EXISTING_DM_PERSON=$(echo "$DM_LIST_TEXT" | jq -r --arg self "$SELF_NAME" '.conversations[]?.participants[]? | select(. != $self)' 2>/dev/null | head -1)
-  if [ -n "$EXISTING_DM_PERSON" ]; then
-    EXISTING_DM_PERSON_JSON=$(json_string "$EXISTING_DM_PERSON")
-    CREATE_DM_TEXT=$(run_capture "create_direct_message(existing:$EXISTING_DM_PERSON)" \
-      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_direct_message\",\"arguments\":{\"person\":$EXISTING_DM_PERSON_JSON}},\"id\":2}")
-    if [ $? -eq 0 ]; then
-      assert_json_field_equals "create_direct_message existing created=false" "$CREATE_DM_TEXT" ".created" "false"
+  EXISTING_DM_PERSON_NAME=$(echo "$DM_LIST_TEXT" | jq -r --arg self "$SELF_NAME" '.conversations[]?.participants[]? | select(. != $self)' 2>/dev/null | head -1)
+  if [ -n "$EXISTING_DM_PERSON_NAME" ]; then
+    EXISTING_DM_PERSON_EMAIL=$(echo "$EMPLOYEES_FOR_DM_TEXT" | jq -r --arg name "$EXISTING_DM_PERSON_NAME" '[.[]? | select(.name == $name and (.email // "") != "") | .email] | unique | if length == 1 then .[0] else empty end' 2>/dev/null)
+    if [ -n "$EXISTING_DM_PERSON_EMAIL" ]; then
+      EXISTING_DM_PERSON_JSON=$(json_string "$EXISTING_DM_PERSON_EMAIL")
+      CREATE_DM_TEXT=$(run_capture "create_direct_message(existing:$EXISTING_DM_PERSON_NAME)" \
+        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_direct_message\",\"arguments\":{\"person\":$EXISTING_DM_PERSON_JSON}},\"id\":2}")
+      if [ $? -eq 0 ]; then
+        assert_json_field_equals "create_direct_message existing created=false" "$CREATE_DM_TEXT" ".created" "false"
+      fi
+    else
+      skip_test "create_direct_message(existing)" "existing DM participant is not uniquely identifiable by email"
     fi
   else
     skip_test "create_direct_message(existing)" "no existing one-to-one DM participant found"

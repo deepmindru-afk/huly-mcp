@@ -50,10 +50,12 @@ import { TagCategoryNotFoundError, TagNotFoundError } from "./errors-labels.js"
 import { FunnelNotFoundError, LeadNotFoundError } from "./errors-leads.js"
 import {
   ActivityMessageNotFoundError,
+  CannotDirectMessageSelfError,
   ChannelNotFoundError,
   DirectMessageIdentifierAmbiguousError,
   DirectMessageNotFoundError,
   MessageNotFoundError,
+  PersonNotAnEmployeeError,
   ReactionNotFoundError,
   SavedMessageNotFoundError,
   ThreadReplyNotFoundError
@@ -84,6 +86,7 @@ export {
   AttachmentNotFoundError,
   BYTES_PER_MB,
   CalendarNotAccessibleError,
+  CannotDirectMessageSelfError,
   CardNotFoundError,
   CardSpaceNotFoundError,
   ChannelNotFoundError,
@@ -121,6 +124,7 @@ export {
   NotificationNotFoundError,
   OrganizationIdentifierAmbiguousError,
   OrganizationNotFoundError,
+  PersonNotAnEmployeeError,
   PersonNotFoundError,
   ProjectNotFoundError,
   ReactionNotFoundError,
@@ -166,9 +170,11 @@ export type HulyDomainError =
   | CommentNotFoundError
   | MilestoneNotFoundError
   | ChannelNotFoundError
+  | CannotDirectMessageSelfError
   | DirectMessageIdentifierAmbiguousError
   | DirectMessageNotFoundError
   | MessageNotFoundError
+  | PersonNotAnEmployeeError
   | ThreadReplyNotFoundError
   | CalendarNotAccessibleError
   | EventNotFoundError
@@ -229,9 +235,11 @@ export const HulyDomainError: Schema.Union<
     typeof CommentNotFoundError,
     typeof MilestoneNotFoundError,
     typeof ChannelNotFoundError,
+    typeof CannotDirectMessageSelfError,
     typeof DirectMessageIdentifierAmbiguousError,
     typeof DirectMessageNotFoundError,
     typeof MessageNotFoundError,
+    typeof PersonNotAnEmployeeError,
     typeof ThreadReplyNotFoundError,
     typeof CalendarNotAccessibleError,
     typeof EventNotFoundError,
@@ -288,9 +296,11 @@ export const HulyDomainError: Schema.Union<
   CommentNotFoundError,
   MilestoneNotFoundError,
   ChannelNotFoundError,
+  CannotDirectMessageSelfError,
   DirectMessageIdentifierAmbiguousError,
   DirectMessageNotFoundError,
   MessageNotFoundError,
+  PersonNotAnEmployeeError,
   ThreadReplyNotFoundError,
   CalendarNotAccessibleError,
   EventNotFoundError,

@@ -6,6 +6,7 @@ import {
   AttachmentNotFoundError,
   BYTES_PER_MB,
   CalendarNotAccessibleError,
+  CannotDirectMessageSelfError,
   CardNotFoundError,
   CardSpaceNotFoundError,
   ChannelNotFoundError,
@@ -40,6 +41,7 @@ import {
   NotificationNotFoundError,
   OrganizationIdentifierAmbiguousError,
   OrganizationNotFoundError,
+  PersonNotAnEmployeeError,
   PersonNotFoundError,
   ProjectNotFoundError,
   ReactionNotFoundError,
@@ -742,6 +744,10 @@ describe("Huly Errors", () => {
               return `funnel:${error.identifier}`
             case "LeadNotFoundError":
               return `lead:${error.identifier}`
+            case "CannotDirectMessageSelfError":
+              return `dm-self:${error.identifier}`
+            case "PersonNotAnEmployeeError":
+              return `not-employee:${error.identifier}`
             default: {
               const _exhaustive: never = error
               return _exhaustive
@@ -819,6 +825,8 @@ describe("Huly Errors", () => {
             new LeadNotFoundError({ identifier: leadIdentifier("LEAD-1"), funnel: funnelIdentifier("funnel-1") })
           )
         ).toBe("lead:LEAD-1")
+        expect(matchError(new CannotDirectMessageSelfError({ identifier: "Self,User" }))).toBe("dm-self:Self,User")
+        expect(matchError(new PersonNotAnEmployeeError({ identifier: "Ext,Contact" }))).toBe("not-employee:Ext,Contact")
       }))
   })
 })

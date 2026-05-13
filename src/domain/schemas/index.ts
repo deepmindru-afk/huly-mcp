@@ -671,6 +671,10 @@ export {
 } from "./channels.js"
 
 export {
+  type CreateDirectMessageParams,
+  createDirectMessageParamsJsonSchema,
+  CreateDirectMessageParamsSchema,
+  type CreateDirectMessageResult,
   type DeleteDmMessageParams,
   deleteDmMessageParamsJsonSchema,
   DeleteDmMessageParamsSchema,
@@ -679,6 +683,7 @@ export {
   listDmMessagesParamsJsonSchema,
   ListDmMessagesParamsSchema,
   type ListDmMessagesResult,
+  parseCreateDirectMessageParams,
   parseDeleteDmMessageParams,
   parseListDmMessagesParams,
   parseSendDmMessageParams,

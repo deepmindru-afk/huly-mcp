@@ -1,8 +1,15 @@
 import { describe, it } from "@effect/vitest"
 import type { ChatMessage, DirectMessage as HulyDirectMessage } from "@hcengineering/chunter"
-import type { Employee as HulyEmployee, Person, SocialIdentity } from "@hcengineering/contact"
+import type {
+  Channel as ContactChannel,
+  Employee as HulyEmployee,
+  Person,
+  SocialIdentity
+} from "@hcengineering/contact"
 import {
   type AccountUuid as HulyAccountUuid,
+  type Class,
+  type Data,
   type Doc,
   type PersonId,
   type Ref,
@@ -20,13 +27,14 @@ import type {
   MessageNotFoundError
 } from "../../../src/huly/errors.js"
 import {
+  createDirectMessage,
   deleteDirectMessage,
   findDirectMessage,
   listDirectMessageMessages,
   sendDirectMessage,
   updateDirectMessage
 } from "../../../src/huly/operations/direct-messages.js"
-import { directMessageIdentifier, messageBrandId } from "../../helpers/brands.js"
+import { directMessageIdentifier, messageBrandId, personName } from "../../helpers/brands.js"
 
 import { chunter, contact } from "../../../src/huly/huly-plugins.js"
 
@@ -129,9 +137,16 @@ interface MockConfig {
   employees?: Array<HulyEmployee>
   persons?: Array<Person>
   socialIdentities?: Array<SocialIdentity>
+  contactChannels?: Array<ContactChannel>
   captureAddCollection?: { attributes?: Record<string, unknown>; id?: string }
   captureUpdateDoc?: { operations?: Record<string, unknown> }
   captureRemoveDoc?: { called?: boolean }
+  captureCreateDoc?: {
+    class?: Ref<Class<Doc>>
+    space?: Ref<Space>
+    attributes?: Data<Doc>
+    id?: string
+  }
 }
 
 const createTestLayer = (config: MockConfig) => {
@@ -140,6 +155,7 @@ const createTestLayer = (config: MockConfig) => {
   const employees = config.employees ?? []
   const persons = config.persons ?? []
   const socialIdentities = config.socialIdentities ?? []
+  const contactChannels = config.contactChannels ?? []
 
   const findAllImpl: HulyClientOperations["findAll"] = ((_class: unknown, query: unknown) => {
     if (_class === chunter.class.DirectMessage) {
@@ -209,6 +225,49 @@ const createTestLayer = (config: MockConfig) => {
       const found = messages.find((m) => (!q._id || m._id === q._id) && (!q.space || m.space === q.space))
       return Effect.succeed(found)
     }
+    if (_class === contact.mixin.Employee) {
+      const q = query as { _id?: Ref<HulyEmployee> }
+      if (q._id === undefined) return Effect.succeed(undefined)
+      return Effect.succeed(employees.find((e) => e._id === q._id))
+    }
+    if (_class === contact.class.Person) {
+      const q = query as { _id?: Ref<Person>; name?: string | { $like?: string } }
+      if (q._id !== undefined) {
+        return Effect.succeed(persons.find((p) => p._id === q._id))
+      }
+      if (typeof q.name === "string") {
+        return Effect.succeed(persons.find((p) => p.name === q.name))
+      }
+      if (q.name?.$like !== undefined) {
+        const needle = q.name.$like.replace(/^%|%$/g, "")
+        return Effect.succeed(persons.find((p) => p.name.includes(needle)))
+      }
+      return Effect.succeed(undefined)
+    }
+    if (_class === contact.class.Channel) {
+      const q = query as {
+        value?: string | { $like?: string }
+        provider?: unknown
+      }
+      const channel = contactChannels.find((ch) => {
+        if (q.provider !== undefined && ch.provider !== q.provider) return false
+        if (typeof q.value === "string") return ch.value === q.value
+        if (q.value?.$like !== undefined) {
+          const needle = q.value.$like.replace(/^%|%$/g, "")
+          return ch.value.includes(needle)
+        }
+        return false
+      })
+      return Effect.succeed(channel)
+    }
+    if (_class === contact.class.SocialIdentity) {
+      const q = query as { type?: SocialIdType; value?: string }
+      const si = socialIdentities.find((s) =>
+        (q.type === undefined || s.type === q.type)
+        && (q.value === undefined || s.value === q.value)
+      )
+      return Effect.succeed(si)
+    }
     return Effect.succeed(undefined)
   }) as HulyClientOperations["findOne"]
 
@@ -253,10 +312,20 @@ const createTestLayer = (config: MockConfig) => {
 
   const createDocImpl: HulyClientOperations["createDoc"] = ((
     _class: unknown,
-    _space: unknown,
-    _attributes: unknown,
+    space: unknown,
+    attributes: unknown,
     id?: unknown
-  ) => Effect.succeed((id ?? "new-id") as Ref<Doc>)) as HulyClientOperations["createDoc"]
+  ) => {
+    if (config.captureCreateDoc) {
+      config.captureCreateDoc.class = _class as Ref<Class<Doc>>
+      config.captureCreateDoc.space = space as Ref<Space>
+      config.captureCreateDoc.attributes = attributes as Data<Doc>
+      if (id !== undefined) {
+        config.captureCreateDoc.id = id as string
+      }
+    }
+    return Effect.succeed((id ?? "new-id") as Ref<Doc>)
+  }) as HulyClientOperations["createDoc"]
 
   return HulyClient.testLayer({
     findAll: findAllImpl,
@@ -662,5 +731,140 @@ describe("deleteDirectMessage", () => {
       )
 
       expect(Exit.isFailure(exit)).toBe(true)
+    }))
+})
+
+describe("createDirectMessage", () => {
+  it.effect("returns existing one-to-one DM with created=false", () =>
+    Effect.gen(function*() {
+      const billAccount = "account-bill" as HulyAccountUuid
+      const billPerson = makePerson({ _id: "person-bill" as Ref<Person>, name: "Smith,Bill" })
+      const billEmployee = makeEmployee({
+        _id: "person-bill" as Ref<HulyEmployee>,
+        name: "Smith,Bill",
+        personUuid: billAccount
+      })
+      const existingDm = makeDirectMessage({
+        _id: "dm-bill" as Ref<HulyDirectMessage>,
+        members: [currentAccountUuid, billAccount]
+      })
+      const capture: MockConfig["captureCreateDoc"] = {}
+      const layer = createTestLayer({
+        directMessages: [existingDm],
+        persons: [billPerson],
+        employees: [billEmployee],
+        captureCreateDoc: capture
+      })
+
+      const result = yield* createDirectMessage({ person: personName("Smith,Bill") }).pipe(Effect.provide(layer))
+
+      expect(result.id).toBe("dm-bill")
+      expect(result.created).toBe(false)
+      expect(capture.id).toBeUndefined()
+    }))
+
+  it.effect("creates a new one-to-one DM when none exists, with sorted members", () =>
+    Effect.gen(function*() {
+      const billAccount = "account-bill" as HulyAccountUuid
+      const billPerson = makePerson({ _id: "person-bill" as Ref<Person>, name: "Smith,Bill" })
+      const billEmployee = makeEmployee({
+        _id: "person-bill" as Ref<HulyEmployee>,
+        name: "Smith,Bill",
+        personUuid: billAccount
+      })
+      const capture: MockConfig["captureCreateDoc"] = {}
+      const layer = createTestLayer({
+        directMessages: [],
+        persons: [billPerson],
+        employees: [billEmployee],
+        captureCreateDoc: capture
+      })
+
+      const result = yield* createDirectMessage({ person: personName("Smith,Bill") }).pipe(Effect.provide(layer))
+
+      expect(result.created).toBe(true)
+      expect(typeof result.id).toBe("string")
+      expect(capture.class).toBe(chunter.class.DirectMessage)
+      const attrs = capture.attributes as Data<HulyDirectMessage> | undefined
+      expect(attrs?.private).toBe(true)
+      expect(attrs?.archived).toBe(false)
+      expect(attrs?.name).toBe("")
+      expect(attrs?.members).toEqual([billAccount, currentAccountUuid].sort())
+    }))
+
+  it.effect("ignores group DMs when looking for an existing one-to-one", () =>
+    Effect.gen(function*() {
+      const billAccount = "account-bill" as HulyAccountUuid
+      const extraAccount = "account-extra" as HulyAccountUuid
+      const billPerson = makePerson({ _id: "person-bill" as Ref<Person>, name: "Smith,Bill" })
+      const billEmployee = makeEmployee({
+        _id: "person-bill" as Ref<HulyEmployee>,
+        name: "Smith,Bill",
+        personUuid: billAccount
+      })
+      const groupDm = makeDirectMessage({
+        _id: "dm-group" as Ref<HulyDirectMessage>,
+        members: [currentAccountUuid, billAccount, extraAccount]
+      })
+      const layer = createTestLayer({
+        directMessages: [groupDm],
+        persons: [billPerson],
+        employees: [billEmployee]
+      })
+
+      const result = yield* createDirectMessage({ person: personName("Smith,Bill") }).pipe(Effect.provide(layer))
+
+      expect(result.created).toBe(true)
+      expect(result.id).not.toBe("dm-group")
+    }))
+
+  it.effect("fails with CannotDirectMessageSelfError when identifier resolves to caller's account", () =>
+    Effect.gen(function*() {
+      const selfPerson = makePerson({ _id: "person-self" as Ref<Person>, name: "Kerr,Shannon" })
+      const selfEmployee = makeEmployee({
+        _id: "person-self" as Ref<HulyEmployee>,
+        name: "Kerr,Shannon",
+        personUuid: currentAccountUuid
+      })
+      const layer = createTestLayer({ persons: [selfPerson], employees: [selfEmployee] })
+
+      const exit = yield* Effect.exit(
+        createDirectMessage({ person: personName("Kerr,Shannon") }).pipe(Effect.provide(layer))
+      )
+
+      expect(Exit.isFailure(exit)).toBe(true)
+      if (Exit.isFailure(exit)) {
+        expect(exit.cause.toString()).toContain("CannotDirectMessageSelfError")
+      }
+    }))
+
+  it.effect("fails with PersonNotFoundError when identifier matches no person", () =>
+    Effect.gen(function*() {
+      const layer = createTestLayer({})
+
+      const exit = yield* Effect.exit(
+        createDirectMessage({ person: personName("Nobody,Here") }).pipe(Effect.provide(layer))
+      )
+
+      expect(Exit.isFailure(exit)).toBe(true)
+      if (Exit.isFailure(exit)) {
+        expect(exit.cause.toString()).toContain("PersonNotFoundError")
+      }
+    }))
+
+  it.effect("fails with PersonNotAnEmployeeError when person has no Employee mixin / personUuid", () =>
+    Effect.gen(function*() {
+      const externalPerson = makePerson({ _id: "person-ext" as Ref<Person>, name: "Outside,Contact" })
+      // No Employee mixin row for this person.
+      const layer = createTestLayer({ persons: [externalPerson], employees: [] })
+
+      const exit = yield* Effect.exit(
+        createDirectMessage({ person: personName("Outside,Contact") }).pipe(Effect.provide(layer))
+      )
+
+      expect(Exit.isFailure(exit)).toBe(true)
+      if (Exit.isFailure(exit)) {
+        expect(exit.cause.toString()).toContain("PersonNotAnEmployeeError")
+      }
     }))
 })

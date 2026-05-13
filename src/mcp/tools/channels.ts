@@ -1,6 +1,7 @@
 import {
   addThreadReplyParamsJsonSchema,
   createChannelParamsJsonSchema,
+  createDirectMessageParamsJsonSchema,
   deleteChannelMessageParamsJsonSchema,
   deleteChannelParamsJsonSchema,
   deleteDmMessageParamsJsonSchema,
@@ -13,6 +14,7 @@ import {
   listThreadRepliesParamsJsonSchema,
   parseAddThreadReplyParams,
   parseCreateChannelParams,
+  parseCreateDirectMessageParams,
   parseDeleteChannelMessageParams,
   parseDeleteChannelParams,
   parseDeleteDmMessageParams,
@@ -49,6 +51,7 @@ import {
   updateChannelMessage
 } from "../../huly/operations/channels.js"
 import {
+  createDirectMessage,
   deleteDirectMessage,
   listDirectMessageMessages,
   sendDirectMessage,
@@ -174,6 +177,18 @@ export const channelTools: ReadonlyArray<RegisteredTool> = [
       "list_direct_messages",
       parseListDirectMessagesParams,
       listDirectMessages
+    )
+  },
+  {
+    name: "create_direct_message",
+    description:
+      "Open a one-to-one direct-message conversation with a workspace member. The `person` argument accepts an email or exact display name (e.g. `Smith,Bill`). Idempotent: if a DM with that participant already exists, returns it (`created: false`); otherwise creates a new DM (`created: true`). The returned `id` can be passed as `dm` to send_dm_message, list_dm_messages, etc.",
+    category: CATEGORY,
+    inputSchema: createDirectMessageParamsJsonSchema,
+    handler: createToolHandler(
+      "create_direct_message",
+      parseCreateDirectMessageParams,
+      createDirectMessage
     )
   },
   {

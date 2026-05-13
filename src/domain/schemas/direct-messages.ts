@@ -7,7 +7,7 @@ import { JSONSchema, Schema } from "effect"
 
 import type { MessageSummary } from "./channels.js"
 import type { ChannelId } from "./shared.js"
-import { DirectMessageIdentifier, LimitParam, MessageId, NonEmptyString } from "./shared.js"
+import { DirectMessageIdentifier, LimitParam, MessageId, NonEmptyString, PersonRefInput } from "./shared.js"
 
 // --- List DM Messages Params ---
 
@@ -82,12 +82,28 @@ export const DeleteDmMessageParamsSchema = Schema.Struct({
 
 export type DeleteDmMessageParams = Schema.Schema.Type<typeof DeleteDmMessageParamsSchema>
 
+// --- Create DM Params ---
+
+export const CreateDirectMessageParamsSchema = Schema.Struct({
+  person: PersonRefInput.annotations({
+    description:
+      "Participant to open a one-to-one DM with: email address or exact display name (e.g. `Smith,Bill`). Resolved via the Employee mixin to a Huly account."
+  })
+}).annotations({
+  title: "CreateDirectMessageParams",
+  description:
+    "Parameters for opening a one-to-one direct-message conversation with another workspace member. If a one-to-one DM with that participant already exists, it is returned unchanged."
+})
+
+export type CreateDirectMessageParams = Schema.Schema.Type<typeof CreateDirectMessageParamsSchema>
+
 // --- JSON Schemas for MCP ---
 
 export const listDmMessagesParamsJsonSchema = JSONSchema.make(ListDmMessagesParamsSchema)
 export const sendDmMessageParamsJsonSchema = JSONSchema.make(SendDmMessageParamsSchema)
 export const updateDmMessageParamsJsonSchema = JSONSchema.make(UpdateDmMessageParamsSchema)
 export const deleteDmMessageParamsJsonSchema = JSONSchema.make(DeleteDmMessageParamsSchema)
+export const createDirectMessageParamsJsonSchema = JSONSchema.make(CreateDirectMessageParamsSchema)
 
 // --- Parsers ---
 
@@ -95,6 +111,7 @@ export const parseListDmMessagesParams = Schema.decodeUnknown(ListDmMessagesPara
 export const parseSendDmMessageParams = Schema.decodeUnknown(SendDmMessageParamsSchema)
 export const parseUpdateDmMessageParams = Schema.decodeUnknown(UpdateDmMessageParamsSchema)
 export const parseDeleteDmMessageParams = Schema.decodeUnknown(DeleteDmMessageParamsSchema)
+export const parseCreateDirectMessageParams = Schema.decodeUnknown(CreateDirectMessageParamsSchema)
 
 // --- Result Types ---
 
@@ -116,4 +133,14 @@ export interface UpdateDmMessageResult {
 export interface DeleteDmMessageResult {
   readonly id: MessageId
   readonly deleted: boolean
+}
+
+/**
+ * `created` distinguishes a newly created DM from a pre-existing one that was
+ * returned because a one-to-one conversation already existed. Callers can use
+ * it to avoid sending duplicate "hello" messages on reconnects/retries.
+ */
+export interface CreateDirectMessageResult {
+  readonly id: ChannelId
+  readonly created: boolean
 }

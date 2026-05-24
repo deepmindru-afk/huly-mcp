@@ -98,6 +98,7 @@ export interface RemoveIssueRelationResult {
 
 export interface ListIssueRelationsResult {
   readonly blockedBy: ReadonlyArray<RelationEntry>
+  readonly blocks: ReadonlyArray<RelationEntry>
   readonly relations: ReadonlyArray<RelationEntry>
   readonly documents: ReadonlyArray<DocumentRelationEntry>
 }
@@ -131,6 +132,7 @@ export const RemoveIssueRelationResultSchema = Schema.Struct({
 
 export const ListIssueRelationsResultSchema = Schema.Struct({
   blockedBy: Schema.Array(RelationEntryWireSchema),
+  blocks: Schema.Array(RelationEntryWireSchema),
   relations: Schema.Array(RelationEntryWireSchema),
   documents: Schema.Array(DocumentRelationEntryWireSchema)
 })

@@ -245,7 +245,7 @@ MCP_TRANSPORT=http MCP_HTTP_PORT=8080 MCP_HTTP_HOST=0.0.0.0 npx -y @firfi/huly-m
 | `remove_template_child` | Remove a child (sub-task) template from an issue template by its child ID. Get child IDs from get_issue_template response. |
 | `add_issue_relation` | Add a relation between two issues. Relation types: 'blocks' (source blocks target — pushes into target's blockedBy), 'is-blocked-by' (source is blocked by target — pushes into source's blockedBy), 'relates-to' (bidirectional link — updates both sides). targetIssue accepts cross-project identifiers like 'OTHER-42'. No-op if the relation already exists. |
 | `remove_issue_relation` | Remove a relation between two issues. Mirrors add_issue_relation: 'blocks' pulls from target's blockedBy, 'is-blocked-by' pulls from source's blockedBy, 'relates-to' pulls from both sides. No-op if the relation doesn't exist. |
-| `list_issue_relations` | List all relations of an issue. Returns blockedBy (issues blocking this one), relations (bidirectional issue links), and documents (linked documents with title/teamspace). Does NOT return issues that this issue blocks — use list_issue_relations on the target issue to see that. |
+| `list_issue_relations` | List all relations of an issue. Returns blockedBy (issues blocking this one), blocks (issues this one blocks), relations (bidirectional issue links), and documents (linked documents with title/teamspace). |
 | `link_document_to_issue` | Link a Huly document to an issue. The link appears in the issue's Relations panel in the UI. Idempotent: no-op if the document is already linked. Use list_issue_relations to see linked documents. |
 | `unlink_document_from_issue` | Remove a document link from an issue. Idempotent: no-op if the document is not linked. |
 
@@ -388,7 +388,7 @@ MCP_TRANSPORT=http MCP_HTTP_PORT=8080 MCP_HTTP_HOST=0.0.0.0 npx -y @firfi/huly-m
 
 | Tool | Description |
 |------|-------------|
-| `list_activity` | List activity messages for a Huly object. Returns activity sorted by date (newest first). |
+| `list_activity` | List activity messages for a Huly issue, document, channel, or raw Huly object. Prefer friendly targets: project+issueIdentifier for issues, teamspace+document for documents, or channel for channels. Advanced callers may pass objectId+objectClass directly. Returns activity sorted by date (newest first). |
 | `add_reaction` | Add an emoji reaction to an activity message. |
 | `remove_reaction` | Remove an emoji reaction from an activity message. |
 | `list_reactions` | List reactions on an activity message. |

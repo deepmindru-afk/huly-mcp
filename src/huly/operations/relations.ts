@@ -226,10 +226,6 @@ export const listIssueRelations = (
     const blockedByRefs = issue.blockedBy ?? []
     const relationsRefs = issue.relations ?? []
 
-    if (blockedByRefs.length === 0 && relationsRefs.length === 0) {
-      return { blockedBy: [], relations: [], documents: [] }
-    }
-
     // Single-pass partition of relations refs by _class
     const docClass = String(documentPlugin.class.Document)
     const issueRelationsRefs: Array<RelatedDocument> = []
@@ -258,6 +254,20 @@ export const listIssueRelations = (
       _id: toIssueId(String(r._id)),
       _class: toObjectClassName(String(r._class))
     })
+
+    const toIssueEntry = (i: HulyIssue): RelationEntry => ({
+      identifier: toIssueIdentifier(i.identifier),
+      _id: toIssueId(String(i._id)),
+      _class: toObjectClassName(String(i._class))
+    })
+
+    const blockingIssueCandidates = yield* client.findAll<HulyIssue>(
+      tracker.class.Issue,
+      {}
+    )
+    const blocks = blockingIssueCandidates
+      .filter(candidate => candidate._id !== issue._id && hasRelationById(candidate.blockedBy, issue._id))
+      .map(toIssueEntry)
 
     // Resolve document refs
     const documents: Array<DocumentRelationEntry> = []
@@ -297,6 +307,7 @@ export const listIssueRelations = (
 
     return {
       blockedBy: blockedByRefs.map(toEntry),
+      blocks,
       relations: issueRelationsRefs.map(toEntry),
       documents
     }

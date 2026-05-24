@@ -2,14 +2,19 @@ import { JSONSchema, Schema } from "effect"
 
 import {
   ActivityMessageId,
+  ChannelIdentifier,
+  DocumentIdentifier,
   EmojiCode,
+  IssueIdentifier,
   LimitParam,
   MentionId,
   NonEmptyString,
   ObjectClassName,
   PersonId,
+  ProjectIdentifier,
   ReactionId,
   SavedMessageId,
+  TeamspaceIdentifier,
   Timestamp
 } from "./shared.js"
 
@@ -56,21 +61,62 @@ export interface Mention {
   readonly content?: string | undefined
 }
 
+const hasAll = (...values: ReadonlyArray<unknown>): boolean => values.every(value => value !== undefined)
+
 export const ListActivityParamsSchema = Schema.Struct({
-  objectId: NonEmptyString.annotations({
-    description: "ID of the object to get activity for"
-  }),
-  objectClass: ObjectClassName.annotations({
-    description: "Class of the object (e.g., 'tracker:class:Issue')"
-  }),
+  objectId: Schema.optional(NonEmptyString.annotations({
+    description:
+      "Advanced: internal Huly object ID to get activity for. Use with objectClass. Prefer project+issueIdentifier, teamspace+document, or channel when available."
+  })),
+  objectClass: Schema.optional(ObjectClassName.annotations({
+    description: "Advanced: internal Huly object class for objectId, such as 'tracker:class:Issue'. Use with objectId."
+  })),
+  project: Schema.optional(ProjectIdentifier.annotations({
+    description: "Project identifier for issue activity, e.g. 'HULY'. Use with issueIdentifier."
+  })),
+  issueIdentifier: Schema.optional(IssueIdentifier.annotations({
+    description: "Issue identifier for issue activity, e.g. 'HULY-123' or '123'. Use with project."
+  })),
+  teamspace: Schema.optional(TeamspaceIdentifier.annotations({
+    description: "Teamspace name or ID for document activity. Use with document."
+  })),
+  document: Schema.optional(DocumentIdentifier.annotations({
+    description: "Document title or ID for document activity. Use with teamspace."
+  })),
+  channel: Schema.optional(ChannelIdentifier.annotations({
+    description: "Channel name or ID for channel activity."
+  })),
   limit: Schema.optional(
     LimitParam.annotations({
       description: "Maximum number of activity messages to return (default: 50)"
     })
   )
-}).annotations({
+}).pipe(
+  Schema.filter((params) => {
+    const rawObjectMode = hasAll(params.objectId, params.objectClass)
+    const issueMode = hasAll(params.project, params.issueIdentifier)
+    const documentMode = hasAll(params.teamspace, params.document)
+    const channelMode = params.channel !== undefined
+    const modeCount = [rawObjectMode, issueMode, documentMode, channelMode].filter(Boolean).length
+
+    if ((params.objectId !== undefined) !== (params.objectClass !== undefined)) {
+      return "Provide both objectId and objectClass for raw object activity, or use a friendly target mode."
+    }
+    if ((params.project !== undefined) !== (params.issueIdentifier !== undefined)) {
+      return "Provide both project and issueIdentifier for issue activity."
+    }
+    if ((params.teamspace !== undefined) !== (params.document !== undefined)) {
+      return "Provide both teamspace and document for document activity."
+    }
+    if (modeCount !== 1) {
+      return "Choose exactly one activity target mode: objectId+objectClass, project+issueIdentifier, teamspace+document, or channel."
+    }
+    return undefined
+  })
+).annotations({
   title: "ListActivityParams",
-  description: "Parameters for listing activity on an object"
+  description:
+    "Parameters for listing activity on a Huly object. Prefer friendly identifiers; raw objectId+objectClass is for advanced callers."
 })
 
 export type ListActivityParams = Schema.Schema.Type<typeof ListActivityParamsSchema>

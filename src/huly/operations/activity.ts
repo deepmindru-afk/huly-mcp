@@ -39,13 +39,29 @@ import {
   Timestamp
 } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
+import type {
+  ChannelNotFoundError,
+  DocumentNotFoundError,
+  IssueNotFoundError,
+  ProjectNotFoundError,
+  TeamspaceNotFoundError
+} from "../errors.js"
 import { ActivityMessageNotFoundError, ReactionNotFoundError, SavedMessageNotFoundError } from "../errors.js"
+import { findChannel } from "./channels.js"
+import { findTeamspaceAndDocument } from "./documents.js"
+import { findProjectAndIssue } from "./issues-shared.js"
 import { clampLimit, findOneOrFail } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
 
-import { activity, core } from "../huly-plugins.js"
+import { activity, chunter, core, documentPlugin, tracker } from "../huly-plugins.js"
 
-type ListActivityError = HulyClientError
+type ListActivityError =
+  | HulyClientError
+  | ProjectNotFoundError
+  | IssueNotFoundError
+  | TeamspaceNotFoundError
+  | DocumentNotFoundError
+  | ChannelNotFoundError
 
 type AddReactionError = HulyClientError | ActivityMessageNotFoundError
 
@@ -73,6 +89,57 @@ const optionalActivityCount = (value: number | undefined): ActivityCount | undef
 const optionalPersonId = (value: string | undefined): PersonId | undefined =>
   value === undefined || value === "" ? undefined : PersonId.make(value)
 
+interface ActivityTarget {
+  readonly client: HulyClient["Type"]
+  readonly objectId: NonEmptyString
+  readonly objectClass: ObjectClassName
+}
+
+const activityTarget = (
+  client: HulyClient["Type"],
+  objectId: string,
+  objectClass: string
+): ActivityTarget => ({
+  client,
+  objectId: NonEmptyString.make(objectId),
+  objectClass: ObjectClassName.make(objectClass)
+})
+
+const resolveActivityTarget = (
+  params: ListActivityParams
+): Effect.Effect<ActivityTarget, ListActivityError, HulyClient> =>
+  Effect.gen(function*() {
+    if (params.objectId !== undefined && params.objectClass !== undefined) {
+      const client = yield* HulyClient
+      return activityTarget(client, params.objectId, params.objectClass)
+    }
+
+    if (params.project !== undefined && params.issueIdentifier !== undefined) {
+      const { client, issue } = yield* findProjectAndIssue({
+        project: params.project,
+        identifier: params.issueIdentifier
+      })
+      return activityTarget(client, issue._id, tracker.class.Issue)
+    }
+
+    if (params.teamspace !== undefined && params.document !== undefined) {
+      const { client, doc } = yield* findTeamspaceAndDocument({
+        teamspace: params.teamspace,
+        document: params.document
+      })
+      return activityTarget(client, doc._id, documentPlugin.class.Document)
+    }
+
+    if (params.channel !== undefined) {
+      const { channel, client } = yield* findChannel(params.channel)
+      return activityTarget(client, channel._id, chunter.class.Channel)
+    }
+
+    return yield* Effect.dieMessage(
+      "Invalid list_activity parameters: choose objectId+objectClass, project+issueIdentifier, teamspace+document, or channel."
+    )
+  })
+
 // SDK: Data<Reaction> requires createBy (PersonId, branded string) but server populates from auth context.
 // PersonId = string & { __personId: true }; no SDK factory exists. Empty string is overwritten server-side.
 // eslint-disable-next-line no-restricted-syntax -- see above
@@ -86,15 +153,15 @@ export const listActivity = (
   params: ListActivityParams
 ): Effect.Effect<Array<ActivityMessage>, ListActivityError, HulyClient> =>
   Effect.gen(function*() {
-    const client = yield* HulyClient
+    const target = yield* resolveActivityTarget(params)
 
     const limit = clampLimit(params.limit)
 
-    const messages = yield* client.findAll<HulyActivityMessage>(
+    const messages = yield* target.client.findAll<HulyActivityMessage>(
       activity.class.ActivityMessage,
       {
-        attachedTo: toRef<Doc>(params.objectId),
-        attachedToClass: toRef<Class<Doc>>(params.objectClass)
+        attachedTo: toRef<Doc>(target.objectId),
+        attachedToClass: toRef<Class<Doc>>(target.objectClass)
       },
       {
         limit,

@@ -577,9 +577,44 @@ describe("listIssueRelations", () => {
       expect(result.blockedBy).toHaveLength(1)
       expect(result.blockedBy[0].identifier).toBe("TEST-2")
       expect(result.blockedBy[0]._id).toBe("issue-2")
+      expect(result.blocks).toHaveLength(0)
       expect(result.relations).toHaveLength(1)
       expect(result.relations[0].identifier).toBe("TEST-3")
       expect(result.relations[0]._id).toBe("issue-3")
+      expect(result.documents).toHaveLength(0)
+    }))
+
+  it.effect("returns issues blocked by the current issue", () =>
+    Effect.gen(function*() {
+      const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "TEST" })
+      const issue = makeIssue({
+        _id: "issue-1" as Ref<HulyIssue>,
+        space: "proj-1" as Ref<HulyProject>,
+        identifier: "TEST-1",
+        number: 1
+      })
+      const blocked = makeIssue({
+        _id: "issue-4" as Ref<HulyIssue>,
+        space: "proj-1" as Ref<HulyProject>,
+        identifier: "TEST-4",
+        number: 4,
+        blockedBy: [{ _id: "issue-1" as Ref<Doc>, _class: tracker.class.Issue }]
+      })
+      const testLayer = createTestLayerWithMocks({
+        projects: [project],
+        issues: [issue, blocked]
+      })
+
+      const result = yield* listIssueRelations({
+        project: projectIdentifier("TEST"),
+        issueIdentifier: issueIdentifier("TEST-1")
+      }).pipe(Effect.provide(testLayer))
+
+      expect(result.blockedBy).toHaveLength(0)
+      expect(result.blocks).toHaveLength(1)
+      expect(result.blocks[0].identifier).toBe("TEST-4")
+      expect(result.blocks[0]._id).toBe("issue-4")
+      expect(result.relations).toHaveLength(0)
       expect(result.documents).toHaveLength(0)
     }))
 
@@ -603,6 +638,7 @@ describe("listIssueRelations", () => {
       }).pipe(Effect.provide(testLayer))
 
       expect(result.blockedBy).toHaveLength(0)
+      expect(result.blocks).toHaveLength(0)
       expect(result.relations).toHaveLength(0)
       expect(result.documents).toHaveLength(0)
     }))

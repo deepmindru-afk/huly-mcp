@@ -5,8 +5,13 @@ import type {
   SavedMessage as HulySavedMessage,
   UserMentionInfo
 } from "@hcengineering/activity"
+import type { Channel as HulyChannel } from "@hcengineering/chunter"
 import type { Person } from "@hcengineering/contact"
 import { type Class, type Doc, type PersonId, type Ref, type Space, toFindResult } from "@hcengineering/core"
+import type { Document as HulyDocument, Teamspace as HulyTeamspace } from "@hcengineering/document"
+import type { TaskType } from "@hcengineering/task"
+import type { Issue as HulyIssue, Project as HulyProject } from "@hcengineering/tracker"
+import { IssuePriority, TimeReportDayType } from "@hcengineering/tracker"
 import { Effect } from "effect"
 import { expect } from "vitest"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
@@ -15,7 +20,7 @@ import type {
   ReactionNotFoundError,
   SavedMessageNotFoundError
 } from "../../../src/huly/errors.js"
-import { activity, core } from "../../../src/huly/huly-plugins.js"
+import { activity, chunter, core, documentPlugin, tracker } from "../../../src/huly/huly-plugins.js"
 import {
   addReaction,
   listActivity,
@@ -26,7 +31,16 @@ import {
   saveMessage,
   unsaveMessage
 } from "../../../src/huly/operations/activity.js"
-import { activityMessageId, emojiCode, objectClassName } from "../../helpers/brands.js"
+import {
+  activityMessageId,
+  channelIdentifier,
+  documentIdentifier,
+  emojiCode,
+  issueIdentifier,
+  objectClassName,
+  projectIdentifier,
+  teamspaceIdentifier
+} from "../../helpers/brands.js"
 
 const makeActivityMessage = (overrides?: Partial<HulyActivityMessage>): HulyActivityMessage => {
   const result: HulyActivityMessage = {
@@ -93,11 +107,116 @@ const makeMention = (overrides?: Partial<UserMentionInfo>): UserMentionInfo => {
   return result
 }
 
+const makeProject = (overrides?: Partial<HulyProject>): HulyProject => {
+  const base = {
+    _id: "project-1" as Ref<HulyProject>,
+    _class: tracker.class.Project,
+    space: "space-1" as Ref<Space>,
+    identifier: "TEST",
+    name: "Test Project",
+    sequence: 1,
+    defaultIssueStatus: "status-open" as Ref<never>,
+    defaultTimeReportDay: TimeReportDayType.CurrentWorkDay,
+    modifiedBy: "user-1" as PersonId,
+    modifiedOn: 0,
+    createdBy: "user-1" as PersonId,
+    createdOn: 0
+  }
+  return Object.assign(base, overrides) as HulyProject
+}
+
+const makeIssue = (overrides?: Partial<HulyIssue>): HulyIssue => ({
+  _id: "issue-1" as Ref<HulyIssue>,
+  _class: tracker.class.Issue,
+  space: "project-1" as Ref<HulyProject>,
+  identifier: "TEST-1",
+  title: "Test Issue",
+  description: null,
+  status: "status-open" as Ref<never>,
+  priority: IssuePriority.Medium,
+  assignee: null,
+  kind: "task-type-1" as Ref<TaskType>,
+  number: 1,
+  dueDate: null,
+  rank: "0|aaa",
+  attachedTo: "no-parent" as Ref<HulyIssue>,
+  attachedToClass: tracker.class.Issue,
+  collection: "subIssues",
+  component: null,
+  subIssues: 0,
+  parents: [],
+  estimation: 0,
+  remainingTime: 0,
+  reportedTime: 0,
+  reports: 0,
+  childInfo: [],
+  modifiedBy: "user-1" as PersonId,
+  modifiedOn: 0,
+  createdBy: "user-1" as PersonId,
+  createdOn: 0,
+  ...overrides
+})
+
+const makeTeamspace = (overrides?: Partial<HulyTeamspace>): HulyTeamspace => ({
+  _id: "teamspace-1" as Ref<HulyTeamspace>,
+  _class: documentPlugin.class.Teamspace,
+  space: "space-1" as Ref<Space>,
+  name: "Engineering",
+  description: "",
+  private: false,
+  archived: false,
+  icon: documentPlugin.icon.Teamspace,
+  type: documentPlugin.spaceType.DefaultTeamspaceType,
+  members: [],
+  modifiedBy: "user-1" as PersonId,
+  modifiedOn: 0,
+  createdBy: "user-1" as PersonId,
+  createdOn: 0,
+  ...overrides
+})
+
+const makeDocument = (overrides?: Partial<HulyDocument>): HulyDocument => ({
+  _id: "doc-1" as Ref<HulyDocument>,
+  _class: documentPlugin.class.Document,
+  space: "teamspace-1" as Ref<HulyTeamspace>,
+  title: "Spec",
+  content: null,
+  parent: documentPlugin.ids.NoParent,
+  rank: "0|aaa",
+  modifiedBy: "user-1" as PersonId,
+  modifiedOn: 0,
+  createdBy: "user-1" as PersonId,
+  createdOn: 0,
+  ...overrides
+})
+
+const makeChannel = (overrides?: Partial<HulyChannel>): HulyChannel => ({
+  _id: "channel-1" as Ref<HulyChannel>,
+  _class: chunter.class.Channel,
+  space: "space-1" as Ref<Space>,
+  name: "dev",
+  description: "",
+  topic: "",
+  private: false,
+  archived: false,
+  members: [],
+  modifiedBy: "user-1" as PersonId,
+  modifiedOn: 0,
+  createdBy: "user-1" as PersonId,
+  createdOn: 0,
+  ...overrides
+})
+
 interface MockConfig {
   activityMessages?: Array<HulyActivityMessage>
   reactions?: Array<HulyReaction>
   savedMessages?: Array<HulySavedMessage>
   mentions?: Array<UserMentionInfo>
+  projects?: Array<HulyProject>
+  issues?: Array<HulyIssue>
+  teamspaces?: Array<HulyTeamspace>
+  documents?: Array<HulyDocument>
+  channels?: Array<HulyChannel>
   captureAddCollection?: { attributes?: Record<string, unknown>; id?: string }
   captureCreateDoc?: { attributes?: Record<string, unknown>; id?: string }
   captureRemoveDoc?: { called?: boolean }
@@ -108,6 +227,11 @@ const createTestLayerWithMocks = (config: MockConfig) => {
   const reactions = config.reactions ?? []
   const savedMessages = config.savedMessages ?? []
   const mentions = config.mentions ?? []
+  const projects = config.projects ?? []
+  const issues = config.issues ?? []
+  const teamspaces = config.teamspaces ?? []
+  const documents = config.documents ?? []
+  const channels = config.channels ?? []
 
   const findAllImpl: HulyClientOperations["findAll"] = ((_class: unknown, query: unknown, _options: unknown) => {
     if (_class === activity.class.ActivityMessage) {
@@ -149,6 +273,45 @@ const createTestLayerWithMocks = (config: MockConfig) => {
     if (_class === activity.class.SavedMessage) {
       const q = query as { attachedTo?: Ref<HulyActivityMessage> }
       const found = savedMessages.find(s => !q.attachedTo || s.attachedTo === q.attachedTo)
+      return Effect.succeed(found)
+    }
+    if (_class === tracker.class.Project) {
+      const q = query as { identifier?: string }
+      const found = projects.find(p => q.identifier && p.identifier === q.identifier)
+      return Effect.succeed(found)
+    }
+    if (_class === tracker.class.Issue) {
+      const q = query as { space?: Ref<HulyProject>; identifier?: string; number?: number }
+      const found = issues.find(i =>
+        (!q.space || i.space === q.space)
+        && (
+          (q.identifier !== undefined && i.identifier === q.identifier)
+          || (q.number !== undefined && i.number === q.number)
+        )
+      )
+      return Effect.succeed(found)
+    }
+    if (_class === documentPlugin.class.Teamspace) {
+      const q = query as { name?: string; _id?: Ref<HulyTeamspace>; archived?: boolean }
+      const found = teamspaces.find(ts =>
+        (q.archived === undefined || ts.archived === q.archived)
+        && ((q.name !== undefined && ts.name === q.name) || (q._id !== undefined && ts._id === q._id))
+      )
+      return Effect.succeed(found)
+    }
+    if (_class === documentPlugin.class.Document) {
+      const q = query as { space?: Ref<HulyTeamspace>; title?: string; _id?: Ref<HulyDocument> }
+      const found = documents.find(doc =>
+        (!q.space || doc.space === q.space)
+        && ((q.title !== undefined && doc.title === q.title) || (q._id !== undefined && doc._id === q._id))
+      )
+      return Effect.succeed(found)
+    }
+    if (_class === chunter.class.Channel) {
+      const q = query as { name?: string; _id?: Ref<HulyChannel> }
+      const found = channels.find(channel =>
+        (q.name !== undefined && channel.name === q.name) || (q._id !== undefined && channel._id === q._id)
+      )
       return Effect.succeed(found)
     }
     return Effect.succeed(undefined)
@@ -305,6 +468,81 @@ describe("listActivity", () => {
 
       expect(result).toHaveLength(1)
       expect(result[0].id).toBe("msg-1")
+    }))
+
+  // test-revizorro: approved
+  it.effect("resolves issue identifiers before listing activity", () =>
+    Effect.gen(function*() {
+      const project = makeProject()
+      const issue = makeIssue()
+      const msg = makeActivityMessage({
+        _id: "msg-issue" as Ref<HulyActivityMessage>,
+        attachedTo: "issue-1" as Ref<Doc>,
+        attachedToClass: tracker.class.Issue
+      })
+      const testLayer = createTestLayerWithMocks({
+        projects: [project],
+        issues: [issue],
+        activityMessages: [msg]
+      })
+
+      const result = yield* listActivity({
+        project: projectIdentifier("TEST"),
+        issueIdentifier: issueIdentifier("TEST-1")
+      }).pipe(Effect.provide(testLayer))
+
+      expect(result).toHaveLength(1)
+      expect(result[0].id).toBe("msg-issue")
+      expect(result[0].objectClass).toBe(String(tracker.class.Issue))
+    }))
+
+  // test-revizorro: approved
+  it.effect("resolves document identifiers before listing activity", () =>
+    Effect.gen(function*() {
+      const teamspace = makeTeamspace()
+      const doc = makeDocument()
+      const msg = makeActivityMessage({
+        _id: "msg-doc" as Ref<HulyActivityMessage>,
+        attachedTo: "doc-1" as Ref<Doc>,
+        attachedToClass: documentPlugin.class.Document
+      })
+      const testLayer = createTestLayerWithMocks({
+        teamspaces: [teamspace],
+        documents: [doc],
+        activityMessages: [msg]
+      })
+
+      const result = yield* listActivity({
+        teamspace: teamspaceIdentifier("Engineering"),
+        document: documentIdentifier("Spec")
+      }).pipe(Effect.provide(testLayer))
+
+      expect(result).toHaveLength(1)
+      expect(result[0].id).toBe("msg-doc")
+      expect(result[0].objectClass).toBe(String(documentPlugin.class.Document))
+    }))
+
+  // test-revizorro: approved
+  it.effect("resolves channel identifiers before listing activity", () =>
+    Effect.gen(function*() {
+      const channel = makeChannel()
+      const msg = makeActivityMessage({
+        _id: "msg-channel" as Ref<HulyActivityMessage>,
+        attachedTo: "channel-1" as Ref<Doc>,
+        attachedToClass: chunter.class.Channel
+      })
+      const testLayer = createTestLayerWithMocks({
+        channels: [channel],
+        activityMessages: [msg]
+      })
+
+      const result = yield* listActivity({
+        channel: channelIdentifier("dev")
+      }).pipe(Effect.provide(testLayer))
+
+      expect(result).toHaveLength(1)
+      expect(result[0].id).toBe("msg-channel")
+      expect(result[0].objectClass).toBe(String(chunter.class.Channel))
     }))
 })
 

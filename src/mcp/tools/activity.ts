@@ -41,7 +41,8 @@ const CATEGORY = "activity" as const
 export const activityTools: ReadonlyArray<RegisteredTool> = [
   {
     name: "list_activity",
-    description: "List activity messages for a Huly object. Returns activity sorted by date (newest first).",
+    description:
+      "List activity messages for a Huly issue, document, channel, or raw Huly object. Prefer friendly targets: project+issueIdentifier for issues, teamspace+document for documents, or channel for channels. Advanced callers may pass objectId+objectClass directly. Returns activity sorted by date (newest first).",
     category: CATEGORY,
     inputSchema: listActivityParamsJsonSchema,
     handler: createEncodedToolHandler(

@@ -379,7 +379,7 @@ export const issueTools: ReadonlyArray<RegisteredTool> = [
   {
     name: "list_issue_relations",
     description:
-      "List all relations of an issue. Returns blockedBy (issues blocking this one), relations (bidirectional issue links), and documents (linked documents with title/teamspace). Does NOT return issues that this issue blocks — use list_issue_relations on the target issue to see that.",
+      "List all relations of an issue. Returns blockedBy (issues blocking this one), blocks (issues this one blocks), relations (bidirectional issue links), and documents (linked documents with title/teamspace).",
     category: CATEGORY,
     inputSchema: listIssueRelationsParamsJsonSchema,
     handler: createEncodedToolHandler(

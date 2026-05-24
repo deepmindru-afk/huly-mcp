@@ -7,6 +7,7 @@ import {
   EmojiCode,
   IssueIdentifier,
   LimitParam,
+  MAX_LIMIT,
   MentionId,
   NonEmptyString,
   ObjectClassName,
@@ -213,7 +214,69 @@ export const ListMentionsParamsSchema = Schema.Struct({
 
 export type ListMentionsParams = Schema.Schema.Type<typeof ListMentionsParamsSchema>
 
-export const listActivityParamsJsonSchema = JSONSchema.make(ListActivityParamsSchema)
+const activityLimitJsonSchema = {
+  type: "integer",
+  minimum: 1,
+  maximum: MAX_LIMIT,
+  description: "Maximum number of activity messages to return (default: 50)"
+}
+
+const targetStringJsonSchema = (description: string): object => ({
+  type: "string",
+  minLength: 1,
+  description
+})
+
+export const listActivityParamsJsonSchema = {
+  type: "object",
+  description:
+    "Choose exactly one target mode for activity lookup: project+issueIdentifier, teamspace+document, channel, or objectId+objectClass.",
+  oneOf: [
+    {
+      title: "Issue activity target",
+      type: "object",
+      additionalProperties: false,
+      required: ["project", "issueIdentifier"],
+      properties: {
+        project: targetStringJsonSchema("Project identifier for issue activity, e.g. 'HULY'."),
+        issueIdentifier: targetStringJsonSchema("Issue identifier for issue activity, e.g. 'HULY-123' or '123'."),
+        limit: activityLimitJsonSchema
+      }
+    },
+    {
+      title: "Document activity target",
+      type: "object",
+      additionalProperties: false,
+      required: ["teamspace", "document"],
+      properties: {
+        teamspace: targetStringJsonSchema("Teamspace name or ID for document activity."),
+        document: targetStringJsonSchema("Document title or ID for document activity."),
+        limit: activityLimitJsonSchema
+      }
+    },
+    {
+      title: "Channel activity target",
+      type: "object",
+      additionalProperties: false,
+      required: ["channel"],
+      properties: {
+        channel: targetStringJsonSchema("Channel name or ID for channel activity."),
+        limit: activityLimitJsonSchema
+      }
+    },
+    {
+      title: "Raw Huly object activity target",
+      type: "object",
+      additionalProperties: false,
+      required: ["objectId", "objectClass"],
+      properties: {
+        objectId: targetStringJsonSchema("Internal Huly object ID to get activity for."),
+        objectClass: targetStringJsonSchema("Internal Huly object class for objectId, such as 'tracker:class:Issue'."),
+        limit: activityLimitJsonSchema
+      }
+    }
+  ]
+}
 export const addReactionParamsJsonSchema = JSONSchema.make(AddReactionParamsSchema)
 export const removeReactionParamsJsonSchema = JSONSchema.make(RemoveReactionParamsSchema)
 export const listReactionsParamsJsonSchema = JSONSchema.make(ListReactionsParamsSchema)

@@ -139,6 +139,32 @@ assert_json_field_equals() {
   return 1
 }
 
+assert_json_blocks_contains_identifier() {
+  local name="$1" json="$2" expected="$3"
+  if printf '%s\n' "$json" | jq -e --arg expected "$expected" 'any(.blocks[]?; .identifier == $expected)' >/dev/null 2>&1; then
+    echo "PASS: $name"
+    PASSED=$((PASSED + 1))
+    return 0
+  fi
+  echo "FAIL: $name (blocks missing identifier: $expected)"
+  FAILED=$((FAILED + 1))
+  ERRORS="${ERRORS}\n  - ${name}: blocks missing identifier ${expected}"
+  return 1
+}
+
+assert_json_activity_contains_object_id() {
+  local name="$1" json="$2" expected="$3"
+  if printf '%s\n' "$json" | jq -e --arg expected "$expected" 'any(.[]?; .objectId == $expected)' >/dev/null 2>&1; then
+    echo "PASS: $name"
+    PASSED=$((PASSED + 1))
+    return 0
+  fi
+  echo "FAIL: $name (activity missing objectId: $expected)"
+  FAILED=$((FAILED + 1))
+  ERRORS="${ERRORS}\n  - ${name}: activity missing objectId ${expected}"
+  return 1
+}
+
 json_string() {
   jq -Rn --arg value "$1" '$value'
 }
@@ -414,8 +440,11 @@ if [ $? -eq 0 ]; then
       "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"add_issue_relation\",\"arguments\":{\"project\":\"$PROJECT\",\"issueIdentifier\":\"$ISSUE_ID\",\"targetIssue\":\"$ISSUE2_ID\",\"relationType\":\"is-blocked-by\"}},\"id\":2}"
     run_test "list_issue_relations" \
       "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_issue_relations\",\"arguments\":{\"project\":\"$PROJECT\",\"issueIdentifier\":\"$ISSUE_ID\"}},\"id\":2}"
-    run_test "list_issue_relations(blocks:$ISSUE2_ID)" \
-      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_issue_relations\",\"arguments\":{\"project\":\"$PROJECT\",\"issueIdentifier\":\"$ISSUE2_ID\"}},\"id\":2}"
+    REL_BLOCKS_TEXT=$(run_capture "list_issue_relations(blocks:$ISSUE2_ID)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_issue_relations\",\"arguments\":{\"project\":\"$PROJECT\",\"issueIdentifier\":\"$ISSUE2_ID\"}},\"id\":2}")
+    if [ $? -eq 0 ]; then
+      assert_json_blocks_contains_identifier "list_issue_relations blocks contains $ISSUE_ID" "$REL_BLOCKS_TEXT" "$ISSUE_ID"
+    fi
     run_test "remove_issue_relation" \
       "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"remove_issue_relation\",\"arguments\":{\"project\":\"$PROJECT\",\"issueIdentifier\":\"$ISSUE_ID\",\"targetIssue\":\"$ISSUE2_ID\",\"relationType\":\"is-blocked-by\"}},\"id\":2}"
     run_test "delete_issue(relation:$ISSUE2_ID)" \
@@ -451,8 +480,11 @@ if [ $? -eq 0 ]; then
   fi
 
   # Activity on issue
-  run_test "list_activity(issue:$ISSUE_ID)" \
-    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_activity\",\"arguments\":{\"project\":\"$PROJECT\",\"issueIdentifier\":\"$ISSUE_ID\",\"limit\":3}},\"id\":2}"
+  ACTIVITY_TEXT=$(run_capture "list_activity(issue:$ISSUE_ID)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_activity\",\"arguments\":{\"project\":\"$PROJECT\",\"issueIdentifier\":\"$ISSUE_ID\",\"limit\":3}},\"id\":2}")
+  if [ $? -eq 0 ] && [ -n "$ISSUE_OBJ_ID" ]; then
+    assert_json_activity_contains_object_id "list_activity friendly target contains $ISSUE_OBJ_ID" "$ACTIVITY_TEXT" "$ISSUE_OBJ_ID"
+  fi
 
   # Time tracking
   run_test "log_time($ISSUE_ID)" \

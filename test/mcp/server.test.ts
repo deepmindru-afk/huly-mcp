@@ -24,6 +24,7 @@ import { WorkspaceClient } from "../../src/huly/workspace-client.js"
 import { HttpServerFactoryService, HttpTransportError } from "../../src/mcp/http-transport.js"
 import { type ClientBundle, McpServerError, McpServerService } from "../../src/mcp/server.js"
 import { TOOL_DEFINITIONS } from "../../src/mcp/tools/index.js"
+import type { ToolDefinition } from "../../src/mcp/tools/registry.js"
 import type { SessionStartProps, TelemetryOperations, ToolCalledProps } from "../../src/telemetry/telemetry.js"
 import { TelemetryService } from "../../src/telemetry/telemetry.js"
 
@@ -171,6 +172,21 @@ const makeStatus = (overrides?: Partial<Status>): Status => {
     ...overrides
   }
   return result
+}
+
+const schemaProperty = (schema: object, key: string): unknown => Object.getOwnPropertyDescriptor(schema, key)?.value
+
+const requiredList = (schema: unknown): ReadonlyArray<string> | undefined => {
+  if (typeof schema !== "object" || schema === null) return undefined
+  const required = schemaProperty(schema, "required")
+  return Array.isArray(required) && required.every(item => typeof item === "string") ? required : undefined
+}
+
+const requiredModeSets = (tool: ToolDefinition): ReadonlyArray<string> => {
+  const oneOf = schemaProperty(tool.inputSchema, "oneOf")
+  return Array.isArray(oneOf)
+    ? oneOf.map(requiredList).filter(required => required !== undefined).map(required => required.join("+"))
+    : []
 }
 
 // --- Test Helpers ---
@@ -407,6 +423,19 @@ describe("TOOL_DEFINITIONS", () => {
         expect(props).toHaveProperty("teamspace")
         expect(props).toHaveProperty("title")
         expect(props).toHaveProperty("content")
+      }))
+
+    it.effect("list_activity schema exposes explicit target modes", () =>
+      Effect.gen(function*() {
+        const schema = TOOL_DEFINITIONS.list_activity.inputSchema
+        expect(schema).toHaveProperty("type", "object")
+        expect(Array.isArray(schemaProperty(schema, "oneOf"))).toBe(true)
+
+        const requiredSets = requiredModeSets(TOOL_DEFINITIONS.list_activity)
+        expect(requiredSets).toContain("project+issueIdentifier")
+        expect(requiredSets).toContain("teamspace+document")
+        expect(requiredSets).toContain("channel")
+        expect(requiredSets).toContain("objectId+objectClass")
       }))
   })
 })

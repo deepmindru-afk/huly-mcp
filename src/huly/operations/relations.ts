@@ -263,7 +263,7 @@ export const listIssueRelations = (
 
     const blockingIssueCandidates = yield* client.findAll<HulyIssue>(
       tracker.class.Issue,
-      {}
+      { "blockedBy._id": toRef<Doc>(issue._id) }
     )
     const blocks = blockingIssueCandidates
       .filter(candidate => candidate._id !== issue._id && hasRelationById(candidate.blockedBy, issue._id))

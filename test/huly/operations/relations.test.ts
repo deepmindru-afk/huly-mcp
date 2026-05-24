@@ -17,6 +17,19 @@ const toFindResult = <T extends Doc>(docs: Array<T>): FindResult<T> => {
   return result
 }
 
+const recordValue = (value: unknown, key: string): unknown =>
+  typeof value === "object" && value !== null ? Object.getOwnPropertyDescriptor(value, key)?.value : undefined
+
+const stringRecordValue = (value: unknown, key: string): string | undefined => {
+  const field = recordValue(value, key)
+  return typeof field === "string" ? field : undefined
+}
+
+const inQueryValues = (value: unknown): ReadonlyArray<string> | undefined => {
+  const values = recordValue(value, "$in")
+  return Array.isArray(values) && values.every(item => typeof item === "string") ? values : undefined
+}
+
 const makeProject = (overrides?: Partial<HulyProject>): HulyProject => {
   const base = {
     _id: "project-1" as Ref<HulyProject>,
@@ -74,6 +87,10 @@ interface MockConfig {
   projects?: Array<HulyProject>
   issues?: Array<HulyIssue>
   documents?: Array<HulyDocument>
+  capturedFindAllQueries?: Array<{
+    _class: unknown
+    query: unknown
+  }>
   capturedUpdateDocs?: Array<{
     _class: unknown
     space: unknown
@@ -86,23 +103,28 @@ const createTestLayerWithMocks = (config: MockConfig) => {
   const projects = config.projects ?? []
   const issues = config.issues ?? []
   const documents = config.documents ?? []
+  const capturedFindAllQueries = config.capturedFindAllQueries ?? []
   const captured = config.capturedUpdateDocs ?? []
 
   const findAllImpl: HulyClientOperations["findAll"] = ((_class: unknown, query: unknown) => {
+    capturedFindAllQueries.push({ _class, query })
     if (_class === tracker.class.Issue) {
-      const q = query as Record<string, unknown>
-      const inQuery = q._id as { $in?: Array<string> } | undefined
-      if (inQuery?.$in) {
-        const filtered = issues.filter(i => inQuery.$in!.includes(i._id as string))
+      const inValues = inQueryValues(recordValue(query, "_id"))
+      if (inValues !== undefined) {
+        const filtered = issues.filter(i => inValues.includes(i._id))
+        return Effect.succeed(toFindResult(filtered))
+      }
+      const blockedById = stringRecordValue(query, "blockedBy._id")
+      if (blockedById !== undefined) {
+        const filtered = issues.filter(i => i.blockedBy?.some(ref => ref._id === blockedById))
         return Effect.succeed(toFindResult(filtered))
       }
       return Effect.succeed(toFindResult(issues))
     }
     if (_class === documentPlugin.class.Document) {
-      const q = query as Record<string, unknown>
-      const inQuery = q._id as { $in?: Array<string> } | undefined
-      if (inQuery?.$in) {
-        const filtered = documents.filter(d => inQuery.$in!.includes(d._id as string))
+      const inValues = inQueryValues(recordValue(query, "_id"))
+      if (inValues !== undefined) {
+        const filtered = documents.filter(d => inValues.includes(d._id))
         return Effect.succeed(toFindResult(filtered))
       }
       return Effect.succeed(toFindResult(documents))
@@ -600,9 +622,11 @@ describe("listIssueRelations", () => {
         number: 4,
         blockedBy: [{ _id: "issue-1" as Ref<Doc>, _class: tracker.class.Issue }]
       })
+      const capturedFindAllQueries: Array<{ _class: unknown; query: unknown }> = []
       const testLayer = createTestLayerWithMocks({
         projects: [project],
-        issues: [issue, blocked]
+        issues: [issue, blocked],
+        capturedFindAllQueries
       })
 
       const result = yield* listIssueRelations({
@@ -616,6 +640,9 @@ describe("listIssueRelations", () => {
       expect(result.blocks[0]._id).toBe("issue-4")
       expect(result.relations).toHaveLength(0)
       expect(result.documents).toHaveLength(0)
+      expect(
+        capturedFindAllQueries.some(({ query }) => stringRecordValue(query, "blockedBy._id") === "issue-1")
+      ).toBe(true)
     }))
 
   it.effect("returns empty arrays when no relations exist", () =>

@@ -502,7 +502,7 @@ describe("Config Module", () => {
 
   describe("hulyConfigProviderFromHeaders", () => {
     // test-revizorro: approved
-    it.effect("loads token config from complete Smithery headers", () =>
+    it.effect("loads token config from complete URL headers", () =>
       Effect.gen(function*() {
         const provider = yield* hulyConfigProviderFromHeaders({
           "x-huly-url": "https://huly.app",
@@ -529,7 +529,7 @@ describe("Config Module", () => {
       }))
 
     // test-revizorro: approved
-    it.effect("fails when one Smithery header is present and a required header is missing", () =>
+    it.effect("fails when one URL header is present and a required header is missing", () =>
       Effect.gen(function*() {
         const error = yield* Effect.flip(
           hulyConfigProviderFromHeaders({

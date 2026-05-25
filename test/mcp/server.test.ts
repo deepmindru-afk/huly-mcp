@@ -21,7 +21,11 @@ import { expect } from "vitest"
 import { HulyClient, type HulyClientOperations } from "../../src/huly/client.js"
 import { HulyStorageClient } from "../../src/huly/storage.js"
 import { WorkspaceClient } from "../../src/huly/workspace-client.js"
-import { HttpServerFactoryService, HttpTransportError } from "../../src/mcp/http-transport.js"
+import {
+  HttpServerFactoryService,
+  type HttpTransportDependencies,
+  HttpTransportError
+} from "../../src/mcp/http-transport.js"
 import { type ClientBundle, McpServerError, McpServerService } from "../../src/mcp/server.js"
 import { TOOL_DEFINITIONS } from "../../src/mcp/tools/index.js"
 import type { ToolDefinition } from "../../src/mcp/tools/registry.js"
@@ -68,16 +72,30 @@ const buildTestServerLayer = (
     httpHost?: string
     autoExit?: boolean
     authMethod?: "token" | "password"
+    httpTransportDependencies?: Partial<HttpTransportDependencies>
   },
   layers: Layer.Layer<HulyClient | HulyStorageClient | WorkspaceClient | TelemetryService>
-) =>
-  McpServerService.layer({
-    ...config,
+) => {
+  const { httpTransportDependencies, ...serverConfig } = config
+  return McpServerService.layer({
+    ...serverConfig,
+    ...(httpTransportDependencies === undefined ? {} : { httpTransportDependencies }),
     createServer: createMockServer,
     // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- test transport is never inspected by the mocked server
     createStdioTransport: () => ({}) as never,
     resolveClients: resolveClientsFromLayer(layers)
   }).pipe(Layer.provide(layers))
+}
+
+const quietHttpTransportDependencies: Partial<HttpTransportDependencies> = {
+  createTransport: () =>
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- test fake implements only methods used by createMcpHandlers
+    ({
+      async close() {},
+      async handleRequest() {}
+    }) as never,
+  writeError: () => {}
+}
 
 // Captured request handlers from mocked MCP Server instances
 type HandlerMap = Map<unknown, (...args: Array<unknown>) => unknown>
@@ -1045,7 +1063,8 @@ describe("McpServerService.layer operations", () => {
         const serverLayer = buildTestServerLayer({
           transport: "http",
           httpPort: 19877,
-          httpHost: "127.0.0.1"
+          httpHost: "127.0.0.1",
+          httpTransportDependencies: quietHttpTransportDependencies
         }, layers)
 
         const ctx = yield* Layer.build(serverLayer)

@@ -55,6 +55,14 @@ const accountRoleMap: Record<AccountRole, HulyAccountRole> = {
   ADMIN: HulyAccountRole.Admin
 }
 
+type MappedAccountRole = typeof accountRoleMap[keyof typeof accountRoleMap]
+type ExactAccountRoleMapping = [HulyAccountRole] extends [MappedAccountRole]
+  ? [MappedAccountRole] extends [HulyAccountRole] ? true : never
+  : never
+
+const exactAccountRoleMapping = <T extends true>(value: T): T => value
+exactAccountRoleMapping<ExactAccountRoleMapping>(true)
+
 const toHulyAccountRole = (role: AccountRole): HulyAccountRole => accountRoleMap[role]
 
 type ListWorkspaceMembersError = WorkspaceClientError

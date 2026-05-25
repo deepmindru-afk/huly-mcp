@@ -285,7 +285,7 @@ export const ListPersonOrganizationsParamsSchema = Schema.Union(
 
 export type ListPersonOrganizationsParams = Schema.Schema.Type<typeof ListPersonOrganizationsParamsSchema>
 
-const OrganizationChannelProviderDescriptionValues = [
+const OrganizationChannelProviderValues = [
   "email",
   "phone",
   "linkedin",
@@ -293,8 +293,14 @@ const OrganizationChannelProviderDescriptionValues = [
   "github",
   "facebook",
   "telegram",
-  "homepage"
+  "homepage",
+  "whatsapp",
+  "skype",
+  "profile",
+  "viber"
 ] as const
+const OrganizationChannelProviderSchema = Schema.Literal(...OrganizationChannelProviderValues)
+export type OrganizationChannelProvider = Schema.Schema.Type<typeof OrganizationChannelProviderSchema>
 
 export const RemoveOrganizationMemberParamsSchema = Schema.Struct({
   organizationId: NonEmptyString.annotations({
@@ -314,8 +320,8 @@ export const AddOrganizationChannelParamsSchema = Schema.Struct({
   organizationId: NonEmptyString.annotations({
     description: "Organization ID or exact name"
   }),
-  provider: NonEmptyString.annotations({
-    description: `Channel type: ${OrganizationChannelProviderDescriptionValues.join(", ")}`
+  provider: OrganizationChannelProviderSchema.annotations({
+    description: `Channel type: ${OrganizationChannelProviderValues.join(", ")}`
   }),
   value: NonEmptyString.annotations({
     description: "Channel value (email address, phone number, URL, username)"

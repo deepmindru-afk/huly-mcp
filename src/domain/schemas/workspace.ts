@@ -17,21 +17,6 @@ import {
   WorkspaceVersion
 } from "./shared.js"
 
-export const AccountRoleSchema = Schema.Literal(
-  "READONLYGUEST",
-  "DocGuest",
-  "GUEST",
-  "USER",
-  "MAINTAINER",
-  "OWNER",
-  "ADMIN"
-).annotations({
-  title: "AccountRole",
-  description: "Workspace member role"
-})
-
-export type AccountRole = Schema.Schema.Type<typeof AccountRoleSchema>
-
 export const AccountRoleValues = [
   "READONLYGUEST",
   "DocGuest",
@@ -41,6 +26,13 @@ export const AccountRoleValues = [
   "OWNER",
   "ADMIN"
 ] as const
+
+export const AccountRoleSchema = Schema.Literal(...AccountRoleValues).annotations({
+  title: "AccountRole",
+  description: "Workspace member role"
+})
+
+export type AccountRole = Schema.Schema.Type<typeof AccountRoleSchema>
 
 // No codec needed — internal type, not used for runtime validation
 export interface WorkspaceMember {

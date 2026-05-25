@@ -2,9 +2,11 @@ import { Effect, Either, Schema } from "effect"
 import { describe, expect, it } from "vitest"
 
 import {
+  AddOrganizationChannelParamsSchema,
   CreatePersonParamsSchema,
   GetPersonParamsSchema,
   ListPersonsParamsSchema,
+  parseAddOrganizationChannelParams,
   parseCreatePersonParams,
   parseGetPersonParams,
   parseListPersonsParams,
@@ -229,6 +231,36 @@ describe("Contact Schemas", () => {
           Schema.decodeUnknown(UpdatePersonParamsSchema)({
             personId: "abc123",
             firstName: ""
+          })
+        )
+      )
+      expect(Either.isLeft(result)).toBe(true)
+    })
+  })
+
+  describe("AddOrganizationChannelParamsSchema", () => {
+    // test-revizorro: approved
+    it("accepts supported organization channel provider", () => {
+      const result = Schema.decodeUnknownSync(AddOrganizationChannelParamsSchema)({
+        organizationId: "org-1",
+        provider: "whatsapp",
+        value: "+15551234"
+      })
+      expect(result).toEqual({
+        organizationId: "org-1",
+        provider: "whatsapp",
+        value: "+15551234"
+      })
+    })
+
+    // test-revizorro: approved
+    it("rejects unsupported organization channel provider", () => {
+      const result = Effect.runSync(
+        Effect.either(
+          parseAddOrganizationChannelParams({
+            organizationId: "org-1",
+            provider: "fax",
+            value: "555-1234"
           })
         )
       )

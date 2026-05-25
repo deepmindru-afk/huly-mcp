@@ -1,4 +1,4 @@
-import type { Class, Doc, DocumentUpdate, Ref, RelatedDocument } from "@hcengineering/core"
+import type { Class, Doc, DocumentUpdate, FindOptions, Ref, RelatedDocument } from "@hcengineering/core"
 import type { Document as HulyDocument, Teamspace as HulyTeamspace } from "@hcengineering/document"
 import type { Issue as HulyIssue, Project as HulyProject } from "@hcengineering/tracker"
 import { Effect } from "effect"
@@ -36,6 +36,15 @@ const toIssueId = (value: string): IssueId => IssueId.make(value)
 const toObjectClassName = (value: string): ObjectClassName => ObjectClassName.make(value)
 const toTeamspaceIdentifier = (value: string): TeamspaceIdentifier => TeamspaceIdentifier.make(value)
 const toDocumentId = (value: string): DocumentId => DocumentId.make(value)
+
+const blockingIssueFindOptions = {
+  projection: {
+    _id: 1,
+    _class: 1,
+    identifier: 1,
+    blockedBy: 1
+  }
+} satisfies FindOptions<HulyIssue>
 
 const resolveTargetIssue = (
   client: HulyClient["Type"],
@@ -261,10 +270,18 @@ export const listIssueRelations = (
       _class: toObjectClassName(String(i._class))
     })
 
-    const blockingIssueCandidates = yield* client.findAll<HulyIssue>(
+    const directBlockingIssueCandidates = yield* client.findAll<HulyIssue>(
       tracker.class.Issue,
-      { "blockedBy._id": toRef<Doc>(issue._id) }
+      { "blockedBy._id": toRef<Doc>(issue._id) },
+      blockingIssueFindOptions
     )
+    const blockingIssueCandidates = directBlockingIssueCandidates.length > 0
+      ? directBlockingIssueCandidates
+      : yield* client.findAll<HulyIssue>(
+        tracker.class.Issue,
+        { blockedBy: makeRelatedDoc(issue) },
+        blockingIssueFindOptions
+      )
     const blocks = blockingIssueCandidates
       .filter(candidate => candidate._id !== issue._id && hasRelationById(candidate.blockedBy, issue._id))
       .map(toIssueEntry)

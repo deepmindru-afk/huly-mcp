@@ -8,14 +8,14 @@ import type {
   Relation as HulyRelation,
   Space
 } from "@hcengineering/core"
-import { toFindResult } from "@hcengineering/core"
+import { SortingOrder, toFindResult } from "@hcengineering/core"
 import type { Document as HulyDocument } from "@hcengineering/document"
 import type { Issue as HulyIssue } from "@hcengineering/tracker"
 import { Effect } from "effect"
 import { expect } from "vitest"
 
 import { AssociationIdentifier } from "../../../src/domain/schemas/generic-associations.js"
-import { ObjectClassName } from "../../../src/domain/schemas/shared.js"
+import { MAX_LIMIT, ObjectClassName } from "../../../src/domain/schemas/shared.js"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
 import {
   AssociationIdentifierAmbiguousError,
@@ -122,15 +122,21 @@ const matchesQuery = (doc: Doc, query: Record<string, unknown>): boolean =>
     return Reflect.get(doc, key) === value
   })
 
+const getProperty = (value: unknown, key: string): unknown =>
+  typeof value === "object" && value !== null ? Reflect.get(value, key) : undefined
+
 const resultFor = <T extends Doc>(
   docs: ReadonlyArray<T>,
   query: unknown,
   options: unknown
 ): FindResult<T> => {
   const q = query as Record<string, unknown>
-  const opts = options as { limit?: number } | undefined
+  const opts = options as { limit?: number; sort?: { modifiedOn?: SortingOrder } } | undefined
   const matches = docs.filter((doc) => matchesQuery(doc, q))
-  return toFindResult(matches.slice(0, opts?.limit), matches.length)
+  const sorted = opts?.sort?.modifiedOn === SortingOrder.Descending
+    ? [...matches].sort((left, right) => right.modifiedOn - left.modifiedOn)
+    : matches
+  return toFindResult(sorted.slice(0, opts?.limit), matches.length)
 }
 
 const testLayer = (data: TestData, onFindAll?: FindAllObserver) => {
@@ -484,6 +490,64 @@ describe("listRelations", () => {
       expect(result.relations[0].target.display).toBe("Spec")
     }))
 
+  it.effect("matches omitted asymmetric associations in either direction", () =>
+    Effect.gen(function*() {
+      const issueToDocument = association({
+        _id: "assoc-1" as Ref<HulyAssociation>,
+        classA: tracker.class.Issue,
+        classB: documentPlugin.class.Document,
+        nameA: "issue",
+        nameB: "document",
+        type: "1:N"
+      })
+      const rel = relation({
+        docA: "issue-1" as Ref<Doc>,
+        docB: "doc-1" as Ref<Doc>
+      })
+
+      const result = yield* listRelations({
+        source: { kind: "raw", id: docId("doc-1"), class: documentClass },
+        target: { kind: "raw", id: docId("issue-1"), class: issueClass },
+        direction: "either"
+      }).pipe(
+        Effect.provide(testLayer({
+          associations: [issueToDocument],
+          relations: [rel],
+          issues: [issue("issue-1", "HULY-1")],
+          documents: [documentDoc("doc-1", "Spec")]
+        }))
+      )
+
+      expect(result.total).toBe(1)
+      expect(result.relations[0].relationId).toBe("rel-1")
+      expect(result.relations[0].source.display).toBe("HULY-1")
+      expect(result.relations[0].target.display).toBe("Spec")
+    }))
+
+  it.effect("deduplicates omitted same-class association discovery in either direction", () =>
+    Effect.gen(function*() {
+      const findAllRequests: Array<Parameters<FindAllObserver>[0]> = []
+      const rel = relation({})
+
+      const result = yield* listRelations({
+        source: { kind: "raw", id: docId("issue-1"), class: issueClass },
+        target: { kind: "raw", id: docId("issue-2"), class: issueClass },
+        direction: "either"
+      }).pipe(
+        Effect.provide(testLayer({
+          associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],
+          relations: [rel],
+          issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
+        }, (request) => {
+          findAllRequests.push(request)
+        }))
+      )
+
+      expect(result.total).toBe(1)
+      expect(findAllRequests.filter((request) => request._class === core.class.Association)).toHaveLength(1)
+      expect(findAllRequests.filter((request) => request._class === core.class.Relation)).toHaveLength(2)
+    }))
+
   it.effect("skips incompatible associations when association is omitted", () =>
     Effect.gen(function*() {
       const documentAssociation = association({
@@ -506,6 +570,145 @@ describe("listRelations", () => {
 
       expect(result.total).toBe(1)
       expect(result.relations[0].associationId).toBe("assoc-1")
+    }))
+
+  it.effect("does not fan out relation queries by discovered associations when association is omitted", () =>
+    Effect.gen(function*() {
+      const findAllRequests: Array<Parameters<FindAllObserver>[0]> = []
+      const associations = Array.from({ length: 20 }, (_, index) =>
+        association({
+          _id: `assoc-extra-${index}` as Ref<HulyAssociation>,
+          classA: tracker.class.Issue,
+          classB: tracker.class.Issue
+        }))
+      const issueAssociation = association({ _id: "assoc-1" as Ref<HulyAssociation> })
+      const rel = relation({})
+
+      const result = yield* listRelations({
+        source: { kind: "raw", id: docId("issue-1"), class: issueClass }
+      }).pipe(
+        Effect.provide(testLayer({
+          associations: [...associations, issueAssociation],
+          relations: [rel],
+          issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
+        }, (request) => {
+          findAllRequests.push(request)
+        }))
+      )
+
+      const associationRequests = findAllRequests.filter((request) => request._class === core.class.Association)
+      const relationRequests = findAllRequests.filter((request) => request._class === core.class.Relation)
+      const issueRequests = findAllRequests.filter((request) => request._class === tracker.class.Issue)
+      const associationFilter = getProperty(relationRequests[0]?.query, "association")
+
+      expect(result.total).toBe(1)
+      expect(relationRequests).toHaveLength(1)
+      expect(associationRequests).toHaveLength(1)
+      expect(issueRequests).toHaveLength(1)
+      expect(getProperty(associationRequests[0]?.query, "classA")).toBe(tracker.class.Issue)
+      expect(getProperty(associationRequests[0]?.query, "classB")).toBeUndefined()
+      expect(getProperty(associationFilter, "$in")).toContain("assoc-1")
+    }))
+
+  it.effect("applies the relation limit after filtering hidden associations when association is omitted", () =>
+    Effect.gen(function*() {
+      const systemAssociation = association({
+        _id: "assoc-system" as Ref<HulyAssociation>,
+        classA: tracker.class.Issue,
+        classB: core.class.Doc
+      })
+      const visibleAssociation = association({ _id: "assoc-1" as Ref<HulyAssociation> })
+      const hiddenRelation = relation({
+        _id: "rel-hidden" as Ref<HulyRelation>,
+        association: "assoc-system" as Ref<HulyAssociation>,
+        docB: "core-doc-1" as Ref<Doc>,
+        modifiedOn: 300
+      })
+      const visibleRelation = relation({
+        _id: "rel-visible" as Ref<HulyRelation>,
+        association: "assoc-1" as Ref<HulyAssociation>,
+        modifiedOn: 100
+      })
+
+      const result = yield* listRelations({
+        source: { kind: "raw", id: docId("issue-1"), class: issueClass },
+        limit: 1
+      }).pipe(
+        Effect.provide(testLayer({
+          associations: [systemAssociation, visibleAssociation],
+          relations: [hiddenRelation, visibleRelation],
+          issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
+        }))
+      )
+
+      expect(result.total).toBe(1)
+      expect(result.relations[0].associationId).toBe("assoc-1")
+    }))
+
+  it.effect("discovers newest compatible associations before applying the association window", () =>
+    Effect.gen(function*() {
+      const olderAssociations = Array.from({ length: MAX_LIMIT }, (_, index) =>
+        association({
+          _id: `assoc-old-${index}` as Ref<HulyAssociation>,
+          modifiedOn: index
+        }))
+      const visibleAssociation = association({
+        _id: "assoc-1" as Ref<HulyAssociation>,
+        modifiedOn: MAX_LIMIT + 1
+      })
+      const rel = relation({})
+
+      const result = yield* listRelations({
+        source: { kind: "raw", id: docId("issue-1"), class: issueClass },
+        limit: 1
+      }).pipe(
+        Effect.provide(testLayer({
+          associations: [...olderAssociations, visibleAssociation],
+          relations: [rel],
+          issues: [issue("issue-1", "HULY-1"), issue("issue-2", "HULY-2")]
+        }))
+      )
+
+      expect(result.total).toBe(1)
+      expect(result.relations[0].associationId).toBe("assoc-1")
+    }))
+
+  it.effect("chunks endpoint hydration by class instead of hydrating per relation", () =>
+    Effect.gen(function*() {
+      const findAllRequests: Array<Parameters<FindAllObserver>[0]> = []
+      const relations = Array.from({ length: MAX_LIMIT }, (_, index) =>
+        relation({
+          _id: `rel-${index}` as Ref<HulyRelation>,
+          docA: "issue-0" as Ref<Doc>,
+          docB: `issue-${index + 1}` as Ref<Doc>,
+          modifiedOn: 300 - index
+        }))
+      const issues = Array.from({ length: MAX_LIMIT + 1 }, (_, index) => issue(`issue-${index}`, `HULY-${index}`))
+
+      const result = yield* listRelations({
+        association: assocId,
+        source: { kind: "raw", id: docId("issue-0"), class: issueClass },
+        limit: MAX_LIMIT
+      }).pipe(
+        Effect.provide(testLayer({
+          associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],
+          relations,
+          issues
+        }, (request) => {
+          findAllRequests.push(request)
+        }))
+      )
+
+      const issueHydrationRequests = findAllRequests.filter((request) => request._class === tracker.class.Issue)
+      const chunkSizes = issueHydrationRequests.map((request) => {
+        const ids = getProperty(getProperty(request.query, "_id"), "$in")
+        return Array.isArray(ids) ? ids.length : 0
+      })
+
+      expect(result.total).toBe(MAX_LIMIT)
+      expect(issueHydrationRequests).toHaveLength(2)
+      expect(chunkSizes.sort((left, right) => left - right)).toEqual([1, MAX_LIMIT])
+      expect(findAllRequests.filter((request) => request._class === core.class.Relation)).toHaveLength(1)
     }))
 
   it.effect("fails when a locator resolves to the wrong endpoint class", () =>

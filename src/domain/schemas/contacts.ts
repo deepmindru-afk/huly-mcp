@@ -285,6 +285,7 @@ export const ListPersonOrganizationsParamsSchema = Schema.Union(
 
 export type ListPersonOrganizationsParams = Schema.Schema.Type<typeof ListPersonOrganizationsParamsSchema>
 
+// MCP-facing contact channel names backed by Huly SDK contact.channelProvider refs in organization-channel-providers.
 const OrganizationChannelProviderValues = [
   "email",
   "phone",

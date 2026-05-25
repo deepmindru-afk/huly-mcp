@@ -20,6 +20,7 @@ import type {
   RelationSummary,
   ResolvedObjectSummary
 } from "../../domain/schemas/generic-associations.js"
+import { DefaultRelationDirection } from "../../domain/schemas/generic-associations.js"
 import { AssociationId, DocId, NonEmptyString, ObjectClassName, RelationId } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError, type HulyClientOperations } from "../client.js"
 import type {
@@ -109,6 +110,14 @@ const ASSOCIATION_CARDINALITY = {
   "1:N": "one-to-many",
   "N:N": "many-to-many"
 } satisfies Record<HulyAssociation["type"], Cardinality>
+
+type MappedCardinality = typeof ASSOCIATION_CARDINALITY[keyof typeof ASSOCIATION_CARDINALITY]
+type ExactCardinalityMapping = [Cardinality] extends [MappedCardinality]
+  ? [MappedCardinality] extends [Cardinality] ? true : never
+  : never
+
+const exactCardinalityMapping = <T extends true>(value: T): T => value
+exactCardinalityMapping<ExactCardinalityMapping>(true)
 
 const cardinality = (type: HulyAssociation["type"]): Cardinality => ASSOCIATION_CARDINALITY[type]
 
@@ -637,7 +646,7 @@ export const listRelations = (
   Effect.gen(function*() {
     const client = yield* HulyClient
     const limit = clampLimit(params.limit)
-    const direction = params.direction ?? "source-to-target"
+    const direction = params.direction ?? DefaultRelationDirection
 
     if (params.association === undefined) {
       const associations = filterVisible(

@@ -20,15 +20,21 @@ export type AssociationIdentifier = Schema.Schema.Type<typeof AssociationIdentif
 export const RelationIdentifier = NonEmptyString.pipe(Schema.brand("RelationIdentifier"))
 export type RelationIdentifier = Schema.Schema.Type<typeof RelationIdentifier>
 
-export const CardinalitySchema = Schema.Literal(
+const CardinalityValues = [
   "one-to-one",
   "one-to-many",
   "many-to-many"
-)
+] as const
+export const CardinalitySchema = Schema.Literal(...CardinalityValues)
 export type Cardinality = Schema.Schema.Type<typeof CardinalitySchema>
 
-export const RelationDirectionSchema = Schema.Literal("source-to-target", "target-to-source", "either")
+const RelationDirectionValues = ["source-to-target", "target-to-source", "either"] as const
+export const RelationDirectionSchema = Schema.Literal(...RelationDirectionValues)
 export type RelationDirection = Schema.Schema.Type<typeof RelationDirectionSchema>
+export const DefaultRelationDirection = "source-to-target" satisfies RelationDirection
+const relationDirectionDescription = `Relation traversal direction: ${
+  RelationDirectionValues.join(", ")
+}. Defaults to ${DefaultRelationDirection}.`
 
 export const RelationIfExistsSchema = Schema.Literal("return_existing", "fail")
 export type RelationIfExists = Schema.Schema.Type<typeof RelationIfExistsSchema>
@@ -157,7 +163,7 @@ export const ListRelationsParamsSchema = Schema.Struct({
     description: "Optional target endpoint filter"
   })),
   direction: Schema.optional(RelationDirectionSchema.annotations({
-    description: "source-to-target, target-to-source, or either. Defaults to source-to-target."
+    description: relationDirectionDescription
   })),
   limit: Schema.optional(LimitParam.annotations({
     description: "Maximum number of relations to return (default: 50)"

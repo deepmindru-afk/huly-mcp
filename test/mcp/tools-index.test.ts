@@ -155,6 +155,67 @@ describe("handleToolCall", () => {
 
       expect(result).toBeNull()
     }))
+
+  it.effect("accepts omitted arguments for all-optional parameter tools", () =>
+    Effect.gen(function*() {
+      const result = yield* Effect.promise(() =>
+        toolRegistry.handleToolCall(
+          "list_projects",
+          undefined,
+          noopHulyClient,
+          noopStorageClient
+        )
+      )
+
+      expect(result?.isError).toBeUndefined()
+      expect(result?.content[0]?.text).toBe("{\"projects\":[],\"total\":0}")
+    }))
+
+  it.effect("accepts omitted arguments for true no-argument tools", () =>
+    Effect.gen(function*() {
+      const result = yield* Effect.promise(() =>
+        toolRegistry.handleToolCall(
+          "get_unread_notification_count",
+          undefined,
+          noopHulyClient,
+          noopStorageClient
+        )
+      )
+
+      expect(result?.isError).toBeUndefined()
+      expect(result?.content[0]?.text).toContain("\"count\"")
+    }))
+
+  it.effect("rejects omitted arguments for required-parameter tools", () =>
+    Effect.gen(function*() {
+      const result = yield* Effect.promise(() =>
+        toolRegistry.handleToolCall(
+          "get_issue",
+          undefined,
+          noopHulyClient,
+          noopStorageClient
+        )
+      )
+
+      expect(result?.isError).toBe(true)
+      expect(result?._meta?.errorTag).toBe("MissingArguments")
+      expect(result?.content[0]?.text).toContain("missing arguments object")
+    }))
+
+  it.effect("rejects unexpected arguments for true no-argument tools", () =>
+    Effect.gen(function*() {
+      const result = yield* Effect.promise(() =>
+        toolRegistry.handleToolCall(
+          "get_unread_notification_count",
+          { junk: true },
+          noopHulyClient,
+          noopStorageClient
+        )
+      )
+
+      expect(result?.isError).toBe(true)
+      expect(result?.content[0]?.text).toContain("does not accept arguments")
+    }))
 })
 
 describe("TOOL_DEFINITIONS", () => {

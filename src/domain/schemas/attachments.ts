@@ -2,6 +2,7 @@ import { JSONSchema, Schema } from "effect"
 
 import type { BlobId } from "./shared.js"
 import {
+  atLeastOneUpdateFieldMessage,
   AttachmentId,
   DocId,
   DocumentIdentifier,
@@ -12,7 +13,8 @@ import {
   ObjectClassName,
   ProjectIdentifier,
   SpaceId,
-  TeamspaceIdentifier
+  TeamspaceIdentifier,
+  withAtLeastOneRequired
 } from "./shared.js"
 
 // No codec needed — internal type, not used for runtime validation
@@ -124,6 +126,8 @@ export const AddAttachmentParamsSchema = AddAttachmentParamsBase.pipe(
 
 export type AddAttachmentParams = Schema.Schema.Type<typeof AddAttachmentParamsSchema>
 
+export const UPDATE_ATTACHMENT_FIELDS: ReadonlyArray<"description" | "pinned"> = ["description", "pinned"]
+
 export const UpdateAttachmentParamsSchema = Schema.Struct({
   attachmentId: AttachmentId.annotations({
     description: "Attachment ID"
@@ -138,7 +142,7 @@ export const UpdateAttachmentParamsSchema = Schema.Struct({
   }))
 }).annotations({
   title: "UpdateAttachmentParams",
-  description: "Parameters for updating an attachment"
+  description: `Parameters for updating an attachment. ${atLeastOneUpdateFieldMessage(UPDATE_ATTACHMENT_FIELDS)}`
 })
 
 export type UpdateAttachmentParams = Schema.Schema.Type<typeof UpdateAttachmentParamsSchema>
@@ -220,7 +224,10 @@ export type AddDocumentAttachmentParams = Schema.Schema.Type<typeof AddDocumentA
 export const listAttachmentsParamsJsonSchema = JSONSchema.make(ListAttachmentsParamsSchema)
 export const getAttachmentParamsJsonSchema = JSONSchema.make(GetAttachmentParamsSchema)
 export const addAttachmentParamsJsonSchema = JSONSchema.make(AddAttachmentParamsSchema)
-export const updateAttachmentParamsJsonSchema = JSONSchema.make(UpdateAttachmentParamsSchema)
+export const updateAttachmentParamsJsonSchema = withAtLeastOneRequired(
+  JSONSchema.make(UpdateAttachmentParamsSchema),
+  UPDATE_ATTACHMENT_FIELDS
+)
 export const deleteAttachmentParamsJsonSchema = JSONSchema.make(DeleteAttachmentParamsSchema)
 export const pinAttachmentParamsJsonSchema = JSONSchema.make(PinAttachmentParamsSchema)
 export const downloadAttachmentParamsJsonSchema = JSONSchema.make(DownloadAttachmentParamsSchema)

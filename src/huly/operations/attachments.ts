@@ -37,6 +37,7 @@ import type {
   UpdateAttachmentParams,
   UpdateAttachmentResult
 } from "../../domain/schemas/attachments.js"
+import { UPDATE_ATTACHMENT_FIELDS } from "../../domain/schemas/attachments.js"
 import { AttachmentId, BlobId } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import {
@@ -48,6 +49,7 @@ import {
   type InvalidContentTypeError,
   type InvalidFileDataError,
   type IssueNotFoundError,
+  type NoUpdateFieldsError,
   type ProjectNotFoundError,
   type TeamspaceNotFoundError
 } from "../errors.js"
@@ -63,6 +65,7 @@ import { findTeamspaceAndDocument } from "./documents.js"
 import { findProjectAndIssue } from "./issues-shared.js"
 import { clampLimit, findOneOrFail } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
+import { requireUpdateFields } from "./update-guards.js"
 
 import { attachment, documentPlugin, tracker } from "../huly-plugins.js"
 
@@ -83,6 +86,7 @@ type AddAttachmentError =
 
 type UpdateAttachmentError =
   | HulyClientError
+  | NoUpdateFieldsError
   | AttachmentNotFoundError
 
 type DeleteAttachmentError =
@@ -306,6 +310,8 @@ export const updateAttachment = (
   params: UpdateAttachmentParams
 ): Effect.Effect<UpdateAttachmentResult, UpdateAttachmentError, HulyClient> =>
   Effect.gen(function*() {
+    yield* requireUpdateFields("update_attachment", params, UPDATE_ATTACHMENT_FIELDS)
+
     const client = yield* HulyClient
 
     const att = yield* findOneOrFail(
@@ -327,10 +333,6 @@ export const updateAttachment = (
 
     if (params.pinned !== undefined) {
       updateOps.pinned = params.pinned
-    }
-
-    if (Object.keys(updateOps).length === 0) {
-      return { attachmentId: AttachmentId.make(params.attachmentId), updated: false }
     }
 
     yield* client.updateDoc(

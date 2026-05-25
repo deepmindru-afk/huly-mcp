@@ -1,6 +1,7 @@
 import { JSONSchema, Schema } from "effect"
 
 import {
+  atLeastOneUpdateFieldMessage,
   enumValuesDescription,
   IssueIdentifier,
   LimitParam,
@@ -9,7 +10,8 @@ import {
   MilestoneLabel,
   NonEmptyString,
   ProjectIdentifier,
-  Timestamp
+  Timestamp,
+  withAtLeastOneRequired
 } from "./shared.js"
 
 export const MilestoneStatusValues = ["planned", "in-progress", "completed", "canceled"] as const
@@ -100,6 +102,13 @@ export const CreateMilestoneParamsSchema = Schema.Struct({
 
 export type CreateMilestoneParams = Schema.Schema.Type<typeof CreateMilestoneParamsSchema>
 
+export const UPDATE_MILESTONE_FIELDS: ReadonlyArray<"label" | "description" | "targetDate" | "status"> = [
+  "label",
+  "description",
+  "targetDate",
+  "status"
+]
+
 export const UpdateMilestoneParamsSchema = Schema.Struct({
   project: ProjectIdentifier.annotations({
     description: "Project identifier (e.g., 'HULY')"
@@ -121,7 +130,7 @@ export const UpdateMilestoneParamsSchema = Schema.Struct({
   }))
 }).annotations({
   title: "UpdateMilestoneParams",
-  description: "Parameters for updating a milestone"
+  description: `Parameters for updating a milestone. ${atLeastOneUpdateFieldMessage(UPDATE_MILESTONE_FIELDS)}`
 })
 
 export type UpdateMilestoneParams = Schema.Schema.Type<typeof UpdateMilestoneParamsSchema>
@@ -160,7 +169,10 @@ export type DeleteMilestoneParams = Schema.Schema.Type<typeof DeleteMilestonePar
 export const listMilestonesParamsJsonSchema = JSONSchema.make(ListMilestonesParamsSchema)
 export const getMilestoneParamsJsonSchema = JSONSchema.make(GetMilestoneParamsSchema)
 export const createMilestoneParamsJsonSchema = JSONSchema.make(CreateMilestoneParamsSchema)
-export const updateMilestoneParamsJsonSchema = JSONSchema.make(UpdateMilestoneParamsSchema)
+export const updateMilestoneParamsJsonSchema = withAtLeastOneRequired(
+  JSONSchema.make(UpdateMilestoneParamsSchema),
+  UPDATE_MILESTONE_FIELDS
+)
 export const setIssueMilestoneParamsJsonSchema = JSONSchema.make(SetIssueMilestoneParamsSchema)
 export const deleteMilestoneParamsJsonSchema = JSONSchema.make(DeleteMilestoneParamsSchema)
 

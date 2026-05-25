@@ -282,6 +282,17 @@ describe("createTestRun", () => {
 })
 
 describe("updateTestRun", () => {
+  it.effect("fails when no update fields are provided", () =>
+    Effect.gen(function*() {
+      const err = yield* Effect.flip(
+        updateTestRun({
+          project: testProjectIdentifier("QA Project"),
+          run: testRunIdentifier("Nightly Run")
+        }).pipe(Effect.provide(buildLayer({})))
+      )
+      expect(err._tag).toBe("NoUpdateFieldsError")
+    }))
+
   it.effect("updates run name", () =>
     Effect.gen(function*() {
       const cap: MockConfig["captureUpdateDoc"] = {}
@@ -371,6 +382,17 @@ describe("createTestResult", () => {
 })
 
 describe("updateTestResult", () => {
+  it.effect("fails when no update fields are provided", () =>
+    Effect.gen(function*() {
+      const err = yield* Effect.flip(
+        updateTestResult({
+          project: testProjectIdentifier("QA Project"),
+          result: testResultIdentifier("r-1")
+        }).pipe(Effect.provide(buildLayer({})))
+      )
+      expect(err._tag).toBe("NoUpdateFieldsError")
+    }))
+
   it.effect("updates status", () =>
     Effect.gen(function*() {
       const cap: MockConfig["captureUpdateDoc"] = {}

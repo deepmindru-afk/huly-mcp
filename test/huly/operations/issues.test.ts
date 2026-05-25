@@ -1897,7 +1897,7 @@ describe("updateIssue", () => {
       }))
 
     // test-revizorro: approved
-    it.effect("returns updated=false when no fields provided", () =>
+    it.effect("fails when no fields provided", () =>
       Effect.gen(function*() {
         const project = makeProject({ identifier: "TEST" })
         const issue = makeIssue({ identifier: "TEST-1" })
@@ -1909,13 +1909,14 @@ describe("updateIssue", () => {
           statuses
         })
 
-        const result = yield* updateIssue({
-          project: projectIdentifier("TEST"),
-          identifier: issueIdentifier("TEST-1")
-        }).pipe(Effect.provide(testLayer))
+        const error = yield* Effect.flip(
+          updateIssue({
+            project: projectIdentifier("TEST"),
+            identifier: issueIdentifier("TEST-1")
+          }).pipe(Effect.provide(testLayer))
+        )
 
-        expect(result.identifier).toBe("TEST-1")
-        expect(result.updated).toBe(false)
+        expect(error._tag).toBe("NoUpdateFieldsError")
       }))
 
     // test-revizorro: approved

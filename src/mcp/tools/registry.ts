@@ -8,6 +8,7 @@ import { type HulyDomainError, HulyError } from "../../huly/errors.js"
 import { HulyStorageClient } from "../../huly/storage.js"
 import { WorkspaceClient, type WorkspaceClientOperations } from "../../huly/workspace-client.js"
 import {
+  createInvalidParamsError,
   createSuccessResponse,
   mapDomainCauseToMcp,
   mapDomainErrorToMcp,
@@ -79,6 +80,45 @@ export interface RegisteredTool extends ToolDefinition {
     workspaceClient?: WorkspaceClientOperations
   ) => Promise<McpToolResponse>
 }
+
+export const createMissingArgumentsError = (toolName: string): McpToolResponse =>
+  createInvalidParamsError(
+    `Invalid parameters for ${toolName}: missing arguments object. Pass an arguments object; use {} when you want defaults for optional parameters.`,
+    "MissingArguments"
+  )
+
+export const createUnexpectedArgumentsError = (toolName: string): McpToolResponse =>
+  createInvalidParamsError(
+    `Invalid parameters for ${toolName}: this tool does not accept arguments. Pass {} or omit arguments.`,
+    "UnexpectedArguments"
+  )
+
+export const isEmptyArgumentsObject = (args: unknown): boolean =>
+  args === undefined
+  || (typeof args === "object" && args !== null && !Array.isArray(args) && Object.keys(args).length === 0)
+
+interface ToolInputSchema {
+  readonly properties?: Record<string, unknown>
+  readonly required?: ReadonlyArray<string>
+  readonly anyOf?: ReadonlyArray<{ readonly required?: ReadonlyArray<string> }>
+  readonly oneOf?: ReadonlyArray<{ readonly required?: ReadonlyArray<string> }>
+  readonly additionalProperties?: unknown
+}
+
+const isToolInputSchema = (schema: object): schema is ToolInputSchema => typeof schema === "object"
+
+export const requiresArgumentsObject = (tool: ToolDefinition): boolean =>
+  isToolInputSchema(tool.inputSchema)
+  && (
+    (tool.inputSchema.required?.length ?? 0) > 0
+    || tool.inputSchema.anyOf?.some((schema) => (schema.required?.length ?? 0) > 0) === true
+    || tool.inputSchema.oneOf?.some((schema) => (schema.required?.length ?? 0) > 0) === true
+  )
+
+export const isNoArgumentTool = (tool: ToolDefinition): boolean =>
+  isToolInputSchema(tool.inputSchema)
+  && Object.keys(tool.inputSchema.properties ?? {}).length === 0
+  && tool.inputSchema.additionalProperties === false
 
 const encodeOutput = (schema: Schema.Schema.AnyNoContext, result: unknown): unknown =>
   Schema.encodeUnknownSync(schema)(result)

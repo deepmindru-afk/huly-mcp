@@ -19,13 +19,15 @@ import type {
   SetIssueMilestoneResult,
   UpdateMilestoneResult
 } from "../../domain/schemas/milestones.js"
+import { UPDATE_MILESTONE_FIELDS } from "../../domain/schemas/milestones.js"
 import { IssueIdentifier, MilestoneId, MilestoneLabel } from "../../domain/schemas/shared.js"
 import type { HulyClient, HulyClientError } from "../client.js"
-import type { IssueNotFoundError, ProjectNotFoundError } from "../errors.js"
+import type { IssueNotFoundError, NoUpdateFieldsError, ProjectNotFoundError } from "../errors.js"
 import { MilestoneNotFoundError } from "../errors.js"
 import { findProject, findProjectAndIssue } from "./issues-shared.js"
 import { clampLimit, findByNameOrId } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
+import { requireUpdateFields } from "./update-guards.js"
 
 import { tracker } from "../huly-plugins.js"
 import { optionalMarkdownToMarkup, optionalMarkupToMarkdown } from "./markup.js"
@@ -45,6 +47,7 @@ type CreateMilestoneError =
 
 type UpdateMilestoneError =
   | HulyClientError
+  | NoUpdateFieldsError
   | ProjectNotFoundError
   | MilestoneNotFoundError
 
@@ -207,6 +210,8 @@ export const updateMilestone = (
   params: UpdateMilestoneParams
 ): Effect.Effect<UpdateMilestoneResult, UpdateMilestoneError, HulyClient> =>
   Effect.gen(function*() {
+    yield* requireUpdateFields("update_milestone", params, UPDATE_MILESTONE_FIELDS)
+
     const { client, milestone, project } = yield* findProjectAndMilestone(params)
     const markupUrlConfig = client.markupUrlConfig
 
@@ -236,10 +241,6 @@ export const updateMilestone = (
 
     if (params.status !== undefined) {
       updateOps.status = stringToMilestoneStatus(params.status)
-    }
-
-    if (Object.keys(updateOps).length === 0) {
-      return { id: MilestoneId.make(milestone._id), updated: false }
     }
 
     yield* client.updateDoc(

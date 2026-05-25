@@ -1,7 +1,15 @@
 import { JSONSchema, Schema } from "effect"
 
 import type { AccountUuid, ChannelId, ChannelName, PersonName } from "./shared.js"
-import { ChannelIdentifier, LimitParam, MessageId, NonEmptyString, ThreadReplyId } from "./shared.js"
+import {
+  atLeastOneUpdateFieldMessage,
+  ChannelIdentifier,
+  LimitParam,
+  MessageId,
+  NonEmptyString,
+  ThreadReplyId,
+  withAtLeastOneRequired
+} from "./shared.js"
 
 // No codec needed — internal type, not used for runtime validation
 export interface ChannelSummary {
@@ -120,6 +128,8 @@ export type CreateChannelParams = Schema.Schema.Type<typeof CreateChannelParamsS
 
 // --- Update Channel Params ---
 
+export const UPDATE_CHANNEL_FIELDS: ReadonlyArray<"name" | "topic"> = ["name", "topic"]
+
 export const UpdateChannelParamsSchema = Schema.Struct({
   channel: ChannelIdentifier.annotations({
     description: "Channel name or ID"
@@ -132,7 +142,7 @@ export const UpdateChannelParamsSchema = Schema.Struct({
   }))
 }).annotations({
   title: "UpdateChannelParams",
-  description: "Parameters for updating a channel"
+  description: `Parameters for updating a channel. ${atLeastOneUpdateFieldMessage(UPDATE_CHANNEL_FIELDS)}`
 })
 
 export type UpdateChannelParams = Schema.Schema.Type<typeof UpdateChannelParamsSchema>
@@ -331,7 +341,10 @@ export type DeleteThreadReplyParams = Schema.Schema.Type<typeof DeleteThreadRepl
 export const listChannelsParamsJsonSchema = JSONSchema.make(ListChannelsParamsSchema)
 export const getChannelParamsJsonSchema = JSONSchema.make(GetChannelParamsSchema)
 export const createChannelParamsJsonSchema = JSONSchema.make(CreateChannelParamsSchema)
-export const updateChannelParamsJsonSchema = JSONSchema.make(UpdateChannelParamsSchema)
+export const updateChannelParamsJsonSchema = withAtLeastOneRequired(
+  JSONSchema.make(UpdateChannelParamsSchema),
+  UPDATE_CHANNEL_FIELDS
+)
 export const deleteChannelParamsJsonSchema = JSONSchema.make(DeleteChannelParamsSchema)
 export const listChannelMessagesParamsJsonSchema = JSONSchema.make(ListChannelMessagesParamsSchema)
 export const sendChannelMessageParamsJsonSchema = JSONSchema.make(SendChannelMessageParamsSchema)

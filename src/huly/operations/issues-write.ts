@@ -23,11 +23,12 @@ import { Effect, Schema } from "effect"
 
 import type { CreateIssueParams, DeleteIssueParams, UpdateIssueParams } from "../../domain/schemas.js"
 import type { CreateIssueResult, DeleteIssueResult, UpdateIssueResult } from "../../domain/schemas/issues.js"
+import { UPDATE_ISSUE_FIELDS } from "../../domain/schemas/issues.js"
 import { IssueId, IssueIdentifier, type ProjectIdentifier, type StatusName } from "../../domain/schemas/shared.js"
 import type { TaskTypeRef } from "../../domain/schemas/task-management.js"
 import { normalizeForComparison } from "../../utils/normalize.js"
 import type { HulyClient, HulyClientError } from "../client.js"
-import type { IssueNotFoundError, ProjectNotFoundError } from "../errors.js"
+import type { HulyConnectionError, IssueNotFoundError, NoUpdateFieldsError, ProjectNotFoundError } from "../errors.js"
 import { HulyError, InvalidStatusError, PersonNotFoundError } from "../errors.js"
 import { task, tracker } from "../huly-plugins.js"
 import { findPersonByEmailOrName } from "./contacts-shared.js"
@@ -41,6 +42,7 @@ import {
 } from "./issues-shared.js"
 import { hulyQuery } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
+import { requireUpdateFields } from "./update-guards.js"
 
 type CreateIssueError =
   | HulyClientError
@@ -52,6 +54,8 @@ type CreateIssueError =
 
 type UpdateIssueError =
   | HulyClientError
+  | HulyConnectionError
+  | NoUpdateFieldsError
   | ProjectNotFoundError
   | IssueNotFoundError
   | InvalidStatusError
@@ -379,6 +383,8 @@ export const updateIssue = (
   params: UpdateIssueParams
 ): Effect.Effect<UpdateIssueResult, UpdateIssueError, HulyClient> =>
   Effect.gen(function*() {
+    yield* requireUpdateFields("update_issue", params, UPDATE_ISSUE_FIELDS)
+
     const { client, issue, project } = yield* findProjectAndIssue(params)
 
     const workflowData = params.status !== undefined || params.taskType !== undefined

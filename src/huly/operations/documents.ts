@@ -39,9 +39,10 @@ import type {
   GetTeamspaceResult,
   UpdateTeamspaceResult
 } from "../../domain/schemas/documents.js"
+import { UPDATE_TEAMSPACE_FIELDS } from "../../domain/schemas/documents.js"
 import { DocumentId, TeamspaceId } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
-import { DocumentNotFoundError, TeamspaceNotFoundError } from "../errors.js"
+import { DocumentNotFoundError, type NoUpdateFieldsError, TeamspaceNotFoundError } from "../errors.js"
 import { buildDocumentUrlFromConfig } from "../url-builders.js"
 import {
   clampLimit,
@@ -51,6 +52,7 @@ import {
   type StrictDocumentQuery
 } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
+import { requireUpdateFields } from "./update-guards.js"
 
 import { core, documentPlugin } from "../huly-plugins.js"
 
@@ -67,6 +69,7 @@ type CreateTeamspaceError = HulyClientError
 
 type UpdateTeamspaceError =
   | HulyClientError
+  | NoUpdateFieldsError
   | TeamspaceNotFoundError
 
 type DeleteTeamspaceError =
@@ -282,6 +285,8 @@ export const updateTeamspace = (
   params: UpdateTeamspaceParams
 ): Effect.Effect<UpdateTeamspaceResult, UpdateTeamspaceError, HulyClient> =>
   Effect.gen(function*() {
+    yield* requireUpdateFields("update_teamspace", params, UPDATE_TEAMSPACE_FIELDS)
+
     const { client, teamspace } = yield* findTeamspace(params.teamspace, { includeArchived: true })
 
     const updateOps: DocumentUpdate<HulyTeamspace> = {}
@@ -296,10 +301,6 @@ export const updateTeamspace = (
 
     if (params.archived !== undefined) {
       updateOps.archived = params.archived
-    }
-
-    if (Object.keys(updateOps).length === 0) {
-      return { id: TeamspaceId.make(teamspace._id), updated: false }
     }
 
     yield* client.updateDoc(

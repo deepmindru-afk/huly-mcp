@@ -1285,7 +1285,7 @@ describe("Issues Coverage - updateIssue branches", () => {
     }))
 
   // test-revizorro: approved
-  it.effect("returns updated=false when no changes provided", () =>
+  it.effect("fails when no changes provided", () =>
     Effect.gen(function*() {
       const project = makeProject({ identifier: "TEST" })
       const issue = makeIssue({ identifier: "TEST-1", number: 1 })
@@ -1297,13 +1297,14 @@ describe("Issues Coverage - updateIssue branches", () => {
         statuses
       })
 
-      const result = yield* updateIssue({
-        project: projectIdentifier("TEST"),
-        identifier: issueIdentifier("TEST-1")
-      }).pipe(Effect.provide(testLayer))
+      const error = yield* Effect.flip(
+        updateIssue({
+          project: projectIdentifier("TEST"),
+          identifier: issueIdentifier("TEST-1")
+        }).pipe(Effect.provide(testLayer))
+      )
 
-      expect(result.updated).toBe(false)
-      expect(result.identifier).toBe("TEST-1")
+      expect(error._tag).toBe("NoUpdateFieldsError")
     }))
 
   // test-revizorro: approved

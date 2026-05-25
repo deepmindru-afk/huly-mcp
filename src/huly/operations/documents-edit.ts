@@ -11,14 +11,16 @@ import type { Document as HulyDocument } from "@hcengineering/document"
 import { Effect } from "effect"
 
 import type { EditDocumentParams } from "../../domain/schemas.js"
-import type { EditDocumentResult } from "../../domain/schemas/documents.js"
+import { EDIT_DOCUMENT_UPDATE_FIELD_GROUPS, type EditDocumentResult } from "../../domain/schemas/documents.js"
 import { DocumentId } from "../../domain/schemas/shared.js"
 import type { HulyClient, HulyClientError } from "../client.js"
 import {
+  DocumentEditModeError,
   DocumentEmptyContentError,
   type DocumentNotFoundError,
   DocumentTextMultipleMatchesError,
   DocumentTextNotFoundError,
+  NoUpdateFieldsError,
   type TeamspaceNotFoundError
 } from "../errors.js"
 import { buildDocumentUrlFromConfig } from "../url-builders.js"
@@ -33,15 +35,52 @@ type EditDocumentError =
   | DocumentTextNotFoundError
   | DocumentTextMultipleMatchesError
   | DocumentEmptyContentError
+  | DocumentEditModeError
+  | NoUpdateFieldsError
 
 export const editDocument = (
   params: EditDocumentParams
 ): Effect.Effect<EditDocumentResult, EditDocumentError, HulyClient> =>
   Effect.gen(function*() {
+    const hasTitleOrContent = params.title !== undefined || params.content !== undefined
+    const hasOldText = params.old_text !== undefined
+    const hasNewText = params.new_text !== undefined
+    const hasSearchReplace = hasOldText && hasNewText
+
+    if (params.content !== undefined && (hasOldText || hasNewText)) {
+      return yield* new DocumentEditModeError({
+        reason: "content cannot be combined with old_text or new_text"
+      })
+    }
+
+    if (hasOldText !== hasNewText) {
+      return yield* new DocumentEditModeError({
+        reason: "old_text and new_text must be provided together"
+      })
+    }
+
+    if (hasOldText && params.old_text.trim() === "") {
+      return yield* new DocumentEditModeError({
+        reason: "old_text must be non-empty"
+      })
+    }
+
+    if (params.replace_all !== undefined && !hasSearchReplace) {
+      return yield* new DocumentEditModeError({
+        reason: "replace_all requires both old_text and new_text"
+      })
+    }
+
+    if (!hasTitleOrContent && !hasSearchReplace) {
+      return yield* new NoUpdateFieldsError({
+        operation: "edit_document",
+        fields: EDIT_DOCUMENT_UPDATE_FIELD_GROUPS
+      })
+    }
+
     const { client, doc, teamspace } = yield* findTeamspaceAndDocument(params)
 
     const updateOps: DocumentUpdate<HulyDocument> = {}
-    let contentUpdatedInPlace = false
 
     if (params.title !== undefined) {
       updateOps.title = params.title
@@ -59,7 +98,6 @@ export const editDocument = (
           params.content,
           "markdown"
         )
-        contentUpdatedInPlace = true
       } else {
         const contentMarkupRef = yield* client.uploadMarkup(
           documentPlugin.class.Document,
@@ -113,15 +151,10 @@ export const editDocument = (
         newContent,
         "markdown"
       )
-      contentUpdatedInPlace = true
     }
 
     const finalTitle = updateOps.title ?? doc.title
     const url = buildDocumentUrlFromConfig(client.workbenchUrlConfig, finalTitle, DocumentId.make(doc._id))
-
-    if (Object.keys(updateOps).length === 0 && !contentUpdatedInPlace) {
-      return { id: DocumentId.make(doc._id), updated: false, url }
-    }
 
     if (Object.keys(updateOps).length > 0) {
       yield* client.updateDoc(

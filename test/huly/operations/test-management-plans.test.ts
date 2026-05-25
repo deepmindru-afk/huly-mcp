@@ -244,6 +244,17 @@ describe("createTestPlan", () => {
 })
 
 describe("updateTestPlan", () => {
+  it.effect("fails when no update fields are provided", () =>
+    Effect.gen(function*() {
+      const err = yield* Effect.flip(
+        updateTestPlan({
+          project: testProjectIdentifier("QA Project"),
+          plan: testPlanIdentifier("Sprint Plan")
+        }).pipe(Effect.provide(buildLayer({})))
+      )
+      expect(err._tag).toBe("NoUpdateFieldsError")
+    }))
+
   it.effect("updates name", () =>
     Effect.gen(function*() {
       const cap: MockConfig["captureUpdateDoc"] = {}

@@ -33,9 +33,10 @@ import type {
   UpdateEventResult,
   WritableCalendarAccess
 } from "../../domain/schemas/calendar.js"
+import { UPDATE_EVENT_FIELDS } from "../../domain/schemas/calendar.js"
 import { CalendarId, Email, EventId, PersonId } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
-import type { CalendarNotAccessibleError } from "../errors.js"
+import type { CalendarNotAccessibleError, NoUpdateFieldsError } from "../errors.js"
 import { EventNotFoundError } from "../errors.js"
 import { calendar, core } from "../huly-plugins.js"
 import {
@@ -53,6 +54,7 @@ import {
 } from "./calendar-shared.js"
 import { clampLimit } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
+import { requireUpdateFields } from "./update-guards.js"
 
 // Re-export recurring operations for barrel consumers
 export { createRecurringEvent, listEventInstances, listRecurringEvents } from "./calendar-recurring.js"
@@ -63,7 +65,7 @@ type ListEventsError = HulyClientError
 type ListCalendarsError = HulyClientError
 type GetEventError = HulyClientError | EventNotFoundError
 type CreateEventError = HulyClientError | CalendarNotAccessibleError
-type UpdateEventError = HulyClientError | EventNotFoundError
+type UpdateEventError = HulyClientError | NoUpdateFieldsError | EventNotFoundError
 type DeleteEventError = HulyClientError | EventNotFoundError
 
 // --- Operations ---
@@ -257,6 +259,8 @@ export const updateEvent = (
   params: UpdateEventParams
 ): Effect.Effect<UpdateEventResult, UpdateEventError, HulyClient> =>
   Effect.gen(function*() {
+    yield* requireUpdateFields("update_event", params, UPDATE_EVENT_FIELDS)
+
     const client = yield* HulyClient
 
     const event = yield* client.findOne<HulyEvent>(
@@ -269,7 +273,6 @@ export const updateEvent = (
     }
 
     const updateOps: DocumentUpdate<HulyEvent> = {}
-    let descriptionUpdatedInPlace = false
 
     if (params.title !== undefined) {
       updateOps.title = params.title
@@ -286,7 +289,6 @@ export const updateEvent = (
           params.description,
           "markdown"
         )
-        descriptionUpdatedInPlace = true
       } else {
         const descriptionRef = yield* client.uploadMarkup(
           calendar.class.Event,
@@ -320,10 +322,6 @@ export const updateEvent = (
       if (vis !== undefined) {
         updateOps.visibility = vis
       }
-    }
-
-    if (Object.keys(updateOps).length === 0 && !descriptionUpdatedInPlace) {
-      return { eventId: EventId.make(params.eventId), updated: false }
     }
 
     if (Object.keys(updateOps).length > 0) {

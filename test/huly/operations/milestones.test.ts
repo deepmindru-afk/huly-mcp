@@ -761,7 +761,7 @@ describe("updateMilestone", () => {
         expect(captureUploadMarkup.markup).toBe("Completed")
       }))
 
-    it.effect("returns updated=false when no fields provided", () =>
+    it.effect("fails when no fields provided", () =>
       Effect.gen(function*() {
         const project = makeProject({ identifier: "TEST" })
         const milestone = makeMilestone({ label: "Sprint 1" })
@@ -771,12 +771,14 @@ describe("updateMilestone", () => {
           milestones: [milestone]
         })
 
-        const result = yield* updateMilestone({
-          project: projectIdentifier("TEST"),
-          milestone: milestoneIdentifier("Sprint 1")
-        }).pipe(Effect.provide(testLayer))
+        const error = yield* Effect.flip(
+          updateMilestone({
+            project: projectIdentifier("TEST"),
+            milestone: milestoneIdentifier("Sprint 1")
+          }).pipe(Effect.provide(testLayer))
+        )
 
-        expect(result.updated).toBe(false)
+        expect(error._tag).toBe("NoUpdateFieldsError")
       }))
 
     it.effect("status string to enum conversion works for all statuses", () =>

@@ -22,8 +22,10 @@ import type {
   UpdateTestPlanParams,
   UpdateTestPlanResult
 } from "../../domain/schemas/test-management-plans.js"
+import { UPDATE_TEST_PLAN_FIELDS } from "../../domain/schemas/test-management-plans.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import type {
+  NoUpdateFieldsError,
   PersonNotFoundError,
   TestCaseNotFoundError,
   TestPlanNotFoundError,
@@ -41,9 +43,11 @@ import {
   findTestProject,
   resolveAssignee
 } from "./test-management-shared.js"
+import { requireUpdateFields } from "./update-guards.js"
 
 type PlanOpError = HulyClientError | TestProjectNotFoundError
 type PlanMutateError = PlanOpError | TestPlanNotFoundError
+type UpdatePlanError = PlanMutateError | NoUpdateFieldsError
 type AddItemError = PlanMutateError | TestCaseNotFoundError | PersonNotFoundError
 
 const toPlanSummary = (p: TestPlan): TestPlanSummary => ({
@@ -130,8 +134,10 @@ export const createTestPlan = (
 
 export const updateTestPlan = (
   params: UpdateTestPlanParams
-): Effect.Effect<UpdateTestPlanResult, PlanMutateError, HulyClient> =>
+): Effect.Effect<UpdateTestPlanResult, UpdatePlanError, HulyClient> =>
   Effect.gen(function*() {
+    yield* requireUpdateFields("update_test_plan", params, UPDATE_TEST_PLAN_FIELDS)
+
     const client = yield* HulyClient
     const project = yield* findTestProject(client, params.project)
     const plan = yield* findTestPlan(client, project, params.plan)
@@ -149,7 +155,6 @@ export const updateTestPlan = (
         )
       }
     }
-    if (Object.keys(ops).length === 0) return { id: TestPlanId.make(plan._id), updated: false }
     yield* client.updateDoc(testManagement.class.TestPlan, project._id, plan._id, ops)
     return { id: TestPlanId.make(plan._id), updated: true }
   })

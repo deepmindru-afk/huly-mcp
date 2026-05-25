@@ -10,8 +10,18 @@ import {
   parseCreatePersonParams,
   parseGetPersonParams,
   parseListPersonsParams,
+  updatePersonParamsJsonSchema,
   UpdatePersonParamsSchema
 } from "./contacts.js"
+
+type JsonSchemaObject = {
+  readonly anyOf?: ReadonlyArray<{ readonly required?: ReadonlyArray<string> }>
+}
+
+const expectJsonSchemaObject = (schema: unknown): JsonSchemaObject => {
+  if (typeof schema === "object" && schema !== null) return schema
+  throw new Error("Expected JSON schema object")
+}
 
 describe("Contact Schemas", () => {
   describe("ListPersonsParamsSchema", () => {
@@ -190,11 +200,16 @@ describe("Contact Schemas", () => {
 
   describe("UpdatePersonParamsSchema", () => {
     // test-revizorro: approved
-    it("accepts personId only (no updates)", () => {
-      const result = Schema.decodeUnknownSync(UpdatePersonParamsSchema)({
+    it("accepts personId only and advertises update-field requirement in JSON Schema", () => {
+      const result = Schema.decodeUnknownEither(UpdatePersonParamsSchema)({
         personId: "abc123"
       })
-      expect(result).toEqual({ personId: "abc123" })
+      expect(result._tag).toBe("Right")
+
+      const jsonSchema = expectJsonSchemaObject(updatePersonParamsJsonSchema)
+      expect(jsonSchema.anyOf).toEqual(
+        expect.arrayContaining([{ required: ["firstName"] }, { required: ["lastName"] }, { required: ["city"] }])
+      )
     })
 
     // test-revizorro: approved

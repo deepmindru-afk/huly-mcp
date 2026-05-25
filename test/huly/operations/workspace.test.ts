@@ -371,13 +371,13 @@ describe("getUserProfile", () => {
 
 describe("updateUserProfile", () => {
   // test-revizorro: approved
-  it.effect("returns updated=false when no fields provided", () =>
+  it.effect("fails when no fields provided", () =>
     Effect.gen(function*() {
       const testLayer = WorkspaceClient.testLayer({})
 
-      const result = yield* updateUserProfile({}).pipe(Effect.provide(testLayer))
+      const error = yield* Effect.flip(updateUserProfile({}).pipe(Effect.provide(testLayer)))
 
-      expect(result.updated).toBe(false)
+      expect(error._tag).toBe("NoUpdateFieldsError")
     }))
 
   // test-revizorro: approved
@@ -459,15 +459,13 @@ describe("updateUserProfile", () => {
 
 describe("updateGuestSettings", () => {
   // test-revizorro: approved
-  it.effect("returns updated=false when no settings provided", () =>
+  it.effect("fails when no settings provided", () =>
     Effect.gen(function*() {
       const testLayer = WorkspaceClient.testLayer({})
 
-      const result = yield* updateGuestSettings({}).pipe(Effect.provide(testLayer))
+      const error = yield* Effect.flip(updateGuestSettings({}).pipe(Effect.provide(testLayer)))
 
-      expect(result.updated).toBe(false)
-      expect(result.allowReadOnly).toBeUndefined()
-      expect(result.allowSignUp).toBeUndefined()
+      expect(error._tag).toBe("NoUpdateFieldsError")
     }))
 
   // test-revizorro: approved

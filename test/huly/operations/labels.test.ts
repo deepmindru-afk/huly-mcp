@@ -327,17 +327,19 @@ describe("updateLabel", () => {
       expect(captureUpdateDoc.operations?.color).toBe(7)
     }))
 
-  it.effect("returns updated=false when no fields provided", () =>
+  it.effect("fails when no fields provided", () =>
     Effect.gen(function*() {
       const tag = makeTagElement({ title: "test" })
 
       const testLayer = createTestLayerWithMocks({ tagElements: [tag] })
 
-      const result = yield* updateLabel({
-        label: tagIdentifier("test")
-      }).pipe(Effect.provide(testLayer))
+      const error = yield* Effect.flip(
+        updateLabel({
+          label: tagIdentifier("test")
+        }).pipe(Effect.provide(testLayer))
+      )
 
-      expect(result.updated).toBe(false)
+      expect(error._tag).toBe("NoUpdateFieldsError")
     }))
 
   it.effect("returns TagNotFoundError for nonexistent label", () =>

@@ -1,7 +1,14 @@
 import { JSONSchema, Schema } from "effect"
 
 import type { DocumentId, TeamspaceId, UrlString } from "./shared.js"
-import { DocumentIdentifier, LimitParam, NonEmptyString, TeamspaceIdentifier } from "./shared.js"
+import {
+  atLeastOneUpdateFieldMessage,
+  DocumentIdentifier,
+  LimitParam,
+  NonEmptyString,
+  TeamspaceIdentifier,
+  withAtLeastOneRequired
+} from "./shared.js"
 
 // No codec needed — internal type, not used for runtime validation
 export interface TeamspaceSummary {
@@ -172,11 +179,15 @@ const EditDocumentParamsBase = Schema.Struct({
   }))
 })
 
+export const EDIT_DOCUMENT_UPDATE_FIELD_GROUPS: ReadonlyArray<string> = ["title", "content", "old_text/new_text"]
+
 export const EditDocumentParamsSchema = EditDocumentParamsBase.pipe(
   Schema.filter((params) => {
     const hasContent = params.content !== undefined
     const hasOldText = params.old_text !== undefined
     const hasNewText = params.new_text !== undefined
+    const hasSearchReplace = hasOldText && hasNewText
+    const hasUpdateField = params.title !== undefined || hasContent || hasSearchReplace
 
     if (hasContent && (hasOldText || hasNewText)) {
       return "Cannot provide both 'content' (full replace) and 'old_text'/'new_text' (search-and-replace). Use one mode or the other."
@@ -184,6 +195,14 @@ export const EditDocumentParamsSchema = EditDocumentParamsBase.pipe(
 
     if (hasOldText !== hasNewText) {
       return "Both 'old_text' and 'new_text' must be provided together for search-and-replace mode."
+    }
+
+    if (params.replace_all !== undefined && !hasOldText) {
+      return "replace_all can only be used with search-and-replace mode. Provide both 'old_text' and 'new_text'."
+    }
+
+    if (!hasUpdateField) {
+      return atLeastOneUpdateFieldMessage(EDIT_DOCUMENT_UPDATE_FIELD_GROUPS)
     }
 
     if (hasOldText && params.old_text.trim() === "") {
@@ -195,7 +214,9 @@ export const EditDocumentParamsSchema = EditDocumentParamsBase.pipe(
 ).annotations({
   title: "EditDocumentParams",
   description:
-    "Edit a document. Two content modes (mutually exclusive): (1) 'content' for full replace, (2) 'old_text' + 'new_text' for targeted search-and-replace. Also supports renaming via 'title'."
+    `Edit a document. Two content modes (mutually exclusive): (1) 'content' for full replace, (2) 'old_text' + 'new_text' for targeted search-and-replace. Also supports renaming via 'title'. ${
+      atLeastOneUpdateFieldMessage(EDIT_DOCUMENT_UPDATE_FIELD_GROUPS)
+    }`
 })
 
 export type EditDocumentParams = Schema.Schema.Type<typeof EditDocumentParamsSchema>
@@ -244,6 +265,12 @@ export const CreateTeamspaceParamsSchema = Schema.Struct({
 
 export type CreateTeamspaceParams = Schema.Schema.Type<typeof CreateTeamspaceParamsSchema>
 
+export const UPDATE_TEAMSPACE_FIELDS: ReadonlyArray<"name" | "description" | "archived"> = [
+  "name",
+  "description",
+  "archived"
+]
+
 export const UpdateTeamspaceParamsSchema = Schema.Struct({
   teamspace: TeamspaceIdentifier.annotations({
     description: "Teamspace name or ID"
@@ -259,7 +286,7 @@ export const UpdateTeamspaceParamsSchema = Schema.Struct({
   }))
 }).annotations({
   title: "UpdateTeamspaceParams",
-  description: "Parameters for updating a teamspace"
+  description: `Parameters for updating a teamspace. ${atLeastOneUpdateFieldMessage(UPDATE_TEAMSPACE_FIELDS)}`
 })
 
 export type UpdateTeamspaceParams = Schema.Schema.Type<typeof UpdateTeamspaceParamsSchema>
@@ -337,12 +364,57 @@ export interface ListInlineCommentsResult {
 export const listTeamspacesParamsJsonSchema = JSONSchema.make(ListTeamspacesParamsSchema)
 export const getTeamspaceParamsJsonSchema = JSONSchema.make(GetTeamspaceParamsSchema)
 export const createTeamspaceParamsJsonSchema = JSONSchema.make(CreateTeamspaceParamsSchema)
-export const updateTeamspaceParamsJsonSchema = JSONSchema.make(UpdateTeamspaceParamsSchema)
+export const updateTeamspaceParamsJsonSchema = withAtLeastOneRequired(
+  JSONSchema.make(UpdateTeamspaceParamsSchema),
+  UPDATE_TEAMSPACE_FIELDS
+)
 export const deleteTeamspaceParamsJsonSchema = JSONSchema.make(DeleteTeamspaceParamsSchema)
 export const listDocumentsParamsJsonSchema = JSONSchema.make(ListDocumentsParamsSchema)
 export const getDocumentParamsJsonSchema = JSONSchema.make(GetDocumentParamsSchema)
 export const createDocumentParamsJsonSchema = JSONSchema.make(CreateDocumentParamsSchema)
-export const editDocumentParamsJsonSchema = JSONSchema.make(EditDocumentParamsSchema)
+const editDocumentGeneratedJsonSchema = JSONSchema.make(EditDocumentParamsSchema)
+const isJsonSchemaRecord = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null
+const editDocumentGeneratedProperties = isJsonSchemaRecord(editDocumentGeneratedJsonSchema)
+    && isJsonSchemaRecord(editDocumentGeneratedJsonSchema.properties)
+  ? editDocumentGeneratedJsonSchema.properties
+  : {}
+const editDocumentOldTextJsonSchema = isJsonSchemaRecord(editDocumentGeneratedProperties.old_text)
+  ? editDocumentGeneratedProperties.old_text
+  : {}
+export const editDocumentParamsJsonSchema = {
+  ...editDocumentGeneratedJsonSchema,
+  properties: {
+    ...editDocumentGeneratedProperties,
+    old_text: {
+      ...editDocumentOldTextJsonSchema,
+      pattern: "\\S"
+    }
+  },
+  anyOf: [{ required: ["title"] }, { required: ["content"] }, { required: ["old_text", "new_text"] }],
+  allOf: [
+    {
+      not: {
+        anyOf: [
+          { required: ["content", "old_text"] },
+          { required: ["content", "new_text"] }
+        ]
+      }
+    },
+    {
+      if: { required: ["old_text"] },
+      then: { required: ["new_text"] }
+    },
+    {
+      if: { required: ["new_text"] },
+      then: { required: ["old_text"] }
+    },
+    {
+      if: { required: ["replace_all"] },
+      then: { required: ["old_text", "new_text"] }
+    }
+  ]
+}
 export const listInlineCommentsParamsJsonSchema = JSONSchema.make(ListInlineCommentsParamsSchema)
 export const deleteDocumentParamsJsonSchema = JSONSchema.make(DeleteDocumentParamsSchema)
 

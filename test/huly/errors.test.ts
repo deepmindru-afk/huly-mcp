@@ -17,6 +17,7 @@ import {
   ComponentNotFoundError,
   DirectMessageIdentifierAmbiguousError,
   DirectMessageNotFoundError,
+  DocumentEditModeError,
   DocumentNotFoundError,
   EventNotFoundError,
   FileFetchError,
@@ -45,6 +46,7 @@ import {
   MilestoneNotFoundError,
   NotificationContextNotFoundError,
   NotificationNotFoundError,
+  NoUpdateFieldsError,
   OrganizationIdentifierAmbiguousError,
   OrganizationNotFoundError,
   PersonIdentifierAmbiguousError,
@@ -699,6 +701,8 @@ describe("Huly Errors", () => {
               return `docmulti:${error.matchCount}`
             case "DocumentEmptyContentError":
               return `docempty:${error.identifier}`
+            case "DocumentEditModeError":
+              return `doceditmode:${error.reason}`
             case "CommentNotFoundError":
               return `comment:${error.commentId}`
             case "MilestoneNotFoundError":
@@ -813,6 +817,8 @@ describe("Huly Errors", () => {
               return `generic-object-invalid:${error.field}:${error.reason}`
             case "GenericObjectNotFoundError":
               return `generic-object-not-found:${error.field}:${error.identifier}:${error.class ?? ""}`
+            case "NoUpdateFieldsError":
+              return `no-update-fields:${error.operation}:${error.fields.length}`
             case "CannotDirectMessageSelfError":
               return `dm-self:${error.identifier}`
             case "PersonNotAnEmployeeError":
@@ -847,6 +853,7 @@ describe("Huly Errors", () => {
         expect(matchError(new HulyError({ message: "oops" }))).toBe("generic")
         expect(matchError(new TeamspaceNotFoundError({ identifier: "ts-1" }))).toBe("teamspace:ts-1")
         expect(matchError(new DocumentNotFoundError({ identifier: "doc-1", teamspace: "eng" }))).toBe("document:doc-1")
+        expect(matchError(new DocumentEditModeError({ reason: "bad mode" }))).toBe("doceditmode:bad mode")
         expect(
           matchError(new CommentNotFoundError({ commentId: "c-1", issueIdentifier: "H-1", project: "P" }))
         ).toBe("comment:c-1")
@@ -954,6 +961,9 @@ describe("Huly Errors", () => {
             })
           )
         ).toBe("generic-object-not-found:target:missing-doc:document:class:Document")
+        expect(matchError(new NoUpdateFieldsError({ operation: "update_issue", fields: ["title"] }))).toBe(
+          "no-update-fields:update_issue:1"
+        )
         expect(matchError(new CannotDirectMessageSelfError({ identifier: "Self,User" }))).toBe("dm-self:Self,User")
         expect(matchError(new PersonNotAnEmployeeError({ identifier: "Ext,Contact" }))).toBe("not-employee:Ext,Contact")
       }))

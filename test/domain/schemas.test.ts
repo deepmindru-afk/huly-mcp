@@ -40,11 +40,23 @@ import {
   parseStartProcessParams,
   parseStartTimerParams,
   parseStopTimerParams,
+  parseUpdateCardParams,
+  parseUpdateGuestSettingsParams,
   parseUpdateIssueParams,
+  parseUpdateTestPlanParams,
+  parseUpdateTestResultParams,
+  parseUpdateTestRunParams,
+  parseUpdateUserProfileParams,
   startProcessParamsJsonSchema,
   startTimerParamsJsonSchema,
   stopTimerParamsJsonSchema,
-  updateIssueParamsJsonSchema
+  updateCardParamsJsonSchema,
+  updateGuestSettingsParamsJsonSchema,
+  updateIssueParamsJsonSchema,
+  updateTestPlanParamsJsonSchema,
+  updateTestResultParamsJsonSchema,
+  updateTestRunParamsJsonSchema,
+  updateUserProfileParamsJsonSchema
 } from "../../src/domain/schemas.js"
 import { PersonRefSchema } from "../../src/domain/schemas/issues.js"
 
@@ -53,7 +65,26 @@ type JsonSchemaObject = {
   $schema?: string
   type?: string
   required?: Array<string>
-  properties?: Record<string, { description?: string }>
+  anyOf?: Array<{ required?: Array<string> }>
+  allOf?: Array<{
+    if?: { required?: Array<string> }
+    then?: { required?: Array<string> }
+    not?: { anyOf?: Array<{ required?: Array<string> }> }
+  }>
+  properties?: Record<string, { description?: string; enum?: Array<string>; pattern?: string; type?: string }>
+}
+
+const isJsonSchemaObject = (schema: unknown): schema is JsonSchemaObject =>
+  typeof schema === "object" && schema !== null
+
+const expectJsonSchemaObject = (schema: unknown): JsonSchemaObject => {
+  if (isJsonSchemaObject(schema)) return schema
+  throw new Error("Expected JSON schema object")
+}
+
+const expectJsonSchemaProperties = (schema: JsonSchemaObject): NonNullable<JsonSchemaObject["properties"]> => {
+  if (schema.properties !== undefined) return schema.properties
+  throw new Error("Expected JSON schema properties")
 }
 
 describe("Domain Schemas", () => {
@@ -114,9 +145,7 @@ describe("Domain Schemas", () => {
 
     it.effect("JSON schema preserves enum values", () =>
       Effect.gen(function*() {
-        const schema = createIssueParamsJsonSchema as JsonSchemaObject & {
-          properties?: Record<string, { type?: string; enum?: Array<string> }>
-        }
+        const schema = expectJsonSchemaObject(createIssueParamsJsonSchema)
         const priorityProp = schema.properties?.priority
         expect(priorityProp).toBeDefined()
         expect(priorityProp?.enum).toEqual(["urgent", "high", "medium", "low", "no-priority"])
@@ -436,10 +465,24 @@ describe("Domain Schemas", () => {
 
   describe("UpdateIssueParamsSchema", () => {
     // test-revizorro: approved
-    it.effect("parses minimal params", () =>
+    it.effect("parses minimal params and advertises update-field requirement in JSON Schema", () =>
       Effect.gen(function*() {
         const result = yield* parseUpdateIssueParams({ project: "HULY", identifier: "HULY-123" })
         expect(result).toEqual({ project: "HULY", identifier: "HULY-123" })
+
+        const schema = expectJsonSchemaObject(updateIssueParamsJsonSchema)
+        expect(schema.anyOf).toEqual(
+          expect.arrayContaining([
+            { required: ["title"] },
+            { required: ["description"] },
+            { required: ["priority"] },
+            { required: ["assignee"] },
+            { required: ["status"] },
+            { required: ["taskType"] },
+            { required: ["dueDate"] },
+            { required: ["estimation"] }
+          ])
+        )
       }))
 
     // test-revizorro: approved
@@ -454,6 +497,77 @@ describe("Domain Schemas", () => {
         })
         expect(result.title).toBe("Updated title")
         expect(result.assignee).toBeNull()
+      }))
+  })
+
+  describe("Other update schemas", () => {
+    it.effect("card updates parse minimal params and advertise update-field requirement", () =>
+      Effect.gen(function*() {
+        const result = yield* parseUpdateCardParams({ cardSpace: "Cards", card: "Roadmap" })
+        expect(result).toEqual({ cardSpace: "Cards", card: "Roadmap" })
+
+        const schema = expectJsonSchemaObject(updateCardParamsJsonSchema)
+        expect(schema.anyOf).toEqual(
+          expect.arrayContaining([{ required: ["title"] }, { required: ["content"] }])
+        )
+      }))
+
+    it.effect("workspace updates parse minimal params and advertise update-field requirement", () =>
+      Effect.gen(function*() {
+        const profile = yield* parseUpdateUserProfileParams({})
+        const guestSettings = yield* parseUpdateGuestSettingsParams({})
+        expect(profile).toEqual({})
+        expect(guestSettings).toEqual({})
+
+        const profileSchema = expectJsonSchemaObject(updateUserProfileParamsJsonSchema)
+        expect(profileSchema.anyOf).toEqual(
+          expect.arrayContaining([
+            { required: ["bio"] },
+            { required: ["city"] },
+            { required: ["country"] },
+            { required: ["website"] },
+            { required: ["socialLinks"] },
+            { required: ["isPublic"] }
+          ])
+        )
+
+        const guestSettingsSchema = expectJsonSchemaObject(updateGuestSettingsParamsJsonSchema)
+        expect(guestSettingsSchema.anyOf).toEqual(
+          expect.arrayContaining([{ required: ["allowReadOnly"] }, { required: ["allowSignUp"] }])
+        )
+      }))
+
+    it.effect("test-management updates parse minimal params and advertise update-field requirement", () =>
+      Effect.gen(function*() {
+        const plan = yield* parseUpdateTestPlanParams({ project: "QA", plan: "Regression" })
+        const run = yield* parseUpdateTestRunParams({ project: "QA", run: "Nightly" })
+        const result = yield* parseUpdateTestResultParams({ project: "QA", result: "Login result" })
+        expect(plan).toEqual({ project: "QA", plan: "Regression" })
+        expect(run).toEqual({ project: "QA", run: "Nightly" })
+        expect(result).toEqual({ project: "QA", result: "Login result" })
+
+        const planSchema = expectJsonSchemaObject(updateTestPlanParamsJsonSchema)
+        expect(planSchema.anyOf).toEqual(
+          expect.arrayContaining([{ required: ["name"] }, { required: ["description"] }])
+        )
+
+        const runSchema = expectJsonSchemaObject(updateTestRunParamsJsonSchema)
+        expect(runSchema.anyOf).toEqual(
+          expect.arrayContaining([
+            { required: ["name"] },
+            { required: ["description"] },
+            { required: ["dueDate"] }
+          ])
+        )
+
+        const resultSchema = expectJsonSchemaObject(updateTestResultParamsJsonSchema)
+        expect(resultSchema.anyOf).toEqual(
+          expect.arrayContaining([
+            { required: ["status"] },
+            { required: ["assignee"] },
+            { required: ["description"] }
+          ])
+        )
       }))
   })
 
@@ -540,7 +654,7 @@ describe("Domain Schemas", () => {
     // test-revizorro: approved
     it.effect("generates JSON Schema for ListIssuesParams", () =>
       Effect.gen(function*() {
-        const schema = listIssuesParamsJsonSchema as JsonSchemaObject
+        const schema = expectJsonSchemaObject(listIssuesParamsJsonSchema)
         expect(schema.$schema).toBe("http://json-schema.org/draft-07/schema#")
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("project")
@@ -549,7 +663,7 @@ describe("Domain Schemas", () => {
     // test-revizorro: approved
     it.effect("generates JSON Schema for ListProjectsParams", () =>
       Effect.gen(function*() {
-        const schema = listProjectsParamsJsonSchema as JsonSchemaObject
+        const schema = expectJsonSchemaObject(listProjectsParamsJsonSchema)
         expect(schema.$schema).toBe("http://json-schema.org/draft-07/schema#")
         expect(schema.type).toBe("object")
         // No required fields for list_projects (empty array or undefined)
@@ -561,7 +675,7 @@ describe("Domain Schemas", () => {
     // test-revizorro: approved
     it.effect("generates JSON Schema for GetIssueParams", () =>
       Effect.gen(function*() {
-        const schema = getIssueParamsJsonSchema as JsonSchemaObject
+        const schema = expectJsonSchemaObject(getIssueParamsJsonSchema)
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("project")
         expect(schema.required).toContain("identifier")
@@ -570,7 +684,7 @@ describe("Domain Schemas", () => {
     // test-revizorro: approved
     it.effect("generates JSON Schema for CreateIssueParams", () =>
       Effect.gen(function*() {
-        const schema = createIssueParamsJsonSchema as JsonSchemaObject
+        const schema = expectJsonSchemaObject(createIssueParamsJsonSchema)
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("project")
         expect(schema.required).toContain("title")
@@ -584,7 +698,7 @@ describe("Domain Schemas", () => {
     // test-revizorro: approved
     it.effect("generates JSON Schema for UpdateIssueParams", () =>
       Effect.gen(function*() {
-        const schema = updateIssueParamsJsonSchema as JsonSchemaObject
+        const schema = expectJsonSchemaObject(updateIssueParamsJsonSchema)
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("project")
         expect(schema.required).toContain("identifier")
@@ -593,7 +707,7 @@ describe("Domain Schemas", () => {
     // test-revizorro: approved
     it.effect("generates JSON Schema for AddLabelParams", () =>
       Effect.gen(function*() {
-        const schema = addLabelParamsJsonSchema as JsonSchemaObject
+        const schema = expectJsonSchemaObject(addLabelParamsJsonSchema)
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("project")
         expect(schema.required).toContain("identifier")
@@ -603,7 +717,7 @@ describe("Domain Schemas", () => {
     // test-revizorro: approved
     it.effect("schema is valid JSON Schema draft-07", () =>
       Effect.gen(function*() {
-        const schema = createIssueParamsJsonSchema as JsonSchemaObject
+        const schema = expectJsonSchemaObject(createIssueParamsJsonSchema)
         expect(schema.$schema).toBe("http://json-schema.org/draft-07/schema#")
         expect(schema.type).toBe("object")
         // additionalProperties should be false for strict validation
@@ -730,14 +844,39 @@ describe("Domain Schemas", () => {
   })
 
   describe("EditDocumentParamsSchema", () => {
-    it.effect("parses minimal params (no content change)", () =>
+    it.effect("rejects minimal params and advertises edit-field requirement in JSON Schema", () =>
       Effect.gen(function*() {
-        const result = yield* parseEditDocumentParams({
-          teamspace: "My Docs",
-          document: "Getting Started"
-        })
-        expect(result.teamspace).toBe("My Docs")
-        expect(result.document).toBe("Getting Started")
+        const error = yield* Effect.flip(
+          parseEditDocumentParams({
+            teamspace: "My Docs",
+            document: "Getting Started"
+          })
+        )
+        expect(error._tag).toBe("ParseError")
+
+        const schema = expectJsonSchemaObject(editDocumentParamsJsonSchema)
+        expect(schema.anyOf).toEqual(
+          expect.arrayContaining([
+            { required: ["title"] },
+            { required: ["content"] },
+            { required: ["old_text", "new_text"] }
+          ])
+        )
+        expect(schema.allOf).toEqual(
+          expect.arrayContaining([
+            {
+              not: {
+                anyOf: [
+                  { required: ["content", "old_text"] },
+                  { required: ["content", "new_text"] }
+                ]
+              }
+            },
+            { if: { required: ["old_text"] }, then: { required: ["new_text"] } },
+            { if: { required: ["new_text"] }, then: { required: ["old_text"] } },
+            { if: { required: ["replace_all"] }, then: { required: ["old_text", "new_text"] } }
+          ])
+        )
       }))
 
     it.effect("parses full replace mode", () =>
@@ -774,6 +913,19 @@ describe("Domain Schemas", () => {
           replace_all: true
         })
         expect(result.replace_all).toBe(true)
+      }))
+
+    it.effect("rejects replace_all outside search-and-replace mode", () =>
+      Effect.gen(function*() {
+        const error = yield* Effect.flip(
+          parseEditDocumentParams({
+            teamspace: "My Docs",
+            document: "Getting Started",
+            title: "Updated",
+            replace_all: true
+          })
+        )
+        expect(error._tag).toBe("ParseError")
       }))
 
     it.effect("rejects content + old_text together", () =>
@@ -833,7 +985,7 @@ describe("Domain Schemas", () => {
     // test-revizorro: approved
     it.effect("generates JSON Schema for ListTeamspacesParams", () =>
       Effect.gen(function*() {
-        const schema = listTeamspacesParamsJsonSchema as JsonSchemaObject
+        const schema = expectJsonSchemaObject(listTeamspacesParamsJsonSchema)
         expect(schema.$schema).toBe("http://json-schema.org/draft-07/schema#")
         expect(schema.type).toBe("object")
         expect(schema.properties).toHaveProperty("includeArchived")
@@ -843,7 +995,7 @@ describe("Domain Schemas", () => {
     // test-revizorro: approved
     it.effect("generates JSON Schema for ListDocumentsParams", () =>
       Effect.gen(function*() {
-        const schema = listDocumentsParamsJsonSchema as JsonSchemaObject
+        const schema = expectJsonSchemaObject(listDocumentsParamsJsonSchema)
         expect(schema.$schema).toBe("http://json-schema.org/draft-07/schema#")
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("teamspace")
@@ -853,7 +1005,7 @@ describe("Domain Schemas", () => {
     // test-revizorro: approved
     it.effect("generates JSON Schema for GetDocumentParams", () =>
       Effect.gen(function*() {
-        const schema = getDocumentParamsJsonSchema as JsonSchemaObject
+        const schema = expectJsonSchemaObject(getDocumentParamsJsonSchema)
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("teamspace")
         expect(schema.required).toContain("document")
@@ -862,7 +1014,7 @@ describe("Domain Schemas", () => {
     // test-revizorro: approved
     it.effect("generates JSON Schema for CreateDocumentParams", () =>
       Effect.gen(function*() {
-        const schema = createDocumentParamsJsonSchema as JsonSchemaObject
+        const schema = expectJsonSchemaObject(createDocumentParamsJsonSchema)
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("teamspace")
         expect(schema.required).toContain("title")
@@ -871,20 +1023,22 @@ describe("Domain Schemas", () => {
 
     it.effect("generates JSON Schema for EditDocumentParams", () =>
       Effect.gen(function*() {
-        const schema = editDocumentParamsJsonSchema as JsonSchemaObject
+        const schema = expectJsonSchemaObject(editDocumentParamsJsonSchema)
+        const properties = expectJsonSchemaProperties(schema)
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("teamspace")
         expect(schema.required).toContain("document")
-        expect(schema.properties).toHaveProperty("old_text")
-        expect(schema.properties).toHaveProperty("new_text")
-        expect(schema.properties).toHaveProperty("replace_all")
-        expect(schema.properties).toHaveProperty("content")
+        expect(properties).toHaveProperty("old_text")
+        expect(properties).toHaveProperty("new_text")
+        expect(properties).toHaveProperty("replace_all")
+        expect(properties).toHaveProperty("content")
+        expect(properties.old_text.pattern).toBe("\\S")
       }))
 
     // test-revizorro: approved
     it.effect("generates JSON Schema for DeleteDocumentParams", () =>
       Effect.gen(function*() {
-        const schema = deleteDocumentParamsJsonSchema as JsonSchemaObject
+        const schema = expectJsonSchemaObject(deleteDocumentParamsJsonSchema)
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("teamspace")
         expect(schema.required).toContain("document")
@@ -1034,7 +1188,7 @@ describe("Domain Schemas", () => {
     // test-revizorro: approved
     it.effect("generates JSON Schema for LogTimeParams", () =>
       Effect.gen(function*() {
-        const schema = logTimeParamsJsonSchema as JsonSchemaObject
+        const schema = expectJsonSchemaObject(logTimeParamsJsonSchema)
         expect(schema.$schema).toBe("http://json-schema.org/draft-07/schema#")
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("project")
@@ -1045,7 +1199,7 @@ describe("Domain Schemas", () => {
     // test-revizorro: approved
     it.effect("generates JSON Schema for GetTimeReportParams", () =>
       Effect.gen(function*() {
-        const schema = getTimeReportParamsJsonSchema as JsonSchemaObject
+        const schema = expectJsonSchemaObject(getTimeReportParamsJsonSchema)
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("project")
         expect(schema.required).toContain("identifier")
@@ -1054,7 +1208,7 @@ describe("Domain Schemas", () => {
     // test-revizorro: approved
     it.effect("generates JSON Schema for StartTimerParams", () =>
       Effect.gen(function*() {
-        const schema = startTimerParamsJsonSchema as JsonSchemaObject
+        const schema = expectJsonSchemaObject(startTimerParamsJsonSchema)
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("project")
         expect(schema.required).toContain("identifier")
@@ -1063,7 +1217,7 @@ describe("Domain Schemas", () => {
     // test-revizorro: approved
     it.effect("generates JSON Schema for StopTimerParams", () =>
       Effect.gen(function*() {
-        const schema = stopTimerParamsJsonSchema as JsonSchemaObject
+        const schema = expectJsonSchemaObject(stopTimerParamsJsonSchema)
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("project")
         expect(schema.required).toContain("identifier")

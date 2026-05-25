@@ -14,6 +14,21 @@ export class HulyError extends Schema.TaggedError<HulyError>()("HulyError", {
 }) {}
 
 /**
+ * Update request did not include any fields to change.
+ */
+export class NoUpdateFieldsError extends Schema.TaggedError<NoUpdateFieldsError>()(
+  "NoUpdateFieldsError",
+  {
+    operation: Schema.String,
+    fields: Schema.Array(Schema.String)
+  }
+) {
+  override get message(): string {
+    return `${this.operation} requires at least one update field: ${this.fields.join(", ")}`
+  }
+}
+
+/**
  * Connection error - network/transport failures.
  */
 export class HulyConnectionError extends Schema.TaggedError<HulyConnectionError>()(

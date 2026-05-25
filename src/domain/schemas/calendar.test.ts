@@ -9,9 +9,19 @@ import {
   ListEventInstancesParamsSchema,
   ListEventsParamsSchema,
   RecurringRuleSchema,
+  updateEventParamsJsonSchema,
   UpdateEventParamsSchema,
   VisibilitySchema
 } from "./calendar.js"
+
+type JsonSchemaObject = {
+  readonly anyOf?: ReadonlyArray<{ readonly required?: ReadonlyArray<string> }>
+}
+
+const expectJsonSchemaObject = (schema: unknown): JsonSchemaObject => {
+  if (typeof schema === "object" && schema !== null) return schema
+  throw new Error("Expected JSON schema object")
+}
 
 describe("Calendar Schemas", () => {
   describe("VisibilitySchema", () => {
@@ -231,11 +241,16 @@ describe("Calendar Schemas", () => {
 
   describe("UpdateEventParamsSchema", () => {
     // test-revizorro: approved
-    it("accepts only eventId (no changes)", () => {
+    it("accepts only eventId and advertises update-field requirement in JSON Schema", () => {
       const result = Schema.decodeUnknownEither(UpdateEventParamsSchema)({
         eventId: "evt-123"
       })
       expect(Either.isRight(result)).toBe(true)
+
+      const jsonSchema = expectJsonSchemaObject(updateEventParamsJsonSchema)
+      expect(jsonSchema.anyOf).toEqual(
+        expect.arrayContaining([{ required: ["title"] }, { required: ["description"] }, { required: ["visibility"] }])
+      )
     })
 
     // test-revizorro: approved

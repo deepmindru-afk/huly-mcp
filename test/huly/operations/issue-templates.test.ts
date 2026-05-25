@@ -1162,7 +1162,7 @@ describe("updateIssueTemplate", () => {
       expect(captureUpdate.operations).toMatchObject({ estimation: 90 })
     }))
 
-  it.effect("returns updated=false when no changes provided", () =>
+  it.effect("fails when no changes provided", () =>
     Effect.gen(function*() {
       const project = makeProject({ identifier: "TEST" })
       const template = makeIssueTemplate()
@@ -1172,13 +1172,14 @@ describe("updateIssueTemplate", () => {
         templates: [template]
       })
 
-      const result = yield* updateIssueTemplate({
-        project: projectIdentifier("TEST"),
-        template: templateIdentifier("Bug Report Template")
-      }).pipe(Effect.provide(testLayer))
+      const error = yield* Effect.flip(
+        updateIssueTemplate({
+          project: projectIdentifier("TEST"),
+          template: templateIdentifier("Bug Report Template")
+        }).pipe(Effect.provide(testLayer))
+      )
 
-      expect(result.updated).toBe(false)
-      expect(result.id).toBe("template-1")
+      expect(error._tag).toBe("NoUpdateFieldsError")
     }))
 
   it.effect("fails with PersonNotFoundError for unknown assignee", () =>

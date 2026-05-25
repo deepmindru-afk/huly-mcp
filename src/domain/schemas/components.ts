@@ -1,6 +1,7 @@
 import { JSONSchema, Schema } from "effect"
 
 import {
+  atLeastOneUpdateFieldMessage,
   ComponentId,
   ComponentIdentifier,
   ComponentLabel,
@@ -10,7 +11,8 @@ import {
   PersonName,
   PersonRefInput,
   ProjectIdentifier,
-  Timestamp
+  Timestamp,
+  withAtLeastOneRequired
 } from "./shared.js"
 
 export const ComponentSummarySchema = Schema.Struct({
@@ -90,6 +92,12 @@ export const CreateComponentParamsSchema = Schema.Struct({
 
 export type CreateComponentParams = Schema.Schema.Type<typeof CreateComponentParamsSchema>
 
+export const UPDATE_COMPONENT_FIELDS: ReadonlyArray<"label" | "description" | "lead"> = [
+  "label",
+  "description",
+  "lead"
+]
+
 export const UpdateComponentParamsSchema = Schema.Struct({
   project: ProjectIdentifier.annotations({
     description: "Project identifier (e.g., 'HULY')"
@@ -110,7 +118,7 @@ export const UpdateComponentParamsSchema = Schema.Struct({
   )
 }).annotations({
   title: "UpdateComponentParams",
-  description: "Parameters for updating a component"
+  description: `Parameters for updating a component. ${atLeastOneUpdateFieldMessage(UPDATE_COMPONENT_FIELDS)}`
 })
 
 export type UpdateComponentParams = Schema.Schema.Type<typeof UpdateComponentParamsSchema>
@@ -149,7 +157,10 @@ export type DeleteComponentParams = Schema.Schema.Type<typeof DeleteComponentPar
 export const listComponentsParamsJsonSchema = JSONSchema.make(ListComponentsParamsSchema)
 export const getComponentParamsJsonSchema = JSONSchema.make(GetComponentParamsSchema)
 export const createComponentParamsJsonSchema = JSONSchema.make(CreateComponentParamsSchema)
-export const updateComponentParamsJsonSchema = JSONSchema.make(UpdateComponentParamsSchema)
+export const updateComponentParamsJsonSchema = withAtLeastOneRequired(
+  JSONSchema.make(UpdateComponentParamsSchema),
+  UPDATE_COMPONENT_FIELDS
+)
 export const setIssueComponentParamsJsonSchema = JSONSchema.make(SetIssueComponentParamsSchema)
 export const deleteComponentParamsJsonSchema = JSONSchema.make(DeleteComponentParamsSchema)
 

@@ -1,6 +1,7 @@
 import { JSONSchema, Schema } from "effect"
 
 import {
+  atLeastOneUpdateFieldMessage,
   CalendarId,
   Email,
   EmptyParamsSchema,
@@ -8,7 +9,8 @@ import {
   EventId,
   LimitParam,
   NonEmptyString,
-  Timestamp
+  Timestamp,
+  withAtLeastOneRequired
 } from "./shared.js"
 import type { PersonId, PersonName } from "./shared.js"
 
@@ -264,6 +266,10 @@ export const CreateEventParamsSchema = Schema.Struct({
 
 export type CreateEventParams = Schema.Schema.Type<typeof CreateEventParamsSchema>
 
+export const UPDATE_EVENT_FIELDS: ReadonlyArray<
+  "title" | "description" | "date" | "dueDate" | "allDay" | "location" | "visibility"
+> = ["title", "description", "date", "dueDate", "allDay", "location", "visibility"]
+
 export const UpdateEventParamsSchema = Schema.Struct({
   eventId: EventId.annotations({
     description: "Event ID"
@@ -291,7 +297,7 @@ export const UpdateEventParamsSchema = Schema.Struct({
   }))
 }).annotations({
   title: "UpdateEventParams",
-  description: "Parameters for updating an event"
+  description: `Parameters for updating an event. ${atLeastOneUpdateFieldMessage(UPDATE_EVENT_FIELDS)}`
 })
 
 export type UpdateEventParams = Schema.Schema.Type<typeof UpdateEventParamsSchema>
@@ -395,7 +401,10 @@ export const listEventsParamsJsonSchema = JSONSchema.make(ListEventsParamsSchema
 export const getEventParamsJsonSchema = JSONSchema.make(GetEventParamsSchema)
 export const listCalendarsParamsJsonSchema = JSONSchema.make(ListCalendarsParamsSchema)
 export const createEventParamsJsonSchema = JSONSchema.make(CreateEventParamsSchema)
-export const updateEventParamsJsonSchema = JSONSchema.make(UpdateEventParamsSchema)
+export const updateEventParamsJsonSchema = withAtLeastOneRequired(
+  JSONSchema.make(UpdateEventParamsSchema),
+  UPDATE_EVENT_FIELDS
+)
 export const deleteEventParamsJsonSchema = JSONSchema.make(DeleteEventParamsSchema)
 export const listRecurringEventsParamsJsonSchema = JSONSchema.make(ListRecurringEventsParamsSchema)
 export const createRecurringEventParamsJsonSchema = JSONSchema.make(CreateRecurringEventParamsSchema)

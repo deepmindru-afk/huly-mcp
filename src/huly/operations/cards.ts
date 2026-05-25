@@ -29,12 +29,19 @@ import type {
   UpdateCardParams,
   UpdateCardResult
 } from "../../domain/schemas/cards.js"
+import { UPDATE_CARD_FIELDS } from "../../domain/schemas/cards.js"
 import { CardId, CardSpaceId, MasterTagId } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
-import { CardNotFoundError, CardSpaceNotFoundError, MasterTagNotFoundError } from "../errors.js"
+import {
+  CardNotFoundError,
+  CardSpaceNotFoundError,
+  MasterTagNotFoundError,
+  type NoUpdateFieldsError
+} from "../errors.js"
 import { cardPlugin } from "../huly-plugins.js"
 import { clampLimit, escapeLikeWildcards, findByNameOrId } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
+import { requireUpdateFields } from "./update-guards.js"
 
 type ListCardSpacesError = HulyClientError
 
@@ -60,6 +67,7 @@ type CreateCardError =
 
 type UpdateCardError =
   | HulyClientError
+  | NoUpdateFieldsError
   | CardSpaceNotFoundError
   | CardNotFoundError
 
@@ -381,13 +389,14 @@ export const updateCard = (
   params: UpdateCardParams
 ): Effect.Effect<UpdateCardResult, UpdateCardError, HulyClient> =>
   Effect.gen(function*() {
+    yield* requireUpdateFields("update_card", params, UPDATE_CARD_FIELDS)
+
     const { card, cardSpace, client } = yield* findCardSpaceAndCard({
       card: params.card,
       cardSpace: params.cardSpace
     })
 
     const updateOps: DocumentUpdate<HulyCard> = {}
-    let contentUpdatedInPlace = false
 
     if (params.title !== undefined) {
       updateOps.title = params.title
@@ -404,7 +413,6 @@ export const updateCard = (
           params.content,
           "markdown"
         )
-        contentUpdatedInPlace = true
       } else {
         const contentMarkupRef = yield* client.uploadMarkup(
           card._class,
@@ -415,10 +423,6 @@ export const updateCard = (
         )
         updateOps.content = contentMarkupRef
       }
-    }
-
-    if (Object.keys(updateOps).length === 0 && !contentUpdatedInPlace) {
-      return { id: CardId.make(card._id), updated: false }
     }
 
     if (Object.keys(updateOps).length > 0) {

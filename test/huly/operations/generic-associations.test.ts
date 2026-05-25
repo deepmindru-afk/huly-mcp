@@ -786,7 +786,7 @@ describe("listRelations", () => {
         listRelations({
           association: assocId,
           direction: "either",
-          source: { kind: "raw", id: "doc-1", class: documentClass }
+          source: { kind: "raw", id: docId("doc-1"), class: documentClass }
         }).pipe(
           Effect.provide(testLayer({
             associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],

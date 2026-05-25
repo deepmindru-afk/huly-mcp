@@ -2,6 +2,7 @@ import { JSONSchema, ParseResult, Schema } from "effect"
 
 import { normalizeForComparison } from "../../utils/normalize.js"
 import {
+  atLeastOneUpdateFieldMessage,
   ColorCode,
   ComponentIdentifier,
   Email,
@@ -16,7 +17,8 @@ import {
   PositiveNumber,
   ProjectIdentifier,
   StatusName,
-  Timestamp
+  Timestamp,
+  withAtLeastOneRequired
 } from "./shared.js"
 import { TaskTypeRefSchema } from "./task-management.js"
 
@@ -243,6 +245,10 @@ export const CreateIssueParamsSchema = Schema.Struct({
 
 export type CreateIssueParams = Schema.Schema.Type<typeof CreateIssueParamsSchema>
 
+export const UPDATE_ISSUE_FIELDS: ReadonlyArray<
+  "title" | "description" | "priority" | "assignee" | "status" | "taskType" | "dueDate" | "estimation"
+> = ["title", "description", "priority", "assignee", "status", "taskType", "dueDate", "estimation"]
+
 export const UpdateIssueParamsSchema = Schema.Struct({
   project: ProjectIdentifier.annotations({
     description: "Project identifier (e.g., 'HULY')"
@@ -283,7 +289,7 @@ export const UpdateIssueParamsSchema = Schema.Struct({
   )
 }).annotations({
   title: "UpdateIssueParams",
-  description: "Parameters for updating an issue"
+  description: `Parameters for updating an issue. ${atLeastOneUpdateFieldMessage(UPDATE_ISSUE_FIELDS)}`
 })
 
 export type UpdateIssueParams = Schema.Schema.Type<typeof UpdateIssueParamsSchema>
@@ -361,7 +367,10 @@ export type MoveIssueParams = Schema.Schema.Type<typeof MoveIssueParamsSchema>
 export const listIssuesParamsJsonSchema = JSONSchema.make(ListIssuesParamsSchema)
 export const getIssueParamsJsonSchema = JSONSchema.make(GetIssueParamsSchema)
 export const createIssueParamsJsonSchema = JSONSchema.make(CreateIssueParamsSchema)
-export const updateIssueParamsJsonSchema = JSONSchema.make(UpdateIssueParamsSchema)
+export const updateIssueParamsJsonSchema = withAtLeastOneRequired(
+  JSONSchema.make(UpdateIssueParamsSchema),
+  UPDATE_ISSUE_FIELDS
+)
 export const addLabelParamsJsonSchema = JSONSchema.make(AddLabelParamsSchema)
 export const removeLabelParamsJsonSchema = JSONSchema.make(RemoveLabelParamsSchema)
 export const deleteIssueParamsJsonSchema = JSONSchema.make(DeleteIssueParamsSchema)

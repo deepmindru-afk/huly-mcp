@@ -83,6 +83,7 @@ const INVALID_PARAMS_TAGS: ReadonlySet<HulyDomainError["_tag"]> = new Set<HulyDo
   "DocumentTextNotFoundError",
   "DocumentTextMultipleMatchesError",
   "DocumentEmptyContentError",
+  "DocumentEditModeError",
   "CommentNotFoundError",
   "MilestoneNotFoundError",
   "ChannelNotFoundError",
@@ -132,7 +133,8 @@ const INVALID_PARAMS_TAGS: ReadonlySet<HulyDomainError["_tag"]> = new Set<HulyDo
   "RelationEndpointClassMismatchError",
   "GenericObjectIdentifierAmbiguousError",
   "GenericObjectLocatorInvalidError",
-  "GenericObjectNotFoundError"
+  "GenericObjectNotFoundError",
+  "NoUpdateFieldsError"
 ])
 
 const INTERNAL_ERROR_PREFIX: Partial<Record<HulyDomainError["_tag"], string>> = {
@@ -216,6 +218,9 @@ export const createSuccessResponse = <T>(result: T): McpToolResponse => ({
 
 export const createUnknownToolError = (toolName: string): McpErrorResponseWithMeta =>
   createErrorResponse(`Unknown tool: ${toolName}`, McpErrorCode.InvalidParams, "UnknownTool")
+
+export const createInvalidParamsError = (message: string, errorTag?: string): McpErrorResponseWithMeta =>
+  createErrorResponse(message, McpErrorCode.InvalidParams, errorTag)
 
 export const toMcpResponse = (response: McpToolResponse): Omit<McpToolResponse, "_meta"> => {
   const { _meta: _, ...wire } = response

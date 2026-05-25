@@ -20,16 +20,17 @@ import type { TelemetryOperations } from "../telemetry/telemetry.js"
 import { TelemetryService } from "../telemetry/telemetry.js"
 import { VERSION } from "../version.js"
 import type { McpToolResponse } from "./error-mapping.js"
-import {
-  createSuccessResponse,
-  createUnknownToolError,
-  mapDomainErrorToMcp,
-  McpErrorCode,
-  toMcpResponse
-} from "./error-mapping.js"
+import { createSuccessResponse, createUnknownToolError, mapDomainErrorToMcp, toMcpResponse } from "./error-mapping.js"
 import { defaultToolOutputSchema, versionToolOutputSchema } from "./tool-output-schema.js"
 import type { ToolRegistry } from "./tools/index.js"
 import { CATEGORY_NAMES, createFilteredRegistry, resolveAnnotations, toolRegistry } from "./tools/index.js"
+import {
+  createMissingArgumentsError,
+  createUnexpectedArgumentsError,
+  isEmptyArgumentsObject,
+  isNoArgumentTool,
+  requiresArgumentsObject
+} from "./tools/registry.js"
 
 const NPM_PACKAGE_NAME = "@firfi/huly-mcp"
 const VERSION_TOOL_NAME = "get_version"
@@ -37,7 +38,7 @@ const VERSION_TOOL_NAME = "get_version"
 const versionToolDefinition = {
   name: VERSION_TOOL_NAME,
   description: "Returns the current version of this Huly MCP server and the latest version available on npm.",
-  inputSchema: { type: "object" as const, properties: {} },
+  inputSchema: { type: "object" as const, properties: {}, additionalProperties: false },
   outputSchema: versionToolOutputSchema,
   annotations: {
     title: "Get Version",
@@ -220,7 +221,25 @@ const createMcpServer = (
       const computeOutputBytes = (response: McpToolResponse): number =>
         response.content.reduce((sum, c) => sum + c.text.length, 0)
 
+      const returnError = (errorResponse: McpToolResponse, editMode?: string) => {
+        const durationMs = Date.now() - start // eslint-disable-line no-restricted-syntax -- non-Effect async handler
+        telemetry.toolCalled({
+          toolName: name,
+          status: "error",
+          errorTag: errorResponse._meta?.errorTag,
+          durationMs,
+          inputBytes,
+          outputBytes: computeOutputBytes(errorResponse),
+          editMode
+        })
+        return toMcpResponse(errorResponse)
+      }
+
       if (name === VERSION_TOOL_NAME) {
+        if (!isEmptyArgumentsObject(args)) {
+          return returnError(createUnexpectedArgumentsError(name))
+        }
+
         const versionResponse = await handleVersionTool()
         const durationMs = Date.now() - start // eslint-disable-line no-restricted-syntax -- non-Effect async handler
         telemetry.toolCalled({
@@ -233,10 +252,25 @@ const createMcpServer = (
         return toMcpResponse(versionResponse)
       }
 
+      const tool = registry.tools.get(name)
+      if (tool === undefined) {
+        return returnError(createUnknownToolError(name))
+      }
+
+      if (isNoArgumentTool(tool) && !isEmptyArgumentsObject(args)) {
+        return returnError(createUnexpectedArgumentsError(name))
+      }
+
+      if (args === undefined && requiresArgumentsObject(tool)) {
+        return returnError(createMissingArgumentsError(name))
+      }
+
       const deriveEditMode = (): string | undefined => {
         if (name !== "edit_document" || args === undefined) return undefined
-        if ("old_text" in args) return "search_and_replace"
-        if ("content" in args) return "full_replace"
+        const rawArgs: unknown = args
+        if (typeof rawArgs !== "object" || rawArgs === null || Array.isArray(rawArgs)) return undefined
+        if ("old_text" in rawArgs) return "search_and_replace"
+        if ("content" in rawArgs) return "full_replace"
         return "title_only"
       }
       const editMode = deriveEditMode()
@@ -245,49 +279,25 @@ const createMcpServer = (
       try {
         clients = await resolveClients()
       } catch (e) {
-        const durationMs = Date.now() - start // eslint-disable-line no-restricted-syntax
         const errorResponse = mapDomainErrorToMcp(
           new HulyError({ message: `Failed to initialize Huly clients: ${e instanceof Error ? e.message : String(e)}` })
         )
-        telemetry.toolCalled({
-          toolName: name,
-          status: "error",
-          errorTag: errorResponse._meta.errorTag,
-          durationMs,
-          inputBytes,
-          outputBytes: computeOutputBytes(errorResponse),
-          editMode
-        })
-        return toMcpResponse(errorResponse)
+        return returnError(errorResponse, editMode)
       }
 
       const response = await registry.handleToolCall(
         name,
-        args ?? {},
+        args,
         clients.hulyClient,
         clients.storageClient,
         clients.workspaceClient
       )
       const durationMs = Date.now() - start // eslint-disable-line no-restricted-syntax
+      if (response === null) return returnError(createUnknownToolError(name), editMode)
 
-      if (response === null) {
-        const errorResponse = createUnknownToolError(name)
-        telemetry.toolCalled({
-          toolName: name,
-          status: "error",
-          errorTag: errorResponse._meta.errorTag,
-          durationMs,
-          inputBytes,
-          outputBytes: computeOutputBytes(errorResponse),
-          editMode
-        })
-        return toMcpResponse(errorResponse)
-      }
-
-      const isInternalError = response._meta?.errorCode === McpErrorCode.InternalError
       telemetry.toolCalled({
         toolName: name,
-        status: isInternalError ? "error" : "success",
+        status: response.isError === true ? "error" : "success",
         errorTag: response._meta?.errorTag,
         durationMs,
         inputBytes,

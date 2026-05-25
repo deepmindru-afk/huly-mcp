@@ -35,19 +35,21 @@ import type {
   ListPersonOrganizationsResult,
   UpdatePersonResult
 } from "../../domain/schemas/contacts.js"
+import { UPDATE_PERSON_FIELDS } from "../../domain/schemas/contacts.js"
 import { ContactProvider, Email, OrganizationId, PersonId, PersonName } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
-import { PersonNotFoundError } from "../errors.js"
+import { type NoUpdateFieldsError, PersonNotFoundError } from "../errors.js"
 import { contact } from "../huly-plugins.js"
 import { buildContactUrlFromConfig } from "../url-builders.js"
 import { batchGetEmailsForPersons, findPersonByEmail, findPersonById } from "./contacts-shared.js"
 import { clampLimit, escapeLikeWildcards } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
+import { requireUpdateFields } from "./update-guards.js"
 
 type ListPersonsError = HulyClientError
 type GetPersonError = HulyClientError | PersonNotFoundError
 type CreatePersonError = HulyClientError
-type UpdatePersonError = HulyClientError | PersonNotFoundError
+type UpdatePersonError = HulyClientError | NoUpdateFieldsError | PersonNotFoundError
 type DeletePersonError = HulyClientError | PersonNotFoundError
 type ListEmployeesError = HulyClientError
 
@@ -244,6 +246,8 @@ export const updatePerson = (
   params: UpdatePersonParams
 ): Effect.Effect<UpdatePersonResult, UpdatePersonError, HulyClient> =>
   Effect.gen(function*() {
+    yield* requireUpdateFields("update_person", params, UPDATE_PERSON_FIELDS)
+
     const client = yield* HulyClient
 
     const person = yield* findPersonById(client, params.personId)
@@ -262,10 +266,6 @@ export const updatePerson = (
 
     if (params.city !== undefined) {
       updateOps.city = params.city === null ? "" : params.city
-    }
-
-    if (Object.keys(updateOps).length === 0) {
-      return { id: PersonId.make(params.personId), updated: false }
     }
 
     yield* client.updateDoc(

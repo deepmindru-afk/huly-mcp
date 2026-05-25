@@ -3,6 +3,7 @@ import { JSONSchema, Schema } from "effect"
 import type { PersonName, SpaceId as SpaceIdType, UrlString } from "./shared.js"
 import {
   AccountId,
+  atLeastOneUpdateFieldMessage,
   Email,
   EmptyParamsSchema,
   enumValuesDescription,
@@ -12,6 +13,7 @@ import {
   RegionId,
   SpaceId,
   UrlString as UrlStringSchema,
+  withAtLeastOneRequired,
   WorkspaceMode,
   WorkspaceName,
   WorkspaceUuid,
@@ -137,6 +139,10 @@ export const CreateWorkspaceParamsSchema = Schema.Struct({
 
 export type CreateWorkspaceParams = Schema.Schema.Type<typeof CreateWorkspaceParamsSchema>
 
+export const UPDATE_USER_PROFILE_FIELDS: ReadonlyArray<
+  "bio" | "city" | "country" | "website" | "socialLinks" | "isPublic"
+> = ["bio", "city", "country", "website", "socialLinks", "isPublic"]
+
 export const UpdateUserProfileParamsSchema = Schema.Struct({
   bio: Schema.optional(
     Schema.NullOr(Schema.String).annotations({
@@ -170,10 +176,15 @@ export const UpdateUserProfileParamsSchema = Schema.Struct({
   )
 }).annotations({
   title: "UpdateUserProfileParams",
-  description: "Parameters for updating user profile"
+  description: `Parameters for updating user profile. ${atLeastOneUpdateFieldMessage(UPDATE_USER_PROFILE_FIELDS)}`
 })
 
 export type UpdateUserProfileParams = Schema.Schema.Type<typeof UpdateUserProfileParamsSchema>
+
+export const UPDATE_GUEST_SETTINGS_FIELDS: ReadonlyArray<"allowReadOnly" | "allowSignUp"> = [
+  "allowReadOnly",
+  "allowSignUp"
+]
 
 export const UpdateGuestSettingsParamsSchema = Schema.Struct({
   allowReadOnly: Schema.optional(
@@ -188,7 +199,7 @@ export const UpdateGuestSettingsParamsSchema = Schema.Struct({
   )
 }).annotations({
   title: "UpdateGuestSettingsParams",
-  description: "Parameters for updating guest settings"
+  description: `Parameters for updating guest settings. ${atLeastOneUpdateFieldMessage(UPDATE_GUEST_SETTINGS_FIELDS)}`
 })
 
 export type UpdateGuestSettingsParams = Schema.Schema.Type<typeof UpdateGuestSettingsParamsSchema>
@@ -291,8 +302,14 @@ export const listWorkspaceMembersParamsJsonSchema = JSONSchema.make(ListWorkspac
 export const updateMemberRoleParamsJsonSchema = JSONSchema.make(UpdateMemberRoleParamsSchema)
 export const listWorkspacesParamsJsonSchema = JSONSchema.make(ListWorkspacesParamsSchema)
 export const createWorkspaceParamsJsonSchema = JSONSchema.make(CreateWorkspaceParamsSchema)
-export const updateUserProfileParamsJsonSchema = JSONSchema.make(UpdateUserProfileParamsSchema)
-export const updateGuestSettingsParamsJsonSchema = JSONSchema.make(UpdateGuestSettingsParamsSchema)
+export const updateUserProfileParamsJsonSchema = withAtLeastOneRequired(
+  JSONSchema.make(UpdateUserProfileParamsSchema),
+  UPDATE_USER_PROFILE_FIELDS
+)
+export const updateGuestSettingsParamsJsonSchema = withAtLeastOneRequired(
+  JSONSchema.make(UpdateGuestSettingsParamsSchema),
+  UPDATE_GUEST_SETTINGS_FIELDS
+)
 export const createAccessLinkParamsJsonSchema = JSONSchema.make(CreateAccessLinkParamsSchema)
 export const getRegionsParamsJsonSchema = JSONSchema.make(GetRegionsParamsSchema)
 

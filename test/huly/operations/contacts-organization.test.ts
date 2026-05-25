@@ -568,17 +568,19 @@ describe("Organization CRUD, Customer Mixin, Channels, and Membership", () => {
         expect(capture.operations?.city).toBe("")
       }))
 
-    it.effect("returns updated:false when no changes provided", () =>
+    it.effect("fails when no changes provided", () =>
       Effect.gen(function*() {
         const org = createMockOrganization()
 
         const testLayer = createTestLayer({ organizations: [org] })
 
-        const result = yield* updateOrganization({
-          identifier: "org-1"
-        }).pipe(Effect.provide(testLayer))
+        const error = yield* Effect.flip(
+          updateOrganization({
+            identifier: "org-1"
+          }).pipe(Effect.provide(testLayer))
+        )
 
-        expect(result.updated).toBe(false)
+        expect(error._tag).toBe("NoUpdateFieldsError")
       }))
 
     it.effect("returns OrganizationNotFoundError when org not found", () =>
@@ -586,7 +588,7 @@ describe("Organization CRUD, Customer Mixin, Channels, and Membership", () => {
         const testLayer = createTestLayer({ organizations: [] })
 
         const error = yield* Effect.flip(
-          updateOrganization({ identifier: "missing" }).pipe(Effect.provide(testLayer))
+          updateOrganization({ identifier: "missing", name: "Missing" }).pipe(Effect.provide(testLayer))
         )
 
         expect(error._tag).toBe("OrganizationNotFoundError")

@@ -1,7 +1,16 @@
 import { JSONSchema, Schema } from "effect"
 
 import type { ContactProvider, OrganizationId, PersonName, UrlString } from "./shared.js"
-import { Email, enumValuesDescription, LimitParam, MemberReference, NonEmptyString, PersonId } from "./shared.js"
+import {
+  atLeastOneUpdateFieldMessage,
+  Email,
+  enumValuesDescription,
+  LimitParam,
+  MemberReference,
+  NonEmptyString,
+  PersonId,
+  withAtLeastOneRequired
+} from "./shared.js"
 
 // No codec needed — internal type, not used for runtime validation
 export interface PersonSummary {
@@ -131,6 +140,12 @@ export const CreatePersonParamsSchema = Schema.Struct({
 
 export type CreatePersonParams = Schema.Schema.Type<typeof CreatePersonParamsSchema>
 
+export const UPDATE_PERSON_FIELDS: ReadonlyArray<"firstName" | "lastName" | "city"> = [
+  "firstName",
+  "lastName",
+  "city"
+]
+
 export const UpdatePersonParamsSchema = Schema.Struct({
   personId: PersonId.annotations({
     description: "Person ID"
@@ -148,7 +163,7 @@ export const UpdatePersonParamsSchema = Schema.Struct({
   )
 }).annotations({
   title: "UpdatePersonParams",
-  description: "Parameters for updating a person"
+  description: `Parameters for updating a person. ${atLeastOneUpdateFieldMessage(UPDATE_PERSON_FIELDS)}`
 })
 
 export type UpdatePersonParams = Schema.Schema.Type<typeof UpdatePersonParamsSchema>
@@ -217,6 +232,12 @@ export const GetOrganizationParamsSchema = Schema.Struct({
 
 export type GetOrganizationParams = Schema.Schema.Type<typeof GetOrganizationParamsSchema>
 
+export const UPDATE_ORGANIZATION_FIELDS: ReadonlyArray<"name" | "city" | "description"> = [
+  "name",
+  "city",
+  "description"
+]
+
 export const UpdateOrganizationParamsSchema = Schema.Struct({
   identifier: NonEmptyString.annotations({
     description: "Organization ID or exact name"
@@ -236,7 +257,9 @@ export const UpdateOrganizationParamsSchema = Schema.Struct({
   )
 }).annotations({
   title: "UpdateOrganizationParams",
-  description: "Update fields on an existing organization. Only provided fields are modified."
+  description: `Update fields on an existing organization. Only provided fields are modified. ${
+    atLeastOneUpdateFieldMessage(UPDATE_ORGANIZATION_FIELDS)
+  }`
 })
 
 export type UpdateOrganizationParams = Schema.Schema.Type<typeof UpdateOrganizationParamsSchema>
@@ -365,13 +388,19 @@ export const parseRemoveOrganizationMemberParams = Schema.decodeUnknown(RemoveOr
 export const listPersonsParamsJsonSchema = JSONSchema.make(ListPersonsParamsSchema)
 export const getPersonParamsJsonSchema = JSONSchema.make(GetPersonParamsSchema)
 export const createPersonParamsJsonSchema = JSONSchema.make(CreatePersonParamsSchema)
-export const updatePersonParamsJsonSchema = JSONSchema.make(UpdatePersonParamsSchema)
+export const updatePersonParamsJsonSchema = withAtLeastOneRequired(
+  JSONSchema.make(UpdatePersonParamsSchema),
+  UPDATE_PERSON_FIELDS
+)
 export const deletePersonParamsJsonSchema = JSONSchema.make(DeletePersonParamsSchema)
 export const listEmployeesParamsJsonSchema = JSONSchema.make(ListEmployeesParamsSchema)
 export const listOrganizationsParamsJsonSchema = JSONSchema.make(ListOrganizationsParamsSchema)
 export const createOrganizationParamsJsonSchema = JSONSchema.make(CreateOrganizationParamsSchema)
 export const getOrganizationParamsJsonSchema = JSONSchema.make(GetOrganizationParamsSchema)
-export const updateOrganizationParamsJsonSchema = JSONSchema.make(UpdateOrganizationParamsSchema)
+export const updateOrganizationParamsJsonSchema = withAtLeastOneRequired(
+  JSONSchema.make(UpdateOrganizationParamsSchema),
+  UPDATE_ORGANIZATION_FIELDS
+)
 export const deleteOrganizationParamsJsonSchema = JSONSchema.make(DeleteOrganizationParamsSchema)
 
 export const parseListPersonsParams = Schema.decodeUnknown(ListPersonsParamsSchema)

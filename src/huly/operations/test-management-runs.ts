@@ -30,8 +30,10 @@ import type {
   UpdateTestRunParams,
   UpdateTestRunResult
 } from "../../domain/schemas/test-management-plans.js"
+import { UPDATE_TEST_RESULT_FIELDS, UPDATE_TEST_RUN_FIELDS } from "../../domain/schemas/test-management-plans.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import type {
+  NoUpdateFieldsError,
   PersonNotFoundError,
   TestPlanNotFoundError,
   TestProjectNotFoundError,
@@ -55,10 +57,13 @@ import {
   stringToTestRunStatus,
   testRunStatusToString
 } from "./test-management-shared.js"
+import { requireUpdateFields } from "./update-guards.js"
 
 type TestRunOpError = HulyClientError | TestProjectNotFoundError
 type TestRunMutateError = TestRunOpError | TestRunNotFoundError
 type TestResultMutateError = HulyClientError | TestProjectNotFoundError | TestResultNotFoundError
+type UpdateTestRunError = TestRunMutateError | NoUpdateFieldsError
+type UpdateTestResultError = TestResultMutateError | NoUpdateFieldsError | PersonNotFoundError
 type CreateResultError = TestRunOpError | TestRunNotFoundError | TestCaseNotFoundError | PersonNotFoundError
 type RunPlanError = HulyClientError | TestProjectNotFoundError | TestPlanNotFoundError | TestCaseNotFoundError
 
@@ -145,8 +150,10 @@ export const createTestRun = (
 
 export const updateTestRun = (
   params: UpdateTestRunParams
-): Effect.Effect<UpdateTestRunResult, TestRunMutateError, HulyClient> =>
+): Effect.Effect<UpdateTestRunResult, UpdateTestRunError, HulyClient> =>
   Effect.gen(function*() {
+    yield* requireUpdateFields("update_test_run", params, UPDATE_TEST_RUN_FIELDS)
+
     const client = yield* HulyClient
     const project = yield* findTestProject(client, params.project)
     const run = yield* findTestRun(client, project, params.run)
@@ -169,7 +176,6 @@ export const updateTestRun = (
       if (params.dueDate === null) ops.$unset = { dueDate: "" }
       else ops.dueDate = params.dueDate
     }
-    if (Object.keys(ops).length === 0) return { id: TestRunId.make(run._id), updated: false }
     yield* client.updateDoc(testManagement.class.TestRun, project._id, run._id, ops)
     return { id: TestRunId.make(run._id), updated: true }
   })
@@ -260,8 +266,10 @@ export const createTestResult = (
 
 export const updateTestResult = (
   params: UpdateTestResultParams
-): Effect.Effect<UpdateTestResultResult, TestResultMutateError | PersonNotFoundError, HulyClient> =>
+): Effect.Effect<UpdateTestResultResult, UpdateTestResultError, HulyClient> =>
   Effect.gen(function*() {
+    yield* requireUpdateFields("update_test_result", params, UPDATE_TEST_RESULT_FIELDS)
+
     const client = yield* HulyClient
     const project = yield* findTestProject(client, params.project)
     const result = yield* findTestResult(client, project, params.result)
@@ -283,7 +291,6 @@ export const updateTestResult = (
         )
       }
     }
-    if (Object.keys(ops).length === 0) return { id: TestResultId.make(result._id), updated: false }
     yield* client.updateDoc(testManagement.class.TestResult, result.space, result._id, ops)
     return { id: TestResultId.make(result._id), updated: true }
   })

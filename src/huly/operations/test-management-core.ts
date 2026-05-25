@@ -1,3 +1,4 @@
+/* eslint-disable max-lines -- test management core operations are co-located; splitting is outside this no-op semantics change */
 import type { Employee } from "@hcengineering/contact"
 import type {
   AttachedData,
@@ -40,8 +41,10 @@ import type {
   UpdateTestSuiteParams,
   UpdateTestSuiteResult
 } from "../../domain/schemas/test-management-core.js"
+import { UPDATE_TEST_CASE_FIELDS, UPDATE_TEST_SUITE_FIELDS } from "../../domain/schemas/test-management-core.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import type {
+  NoUpdateFieldsError,
   PersonNotFoundError,
   TestCaseNotFoundError,
   TestProjectNotFoundError,
@@ -71,17 +74,23 @@ import {
   testCaseStatusToString,
   testCaseTypeToString
 } from "./test-management-shared.js"
+import { requireUpdateFields } from "./update-guards.js"
 
 type ListTestProjectsError = HulyClientError
 type ListTestSuitesError = HulyClientError | TestProjectNotFoundError | TestSuiteNotFoundError
 type GetTestSuiteError = HulyClientError | TestProjectNotFoundError | TestSuiteNotFoundError
 type CreateTestSuiteError = HulyClientError | TestProjectNotFoundError | TestSuiteNotFoundError
-type UpdateTestSuiteError = HulyClientError | TestProjectNotFoundError | TestSuiteNotFoundError
+type UpdateTestSuiteError = HulyClientError | NoUpdateFieldsError | TestProjectNotFoundError | TestSuiteNotFoundError
 type DeleteTestSuiteError = HulyClientError | TestProjectNotFoundError | TestSuiteNotFoundError
 type ListTestCasesError = HulyClientError | TestProjectNotFoundError | TestSuiteNotFoundError | PersonNotFoundError
 type GetTestCaseError = HulyClientError | TestProjectNotFoundError | TestCaseNotFoundError
 type CreateTestCaseError = HulyClientError | TestProjectNotFoundError | TestSuiteNotFoundError | PersonNotFoundError
-type UpdateTestCaseError = HulyClientError | TestProjectNotFoundError | TestCaseNotFoundError | PersonNotFoundError
+type UpdateTestCaseError =
+  | HulyClientError
+  | NoUpdateFieldsError
+  | TestProjectNotFoundError
+  | TestCaseNotFoundError
+  | PersonNotFoundError
 type DeleteTestCaseError = HulyClientError | TestProjectNotFoundError | TestCaseNotFoundError
 
 const toProjectSummary = (p: TestProject): TestProjectSummary => {
@@ -244,6 +253,8 @@ export const updateTestSuite = (
   params: UpdateTestSuiteParams
 ): Effect.Effect<UpdateTestSuiteResult, UpdateTestSuiteError, HulyClient> =>
   Effect.gen(function*() {
+    yield* requireUpdateFields("update_test_suite", params, UPDATE_TEST_SUITE_FIELDS)
+
     const client = yield* HulyClient
     const project = yield* findTestProject(client, params.project)
     const suite = yield* findTestSuite(client, project, params.suite)
@@ -259,10 +270,6 @@ export const updateTestSuite = (
       } else {
         updateOps.description = params.description
       }
-    }
-
-    if (Object.keys(updateOps).length === 0) {
-      return { id: TestSuiteId.make(suite._id), updated: false }
     }
 
     yield* client.updateDoc(
@@ -422,6 +429,8 @@ export const updateTestCase = (
   params: UpdateTestCaseParams
 ): Effect.Effect<UpdateTestCaseResult, UpdateTestCaseError, HulyClient> =>
   Effect.gen(function*() {
+    yield* requireUpdateFields("update_test_case", params, UPDATE_TEST_CASE_FIELDS)
+
     const client = yield* HulyClient
     const project = yield* findTestProject(client, params.project)
     const tc = yield* findTestCase(client, project, params.testCase)
@@ -469,10 +478,6 @@ export const updateTestCase = (
         const person = yield* resolveAssignee(params.assignee)
         ops.assignee = toRef<Employee>(person._id)
       }
-    }
-
-    if (Object.keys(ops).length === 0) {
-      return { id: TestCaseId.make(tc._id), updated: false }
     }
 
     yield* client.updateDoc(

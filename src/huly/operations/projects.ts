@@ -26,20 +26,21 @@ import type {
   UpdateProjectResult
 } from "../../domain/schemas.js"
 import type { ListStatusesResult, StatusDetail } from "../../domain/schemas/projects.js"
-import { parseProject, ProjectSummarySchema } from "../../domain/schemas/projects.js"
+import { parseProject, ProjectSummarySchema, UPDATE_PROJECT_FIELDS } from "../../domain/schemas/projects.js"
 import { ProjectIdentifier, StatusName } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
-import type { ProjectNotFoundError } from "../errors.js"
+import type { NoUpdateFieldsError, ProjectNotFoundError } from "../errors.js"
 import { HulyConnectionError } from "../errors.js"
 import { tracker } from "../huly-plugins.js"
 import { findProject, findProjectWithStatuses } from "./issues-shared.js"
 import { clampLimit } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
+import { requireUpdateFields } from "./update-guards.js"
 
 type ListProjectsError = HulyClientError | HulyConnectionError
 type GetProjectError = ProjectNotFoundError | HulyClientError | HulyConnectionError
 type CreateProjectError = HulyClientError
-type UpdateProjectError = ProjectNotFoundError | HulyClientError
+type UpdateProjectError = ProjectNotFoundError | NoUpdateFieldsError | HulyClientError
 type DeleteProjectError = ProjectNotFoundError | HulyClientError
 
 export const listProjects = (
@@ -205,6 +206,8 @@ export const updateProject = (
   params: UpdateProjectParams
 ): Effect.Effect<UpdateProjectResult, UpdateProjectError, HulyClient> =>
   Effect.gen(function*() {
+    yield* requireUpdateFields("update_project", params, UPDATE_PROJECT_FIELDS)
+
     const { client, project } = yield* findProject(params.project)
 
     const updateOps: DocumentUpdate<HulyProject> = {}
@@ -215,10 +218,6 @@ export const updateProject = (
 
     if (params.description !== undefined) {
       updateOps.description = params.description === null ? "" : params.description
-    }
-
-    if (Object.keys(updateOps).length === 0) {
-      return { identifier: ProjectIdentifier.make(project.identifier), updated: false }
     }
 
     yield* client.updateDoc(

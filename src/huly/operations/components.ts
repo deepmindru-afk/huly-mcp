@@ -28,14 +28,16 @@ import type {
   SetIssueComponentResult,
   UpdateComponentResult
 } from "../../domain/schemas/components.js"
+import { UPDATE_COMPONENT_FIELDS } from "../../domain/schemas/components.js"
 import { ComponentId, ComponentLabel, IssueIdentifier, PersonName } from "../../domain/schemas/shared.js"
 import { isExistent } from "../../utils/assertions.js"
 import type { HulyClient, HulyClientError } from "../client.js"
-import type { IssueNotFoundError, ProjectNotFoundError } from "../errors.js"
+import type { HulyConnectionError, IssueNotFoundError, NoUpdateFieldsError, ProjectNotFoundError } from "../errors.js"
 import { ComponentNotFoundError, PersonNotFoundError } from "../errors.js"
 import { findPersonByEmailOrName } from "./contacts-shared.js"
 import { findProject, findProjectAndIssue } from "./issues-shared.js"
 import { toRef } from "./sdk-boundary.js"
+import { requireUpdateFields } from "./update-guards.js"
 
 import { contact, tracker } from "../huly-plugins.js"
 import { optionalMarkdownToMarkup, optionalMarkupToMarkdown } from "./markup.js"
@@ -56,6 +58,8 @@ type CreateComponentError =
 
 type UpdateComponentError =
   | HulyClientError
+  | HulyConnectionError
+  | NoUpdateFieldsError
   | ProjectNotFoundError
   | ComponentNotFoundError
   | PersonNotFoundError
@@ -228,6 +232,8 @@ export const updateComponent = (
   params: UpdateComponentParams
 ): Effect.Effect<UpdateComponentResult, UpdateComponentError, HulyClient> =>
   Effect.gen(function*() {
+    yield* requireUpdateFields("update_component", params, UPDATE_COMPONENT_FIELDS)
+
     const { client, component, project } = yield* findProjectAndComponent(params)
     const markupUrlConfig = client.markupUrlConfig
 
@@ -253,10 +259,6 @@ export const updateComponent = (
         // Employee extends Person, so this is safe when person is actually an employee.
         updateOps.lead = toRef<Employee>(person._id)
       }
-    }
-
-    if (Object.keys(updateOps).length === 0) {
-      return { id: ComponentId.make(component._id), updated: false }
     }
 
     yield* client.updateDoc(

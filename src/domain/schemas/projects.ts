@@ -1,6 +1,13 @@
 import { JSONSchema, Schema } from "effect"
 
-import { LimitParam, NonEmptyString, ProjectIdentifier, StatusName } from "./shared.js"
+import {
+  atLeastOneUpdateFieldMessage,
+  LimitParam,
+  NonEmptyString,
+  ProjectIdentifier,
+  StatusName,
+  withAtLeastOneRequired
+} from "./shared.js"
 
 export const ProjectSummarySchema = Schema.Struct({
   identifier: ProjectIdentifier,
@@ -66,13 +73,18 @@ export const CreateProjectParamsSchema = Schema.Struct({
 }).annotations({ title: "CreateProjectParams", description: "Parameters for creating a project" })
 export type CreateProjectParams = Schema.Schema.Type<typeof CreateProjectParamsSchema>
 
+export const UPDATE_PROJECT_FIELDS: ReadonlyArray<"name" | "description"> = ["name", "description"]
+
 export const UpdateProjectParamsSchema = Schema.Struct({
   project: ProjectIdentifier.annotations({ description: "Project identifier to update" }),
   name: Schema.optional(NonEmptyString.annotations({ description: "New project name" })),
   description: Schema.optional(
     Schema.NullOr(Schema.String).annotations({ description: "New description (null to clear)" })
   )
-}).annotations({ title: "UpdateProjectParams", description: "Parameters for updating a project" })
+}).annotations({
+  title: "UpdateProjectParams",
+  description: `Parameters for updating a project. ${atLeastOneUpdateFieldMessage(UPDATE_PROJECT_FIELDS)}`
+})
 export type UpdateProjectParams = Schema.Schema.Type<typeof UpdateProjectParamsSchema>
 
 export const DeleteProjectParamsSchema = Schema.Struct({
@@ -105,7 +117,10 @@ export const listProjectsParamsJsonSchema = JSONSchema.make(ListProjectsParamsSc
 export const listStatusesParamsJsonSchema = JSONSchema.make(ListStatusesParamsSchema)
 export const getProjectParamsJsonSchema = JSONSchema.make(GetProjectParamsSchema)
 export const createProjectParamsJsonSchema = JSONSchema.make(CreateProjectParamsSchema)
-export const updateProjectParamsJsonSchema = JSONSchema.make(UpdateProjectParamsSchema)
+export const updateProjectParamsJsonSchema = withAtLeastOneRequired(
+  JSONSchema.make(UpdateProjectParamsSchema),
+  UPDATE_PROJECT_FIELDS
+)
 export const deleteProjectParamsJsonSchema = JSONSchema.make(DeleteProjectParamsSchema)
 
 export const parseListProjectsParams = Schema.decodeUnknown(ListProjectsParamsSchema)

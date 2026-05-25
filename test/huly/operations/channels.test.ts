@@ -629,15 +629,17 @@ describe("updateChannel", () => {
     }))
 
   // test-revizorro: approved
-  it.effect("returns updated=false when no fields provided", () =>
+  it.effect("fails when no fields provided", () =>
     Effect.gen(function*() {
       const channel = makeChannel({ _id: "ch-1" as Ref<HulyChannel>, name: "general" })
 
       const testLayer = createTestLayerWithMocks({ channels: [channel] })
 
-      const result = yield* updateChannel({ channel: channelIdentifier("general") }).pipe(Effect.provide(testLayer))
+      const error = yield* Effect.flip(
+        updateChannel({ channel: channelIdentifier("general") }).pipe(Effect.provide(testLayer))
+      )
 
-      expect(result.updated).toBe(false)
+      expect(error._tag).toBe("NoUpdateFieldsError")
     }))
 
   // test-revizorro: approved

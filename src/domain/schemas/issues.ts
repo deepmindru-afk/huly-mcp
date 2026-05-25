@@ -73,7 +73,8 @@ export const PersonRefSchema = Schema.Struct({
 export type PersonRef = Schema.Schema.Type<typeof PersonRefSchema>
 
 const IssueIdOutputSchema = IssueId.annotations({
-  description: "Raw Huly issue _id. Use this as a raw object locator id for relation and activity tools."
+  description:
+    "Raw Huly issue _id. For raw objectId/objectClass tools, pair this with objectClass 'tracker:class:Issue'. Prefer friendly issue locators when a tool provides them."
 })
 
 export const IssueSummarySchema = Schema.Struct({

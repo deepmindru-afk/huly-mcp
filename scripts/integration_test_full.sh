@@ -139,6 +139,19 @@ assert_json_field_equals() {
   return 1
 }
 
+assert_json_any_equals() {
+  local name="$1" json="$2" jq_expr="$3"
+  if printf '%s\n' "$json" | jq -e "$jq_expr" >/dev/null 2>&1; then
+    echo "PASS: $name"
+    PASSED=$((PASSED + 1))
+    return 0
+  fi
+  echo "FAIL: $name (no matching JSON item)"
+  FAILED=$((FAILED + 1))
+  ERRORS="${ERRORS}\n  - ${name}: no matching JSON item"
+  return 1
+}
+
 assert_json_blocks_contains_identifier() {
   local name="$1" json="$2" expected="$3"
   if printf '%s\n' "$json" | jq -e --arg expected "$expected" 'any(.blocks[]?; .identifier == $expected)' >/dev/null 2>&1; then
@@ -412,11 +425,20 @@ if [ $? -eq 0 ]; then
   ISSUE_OBJ_ID=$(echo "$ISSUE_TEXT" | jq -r '.issueId' 2>/dev/null)
   echo "  => $ISSUE_ID ($ISSUE_OBJ_ID)"
 
-  run_test "get_issue($ISSUE_ID)" \
+  GET_ISSUE_TEXT=$(run_capture "get_issue($ISSUE_ID)" \
     "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"get_issue\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$ISSUE_ID\"}},\"id\":2}"
+  )
+  if [ $? -eq 0 ] && [ -n "$ISSUE_OBJ_ID" ]; then
+    assert_json_field_equals "get_issue returns issueId" "$GET_ISSUE_TEXT" ".issueId" "$ISSUE_OBJ_ID"
+  fi
 
-  run_test "list_issues" \
-    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_issues\",\"arguments\":{\"project\":\"$PROJECT\",\"limit\":2}},\"id\":2}"
+  LIST_ISSUES_TEXT=$(run_capture "list_issues" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_issues\",\"arguments\":{\"project\":\"$PROJECT\",\"titleSearch\":\"IntTest Issue\",\"limit\":10}},\"id\":2}"
+  )
+  if [ $? -eq 0 ] && [ -n "$ISSUE_OBJ_ID" ]; then
+    assert_json_any_equals "list_issues includes issueId" "$LIST_ISSUES_TEXT" \
+      "any(.[]?; .identifier == \"$ISSUE_ID\" and .issueId == \"$ISSUE_OBJ_ID\")"
+  fi
 
   run_test "update_issue($ISSUE_ID)" \
     "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"update_issue\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$ISSUE_ID\",\"title\":\"Updated IntTest\",\"priority\":\"high\"}},\"id\":2}"
@@ -1172,9 +1194,16 @@ ASSOCIATIONS_TEXT=$(run_capture "list_associations" \
 ASSOC_ID=$(echo "$ASSOCIATIONS_TEXT" | jq -r '.associations[0].associationId // empty' 2>/dev/null)
 ASSOC_SOURCE_CLASS=$(echo "$ASSOCIATIONS_TEXT" | jq -r '.associations[0].sourceClass // empty' 2>/dev/null)
 ASSOC_TARGET_CLASS=$(echo "$ASSOCIATIONS_TEXT" | jq -r '.associations[0].targetClass // empty' 2>/dev/null)
+ASSOC_WITH_LABEL=$(echo "$ASSOCIATIONS_TEXT" | jq -r '.associations[]? | select((.sourceClassLabel // "") != "" or (.targetClassLabel // "") != "") | .associationId' 2>/dev/null | head -n 1)
 
 if [ -n "$ASSOC_ID" ]; then
   assert_json_field_nonempty "list_associations has id" "$ASSOCIATIONS_TEXT" ".associations[0].associationId"
+  if [ -n "$ASSOC_WITH_LABEL" ]; then
+    assert_json_any_equals "list_associations returns class labels when known" "$ASSOCIATIONS_TEXT" \
+      "any(.associations[]?; .associationId == \"$ASSOC_WITH_LABEL\" and ((.sourceClassLabel // \"\") != \"\" or (.targetClassLabel // \"\") != \"\"))"
+  else
+    skip_test "list_associations class labels" "workspace returned no associations for known SDK classes"
+  fi
   run_test "list_associations(filter:$ASSOC_ID)" \
     "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_associations\",\"arguments\":{\"association\":\"$ASSOC_ID\"}},\"id\":2}"
   if [ -n "$ASSOC_SOURCE_CLASS" ] && [ -n "$ASSOC_TARGET_CLASS" ]; then

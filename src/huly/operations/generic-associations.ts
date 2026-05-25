@@ -123,12 +123,12 @@ const associationName = (association: HulyAssociation): string | undefined =>
 const optionalNonEmpty = (value: string | undefined): NonEmptyString | undefined =>
   value === undefined ? undefined : NonEmptyString.make(value)
 
-const classLabelEntry = (classRef: string, label: string): readonly [string, NonEmptyString] => [
-  classRef,
+const classLabelEntry = (classRef: Ref<Class<Doc>>, label: string): readonly [ObjectClassName, NonEmptyString] => [
+  ObjectClassName.make(classRef),
   NonEmptyString.make(label)
 ]
 
-const KNOWN_CLASS_LABELS = new Map<string, NonEmptyString>([
+const KNOWN_CLASS_LABELS: ReadonlyMap<ObjectClassName, NonEmptyString> = new Map([
   classLabelEntry(core.class.Doc, "Huly document"),
   classLabelEntry(core.class.AttachedDoc, "Huly attached document"),
   classLabelEntry(core.class.Relation, "Relation"),
@@ -141,7 +141,7 @@ const KNOWN_CLASS_LABELS = new Map<string, NonEmptyString>([
   classLabelEntry(tracker.class.Milestone, "Milestone")
 ])
 
-const classLabel = (classRef: string): NonEmptyString | undefined => KNOWN_CLASS_LABELS.get(classRef)
+const classLabel = (classRef: ObjectClassName): NonEmptyString | undefined => KNOWN_CLASS_LABELS.get(classRef)
 
 const isSystemAssociation = (association: HulyAssociation): boolean =>
   String(association.classA).startsWith("core:class:") || String(association.classB).startsWith("core:class:")
@@ -165,24 +165,29 @@ exactCardinalityMapping<ExactCardinalityMapping>(true)
 
 const cardinality = (type: HulyAssociation["type"]): Cardinality => ASSOCIATION_CARDINALITY[type]
 
-const toAssociationSummary = (association: HulyAssociation): AssociationSummary => ({
-  associationId: AssociationId.make(association._id),
-  name: optionalNonEmpty(associationName(association)),
-  sourceClass: ObjectClassName.make(association.classA),
-  sourceClassLabel: classLabel(association.classA),
-  targetClass: ObjectClassName.make(association.classB),
-  targetClassLabel: classLabel(association.classB),
-  sourceRole: NonEmptyString.make(association.nameA),
-  targetRole: NonEmptyString.make(association.nameB),
-  relationClass: ObjectClassName.make(core.class.Relation),
-  cardinality: cardinality(association.type),
-  symmetric: isSymmetric(association),
-  system: isSystemAssociation(association),
-  canListRelations: true,
-  canCreateRelation: false,
-  canDeleteRelation: false,
-  unsupportedReason: WRITE_UNSUPPORTED_REASON
-})
+const toAssociationSummary = (association: HulyAssociation): AssociationSummary => {
+  const sourceClass = ObjectClassName.make(association.classA)
+  const targetClass = ObjectClassName.make(association.classB)
+
+  return {
+    associationId: AssociationId.make(association._id),
+    name: optionalNonEmpty(associationName(association)),
+    sourceClass,
+    sourceClassLabel: classLabel(sourceClass),
+    targetClass,
+    targetClassLabel: classLabel(targetClass),
+    sourceRole: NonEmptyString.make(association.nameA),
+    targetRole: NonEmptyString.make(association.nameB),
+    relationClass: ObjectClassName.make(core.class.Relation),
+    cardinality: cardinality(association.type),
+    symmetric: isSymmetric(association),
+    system: isSystemAssociation(association),
+    canListRelations: true,
+    canCreateRelation: false,
+    canDeleteRelation: false,
+    unsupportedReason: WRITE_UNSUPPORTED_REASON
+  }
+}
 
 const toCandidate = (association: HulyAssociation): AssociationCandidate => ({
   id: AssociationId.make(association._id),

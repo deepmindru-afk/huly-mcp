@@ -33,6 +33,7 @@ import { addLabel, createIssue, getIssue, listIssues, updateIssue } from "../../
 
 import { contact, core, tags, task, tracker } from "../../../src/huly/huly-plugins.js"
 import { colorCode, email, issueIdentifier, projectIdentifier, statusName } from "../../helpers/brands.js"
+import { docRef } from "../../helpers/huly-sdk.js"
 
 // Helper to create properly typed FindResult for tests
 // FindResult<T> = T[] & { total: number; lookupMap?: Record<string, Doc> }
@@ -486,8 +487,8 @@ describe("listIssues", () => {
         const project = makeProject({ identifier: "TEST" })
         // Input: older issue first (opposite of expected output order)
         const issues = [
-          makeIssue({ _id: "issue-2" as Ref<HulyIssue>, identifier: "TEST-2", title: "Issue 2", modifiedOn: 1000 }),
-          makeIssue({ _id: "issue-1" as Ref<HulyIssue>, identifier: "TEST-1", title: "Issue 1", modifiedOn: 2000 })
+          makeIssue({ _id: docRef<HulyIssue>("issue-2"), identifier: "TEST-2", title: "Issue 2", modifiedOn: 1000 }),
+          makeIssue({ _id: docRef<HulyIssue>("issue-1"), identifier: "TEST-1", title: "Issue 1", modifiedOn: 2000 })
         ]
         const statuses = [
           makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })

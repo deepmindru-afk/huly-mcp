@@ -55,6 +55,8 @@ Code review agents must consult `.claude/review-rules.md` for project-specific q
 2. Run `effect-solutions show <topic>...` for relevant patterns (supports multiple topics)
 3. Search `.reference/effect/` for real implementations (run `effect-solutions setup` first)
 
+In secondary worktrees, `.reference/effect/` may exist only in the master checkout at `/workspace/typescript/hulymcp/.reference/effect/`. When working from another worktree, consult the master checkout's Effect reference rather than assuming the local worktree has its own copy.
+
 Topics: quick-start, project-setup, tsconfig, basics, services-and-layers, data-modeling, error-handling, config, testing, cli.
 
 Never guess at Effect patterns - check the guide first.

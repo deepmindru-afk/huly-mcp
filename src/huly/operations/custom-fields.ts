@@ -17,7 +17,7 @@ import type {
   SetCustomFieldResult,
   UnknownCustomFieldTypeDetails
 } from "../../domain/schemas/custom-fields.js"
-import { CustomFieldId, NonEmptyString, ObjectClassName } from "../../domain/schemas/shared.js"
+import { CustomFieldId, ObjectClassName } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import { CustomFieldNotFoundError, CustomFieldObjectNotFoundError } from "../errors-custom-fields.js"
 import { core } from "../huly-plugins.js"
@@ -328,7 +328,7 @@ export const setCustomField = (
     }
 
     return {
-      objectId: NonEmptyString.make(params.objectId),
+      objectId: params.objectId,
       fieldId: decodedAttr.id,
       label: decodedAttr.label,
       value: parsedValue,

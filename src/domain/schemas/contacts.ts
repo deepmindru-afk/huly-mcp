@@ -1,7 +1,7 @@
 import { JSONSchema, Schema } from "effect"
 
 import type { ContactProvider, OrganizationId, PersonName, UrlString } from "./shared.js"
-import { Email, LimitParam, MemberReference, NonEmptyString, PersonId } from "./shared.js"
+import { Email, enumValuesDescription, LimitParam, MemberReference, NonEmptyString, PersonId } from "./shared.js"
 
 // No codec needed — internal type, not used for runtime validation
 export interface PersonSummary {
@@ -285,6 +285,24 @@ export const ListPersonOrganizationsParamsSchema = Schema.Union(
 
 export type ListPersonOrganizationsParams = Schema.Schema.Type<typeof ListPersonOrganizationsParamsSchema>
 
+// MCP-facing contact channel names backed by Huly SDK contact.channelProvider refs in organization-channel-providers.
+const OrganizationChannelProviderValues = [
+  "email",
+  "phone",
+  "linkedin",
+  "twitter",
+  "github",
+  "facebook",
+  "telegram",
+  "homepage",
+  "whatsapp",
+  "skype",
+  "profile",
+  "viber"
+] as const
+const OrganizationChannelProviderSchema = Schema.Literal(...OrganizationChannelProviderValues)
+export type OrganizationChannelProvider = Schema.Schema.Type<typeof OrganizationChannelProviderSchema>
+
 export const RemoveOrganizationMemberParamsSchema = Schema.Struct({
   organizationId: NonEmptyString.annotations({
     description: "Organization ID or exact name"
@@ -303,8 +321,8 @@ export const AddOrganizationChannelParamsSchema = Schema.Struct({
   organizationId: NonEmptyString.annotations({
     description: "Organization ID or exact name"
   }),
-  provider: NonEmptyString.annotations({
-    description: "Channel type: email, phone, linkedin, twitter, github, facebook, telegram, homepage"
+  provider: OrganizationChannelProviderSchema.annotations({
+    description: `Channel type: ${enumValuesDescription(OrganizationChannelProviderValues)}`
   }),
   value: NonEmptyString.annotations({
     description: "Channel value (email address, phone number, URL, username)"

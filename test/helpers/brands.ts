@@ -15,6 +15,7 @@ import type {
   AccountId,
   AccountUuid,
   ActivityMessageId,
+  AssociationId,
   AttachmentId,
   BlobId,
   ChannelId,
@@ -26,7 +27,9 @@ import type {
   ComponentIdentifier,
   ComponentLabel,
   ContactProvider,
+  CustomFieldId,
   DirectMessageIdentifier,
+  DocId,
   DocumentId,
   DocumentIdentifier,
   Email,
@@ -88,6 +91,8 @@ import type {
 export const personId = (s: string) => s as PersonId
 export const organizationId = (s: string) => s as OrganizationId
 export const issueId = (s: string) => s as IssueId
+export const associationBrandId = (s: string) => s as AssociationId
+export const docId = (s: string) => s as DocId
 export const componentBrandId = (s: string) => s as ComponentId
 export const milestoneId = (s: string) => s as MilestoneId
 export const issueTemplateChildId = (s: string) => s as IssueTemplateChildId
@@ -109,6 +114,7 @@ export const commentBrandId = (s: string) => s as CommentId
 export const timeSpendReportId = (s: string) => s as TimeSpendReportId
 export const tagElementId = (s: string) => s as TagElementId
 export const tagCategoryId = (s: string) => s as TagCategoryId
+export const customFieldId = (s: string) => s as CustomFieldId
 
 // Tier 2: Human-Readable Identifiers
 export const projectIdentifier = (s: string) => s as ProjectIdentifier
@@ -179,6 +185,7 @@ export type {
   AccountId,
   AccountUuid,
   ActivityMessageId,
+  AssociationId,
   AttachmentId,
   BlobId,
   ChannelId,
@@ -190,7 +197,9 @@ export type {
   ComponentIdentifier,
   ComponentLabel,
   ContactProvider,
+  CustomFieldId,
   DirectMessageIdentifier,
+  DocId,
   DocumentId,
   DocumentIdentifier,
   Email,

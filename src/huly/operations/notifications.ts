@@ -35,6 +35,7 @@ import type {
   UpdateNotificationProviderSettingResult
 } from "../../domain/schemas/notifications.js"
 import {
+  DocId,
   NotificationContextId,
   NotificationId,
   NotificationProviderId,
@@ -49,7 +50,7 @@ import { notification } from "../huly-plugins.js"
 
 const toDocNotifyContextSummary = (ctx: HulyDocNotifyContext): DocNotifyContextSummary => ({
   id: NotificationContextId.make(ctx._id),
-  objectId: ctx.objectId,
+  objectId: DocId.make(ctx.objectId),
   objectClass: ObjectClassName.make(ctx.objectClass),
   isPinned: ctx.isPinned,
   hidden: ctx.hidden,
@@ -96,6 +97,9 @@ type MarkAllNotificationsReadError = HulyClientError
 type ArchiveAllNotificationsError = HulyClientError
 
 // --- Helpers ---
+
+const optionalDocId = (value: string | undefined): DocId | undefined =>
+  value === undefined ? undefined : DocId.make(value)
 
 const findNotification = (
   notificationId: string
@@ -176,7 +180,7 @@ export const listNotifications = (
       id: NotificationId.make(n._id),
       isViewed: n.isViewed,
       archived: n.archived,
-      objectId: n.objectId,
+      objectId: optionalDocId(n.objectId),
       objectClass: ObjectClassName.make(n.objectClass),
       title: n.title,
       body: n.body,
@@ -200,7 +204,7 @@ export const getNotification = (
       id: NotificationId.make(notif._id),
       isViewed: notif.isViewed,
       archived: notif.archived,
-      objectId: notif.objectId,
+      objectId: optionalDocId(notif.objectId),
       objectClass: ObjectClassName.make(notif.objectClass),
       docNotifyContextId: NotificationContextId.make(notif.docNotifyContext),
       title: notif.title,

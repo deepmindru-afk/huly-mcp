@@ -1,11 +1,12 @@
 import { JSONSchema, ParseResult, Schema } from "effect"
 
 import { normalizeForComparison } from "../../utils/normalize.js"
-import type { IssueId } from "./shared.js"
 import {
   ColorCode,
   ComponentIdentifier,
   Email,
+  enumValuesDescription,
+  IssueId,
   IssueIdentifier,
   LimitParam,
   NonEmptyString,
@@ -36,13 +37,15 @@ export const IssuePrioritySchema = Schema.transformOrFail(
       const match = normalizedPriorityLookup.get(normalizeForComparison(input))
       return match !== undefined
         ? ParseResult.succeed(match)
-        : ParseResult.fail(new ParseResult.Type(ast, input, `Expected one of: ${IssuePriorityValues.join(", ")}`))
+        : ParseResult.fail(
+          new ParseResult.Type(ast, input, `Expected one of: ${enumValuesDescription(IssuePriorityValues)}`)
+        )
     },
     encode: ParseResult.succeed
   }
 ).annotations({
   title: "IssuePriority",
-  description: "Issue priority level",
+  description: `Issue priority level: ${enumValuesDescription(IssuePriorityValues)}`,
   jsonSchema: { type: "string", enum: [...IssuePriorityValues] }
 })
 
@@ -69,7 +72,13 @@ export const PersonRefSchema = Schema.Struct({
 
 export type PersonRef = Schema.Schema.Type<typeof PersonRefSchema>
 
+const IssueIdOutputSchema = IssueId.annotations({
+  description:
+    "Raw Huly issue _id. For raw objectId/objectClass tools, pair this with objectClass 'tracker:class:Issue'. Prefer friendly issue locators when a tool provides them."
+})
+
 export const IssueSummarySchema = Schema.Struct({
+  issueId: IssueIdOutputSchema,
   identifier: IssueIdentifier,
   // String, not NonEmptyString: Huly allows storing issues with empty titles
   title: Schema.String,
@@ -87,6 +96,7 @@ export const IssueSummarySchema = Schema.Struct({
 export type IssueSummary = Schema.Schema.Type<typeof IssueSummarySchema>
 
 export const IssueSchema = Schema.Struct({
+  issueId: IssueIdOutputSchema,
   identifier: IssueIdentifier,
   // String, not NonEmptyString: Huly allows storing issues with empty titles
   title: Schema.String,

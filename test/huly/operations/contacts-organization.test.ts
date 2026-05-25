@@ -731,7 +731,7 @@ describe("Organization CRUD, Customer Mixin, Channels, and Membership", () => {
         expect(capture.attributes?.value).toBe("info@testcorp.com")
       }))
 
-    it.effect("adds linkedin channel (case-insensitive provider)", () =>
+    it.effect("adds linkedin channel", () =>
       Effect.gen(function*() {
         const org = createMockOrganization()
         const capture: MockConfig["captureAddCollection"] = {}
@@ -743,7 +743,7 @@ describe("Organization CRUD, Customer Mixin, Channels, and Membership", () => {
 
         const result = yield* addOrganizationChannel({
           organizationId: organizationId("org-1"),
-          provider: "LinkedIn",
+          provider: "linkedin",
           value: "https://linkedin.com/company/test"
         }).pipe(Effect.provide(testLayer))
 
@@ -751,21 +751,24 @@ describe("Organization CRUD, Customer Mixin, Channels, and Membership", () => {
         expect(capture.attributes?.provider).toBe(contact.channelProvider.LinkedIn)
       }))
 
-    it.effect("returns error for unknown provider", () =>
+    it.effect("adds whatsapp channel", () =>
       Effect.gen(function*() {
         const org = createMockOrganization()
+        const capture: MockConfig["captureAddCollection"] = {}
 
-        const testLayer = createTestLayer({ organizations: [org] })
+        const testLayer = createTestLayer({
+          organizations: [org],
+          captureAddCollection: capture
+        })
 
-        const error = yield* Effect.flip(
-          addOrganizationChannel({
-            organizationId: organizationId("org-1"),
-            provider: "fax",
-            value: "555-1234"
-          }).pipe(Effect.provide(testLayer))
-        )
+        const result = yield* addOrganizationChannel({
+          organizationId: organizationId("org-1"),
+          provider: "whatsapp",
+          value: "+15551234"
+        }).pipe(Effect.provide(testLayer))
 
-        expect(error._tag).toBe("InvalidContactProviderError")
+        expect(result.added).toBe(true)
+        expect(capture.attributes?.provider).toBe(contact.channelProvider.Whatsapp)
       }))
 
     it.effect("returns OrganizationNotFoundError when org not found", () =>

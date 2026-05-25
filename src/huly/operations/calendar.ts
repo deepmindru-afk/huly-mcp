@@ -68,17 +68,26 @@ type DeleteEventError = HulyClientError | EventNotFoundError
 
 // --- Operations ---
 
-const toWritableCalendarAccess = (access: HulyCalendar["access"]): WritableCalendarAccess | undefined => {
-  switch (access) {
-    case AccessLevel.Writer:
-      return "writer"
-    case AccessLevel.Owner:
-      return "owner"
-    case AccessLevel.FreeBusyReader:
-    case AccessLevel.Reader:
-      return undefined
-  }
-}
+const CALENDAR_ACCESS_TO_WRITABLE = {
+  [AccessLevel.FreeBusyReader]: undefined,
+  [AccessLevel.Reader]: undefined,
+  [AccessLevel.Writer]: "writer",
+  [AccessLevel.Owner]: "owner"
+} satisfies Record<HulyCalendar["access"], WritableCalendarAccess | undefined>
+
+type MappedWritableCalendarAccess = Exclude<
+  typeof CALENDAR_ACCESS_TO_WRITABLE[keyof typeof CALENDAR_ACCESS_TO_WRITABLE],
+  undefined
+>
+type ExactWritableCalendarAccessMapping = [WritableCalendarAccess] extends [MappedWritableCalendarAccess]
+  ? [MappedWritableCalendarAccess] extends [WritableCalendarAccess] ? true : never
+  : never
+
+const exactWritableCalendarAccessMapping = <T extends true>(value: T): T => value
+exactWritableCalendarAccessMapping<ExactWritableCalendarAccessMapping>(true)
+
+const toWritableCalendarAccess = (access: HulyCalendar["access"]): WritableCalendarAccess | undefined =>
+  CALENDAR_ACCESS_TO_WRITABLE[access]
 
 export const listEvents = (
   params: ListEventsParams

@@ -31,16 +31,12 @@ import type {
 } from "../../domain/schemas/contacts.js"
 import { Email, OrganizationId, PersonId, PersonName } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
-import {
-  InvalidContactProviderError,
-  OrganizationIdentifierAmbiguousError,
-  OrganizationNotFoundError,
-  PersonNotFoundError
-} from "../errors.js"
+import { OrganizationIdentifierAmbiguousError, OrganizationNotFoundError, PersonNotFoundError } from "../errors.js"
 import { contact } from "../huly-plugins.js"
 import { leadClassIds } from "../lead-plugin.js"
 import { buildContactUrlFromConfig } from "../url-builders.js"
 import { batchGetEmailsForPersons, findPersonByEmail, findPersonById } from "./contacts-shared.js"
+import { toChannelProviderRef } from "./organization-channel-providers.js"
 import { clampLimit } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
 
@@ -51,7 +47,6 @@ type UpdateOrganizationError = HulyClientError | OrganizationIdentifierAmbiguous
 type DeleteOrganizationError = HulyClientError | OrganizationIdentifierAmbiguousError | OrganizationNotFoundError
 type AddOrganizationChannelError =
   | HulyClientError
-  | InvalidContactProviderError
   | OrganizationIdentifierAmbiguousError
   | OrganizationNotFoundError
 type AddOrganizationMemberError =
@@ -345,18 +340,6 @@ export const makeOrganizationCustomer = (
     return { id: OrganizationId.make(org._id), applied: true }
   })
 
-// Maps user-friendly names to Huly contact.channelProvider refs.
-const CHANNEL_PROVIDERS: Partial<Record<string, typeof contact.channelProvider.Email>> = {
-  email: contact.channelProvider.Email,
-  phone: contact.channelProvider.Phone,
-  linkedin: contact.channelProvider.LinkedIn,
-  twitter: contact.channelProvider.Twitter,
-  github: contact.channelProvider.GitHub,
-  facebook: contact.channelProvider.Facebook,
-  telegram: contact.channelProvider.Telegram,
-  homepage: contact.channelProvider.Homepage
-}
-
 export const addOrganizationChannel = (
   params: AddOrganizationChannelParams
 ): Effect.Effect<{ id: OrganizationId; added: boolean }, AddOrganizationChannelError, HulyClient> =>
@@ -367,11 +350,7 @@ export const addOrganizationChannel = (
       return yield* new OrganizationNotFoundError({ identifier: params.organizationId })
     }
 
-    const providerKey = params.provider.toLowerCase()
-    const providerRef = CHANNEL_PROVIDERS[providerKey] ?? undefined
-    if (providerRef === undefined) {
-      return yield* new InvalidContactProviderError({ provider: params.provider })
-    }
+    const providerRef = toChannelProviderRef(params.provider)
 
     yield* client.addCollection(
       contact.class.Channel,

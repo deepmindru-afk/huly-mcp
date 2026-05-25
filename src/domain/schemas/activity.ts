@@ -3,13 +3,13 @@ import { JSONSchema, Schema } from "effect"
 import {
   ActivityMessageId,
   ChannelIdentifier,
+  DocId,
   DocumentIdentifier,
   EmojiCode,
   IssueIdentifier,
   LimitParam,
   MAX_LIMIT,
   MentionId,
-  NonEmptyString,
   ObjectClassName,
   PersonId,
   ProjectIdentifier,
@@ -31,7 +31,7 @@ type ActivityAction = Schema.Schema.Type<typeof ActivityAction>
 
 export interface ActivityMessage {
   readonly id: ActivityMessageId
-  readonly objectId: NonEmptyString
+  readonly objectId: DocId
   readonly objectClass: ObjectClassName
   readonly modifiedBy?: PersonId | undefined
   readonly modifiedOn?: Timestamp | undefined
@@ -65,7 +65,7 @@ export interface Mention {
 const hasAll = (...values: ReadonlyArray<unknown>): boolean => values.every(value => value !== undefined)
 
 export const ListActivityParamsSchema = Schema.Struct({
-  objectId: Schema.optional(NonEmptyString.annotations({
+  objectId: Schema.optional(DocId.annotations({
     description:
       "Advanced: internal Huly object ID to get activity for. Use with objectClass. Prefer project+issueIdentifier, teamspace+document, or channel when available."
   })),
@@ -316,7 +316,7 @@ export interface UnsaveMessageResult {
 
 export const ActivityMessageWireSchema = Schema.Struct({
   id: ActivityMessageId,
-  objectId: NonEmptyString,
+  objectId: DocId,
   objectClass: ObjectClassName,
   modifiedBy: Schema.optional(PersonId),
   modifiedOn: Schema.optional(Timestamp),

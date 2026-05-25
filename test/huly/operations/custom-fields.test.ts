@@ -8,6 +8,7 @@ import { ListCustomFieldsResultSchema } from "../../../src/domain/schemas/custom
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
 import { core } from "../../../src/huly/huly-plugins.js"
 import { getCustomFieldValues, listCustomFields, setCustomField } from "../../../src/huly/operations/custom-fields.js"
+import { customFieldId, docId, objectClassName } from "../../helpers/brands.js"
 
 const toFindResult = <T extends Doc>(docs: Array<T>): FindResult<T> => {
   const result = docs as FindResult<T>
@@ -224,8 +225,8 @@ describe("custom-fields operations", () => {
       const doc = makeDoc({ qaApproved: true })
 
       const result = yield* getCustomFieldValues({
-        objectId: "issue-1",
-        objectClass: "tracker:class:Issue"
+        objectId: docId("issue-1"),
+        objectClass: objectClassName("tracker:class:Issue")
       }).pipe(Effect.provide(createTestLayer({ attributes: [attr], doc })))
 
       expect(result).toEqual([
@@ -255,9 +256,9 @@ describe("custom-fields operations", () => {
       const captureUpdateMixin: { mixin?: string; attributes?: Record<string, unknown> } = {}
 
       const result = yield* setCustomField({
-        objectId: "issue-1",
-        objectClass: "tracker:class:Issue",
-        fieldId: "attr-bool",
+        objectId: docId("issue-1"),
+        objectClass: objectClassName("tracker:class:Issue"),
+        fieldId: customFieldId("attr-bool"),
         value: "true"
       }).pipe(
         Effect.provide(

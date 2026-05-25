@@ -1,4 +1,3 @@
-/* eslint-disable no-restricted-syntax -- reverse enum maps: Object.entries loses numeric enum type, cast back is unavoidable */
 import type { MarkupRef } from "@hcengineering/api-client"
 import type { Person } from "@hcengineering/contact"
 import type { Class, Doc, Ref } from "@hcengineering/core"
@@ -55,9 +54,16 @@ const caseTypeToString: Record<TestCaseType, TestCaseTypeStr> = {
   [CaseType.Usability]: "usability"
 }
 
-const stringToCaseType: Record<string, TestCaseType> = Object.fromEntries(
-  Object.entries(caseTypeToString).map(([k, v]) => [v, Number(k) as TestCaseType])
-)
+const stringToCaseTypeExact = {
+  functional: CaseType.Functional,
+  performance: CaseType.Performance,
+  regression: CaseType.Regression,
+  security: CaseType.Security,
+  smoke: CaseType.Smoke,
+  usability: CaseType.Usability
+} satisfies Record<TestCaseTypeStr, TestCaseType>
+
+const stringToCaseType: Readonly<Record<string, TestCaseType>> = stringToCaseTypeExact
 
 export const testCaseTypeToString = (t: TestCaseType): TestCaseTypeStr => caseTypeToString[t]
 export const stringToTestCaseType = (s: string): TestCaseType | undefined => stringToCaseType[s.toLowerCase()]
@@ -69,9 +75,14 @@ const casePriorityToString: Record<TestCasePriority, TestCasePriorityStr> = {
   [CasePriority.Urgent]: "urgent"
 }
 
-const stringToCasePriority: Record<string, TestCasePriority> = Object.fromEntries(
-  Object.entries(casePriorityToString).map(([k, v]) => [v, Number(k) as TestCasePriority])
-)
+const stringToCasePriorityExact = {
+  low: CasePriority.Low,
+  medium: CasePriority.Medium,
+  high: CasePriority.High,
+  urgent: CasePriority.Urgent
+} satisfies Record<TestCasePriorityStr, TestCasePriority>
+
+const stringToCasePriority: Readonly<Record<string, TestCasePriority>> = stringToCasePriorityExact
 
 export const testCasePriorityToString = (p: TestCasePriority): TestCasePriorityStr => casePriorityToString[p]
 export const stringToTestCasePriority = (s: string): TestCasePriority | undefined =>
@@ -85,9 +96,15 @@ const caseStatusToString: Record<TestCaseStatus, TestCaseStatusStr> = {
   [CaseStatus.Rejected]: "rejected"
 }
 
-const stringToCaseStatus: Record<string, TestCaseStatus> = Object.fromEntries(
-  Object.entries(caseStatusToString).map(([k, v]) => [v, Number(k) as TestCaseStatus])
-)
+const stringToCaseStatusExact = {
+  draft: CaseStatus.Draft,
+  "ready-for-review": CaseStatus.ReadyForReview,
+  "fix-review-comments": CaseStatus.FixReviewComments,
+  approved: CaseStatus.Approved,
+  rejected: CaseStatus.Rejected
+} satisfies Record<TestCaseStatusStr, TestCaseStatus>
+
+const stringToCaseStatus: Readonly<Record<string, TestCaseStatus>> = stringToCaseStatusExact
 
 export const testCaseStatusToString = (s: TestCaseStatus): TestCaseStatusStr => caseStatusToString[s]
 export const stringToTestCaseStatus = (s: string): TestCaseStatus | undefined => stringToCaseStatus[s.toLowerCase()]
@@ -99,9 +116,14 @@ const runStatusToString: Record<TestRunStatus, TestRunStatusStr> = {
   [RunStatus.Failed]: "failed"
 }
 
-const stringToRunStatus: Record<string, TestRunStatus> = Object.fromEntries(
-  Object.entries(runStatusToString).map(([k, v]) => [v, Number(k) as TestRunStatus])
-)
+const stringToRunStatusExact = {
+  untested: RunStatus.Untested,
+  blocked: RunStatus.Blocked,
+  passed: RunStatus.Passed,
+  failed: RunStatus.Failed
+} satisfies Record<TestRunStatusStr, TestRunStatus>
+
+const stringToRunStatus: Readonly<Record<string, TestRunStatus>> = stringToRunStatusExact
 
 export const testRunStatusToString = (s: TestRunStatus): TestRunStatusStr => runStatusToString[s]
 export const stringToTestRunStatus = (s: string): TestRunStatus | undefined => stringToRunStatus[s.toLowerCase()]

@@ -1,18 +1,21 @@
 import { JSONSchema, Schema } from "effect"
 
-import { CardId, LimitParam, MasterTagId, NonEmptyString, Timestamp } from "./shared.js"
+import { CardId, DocId, LimitParam, MasterTagId, NonEmptyString, Timestamp } from "./shared.js"
 
-export const ProcessId = NonEmptyString.pipe(Schema.brand("ProcessId"))
+export const ProcessId = DocId.pipe(Schema.brand("ProcessId"))
 export type ProcessId = Schema.Schema.Type<typeof ProcessId>
 
 export const ProcessIdentifier = NonEmptyString.pipe(Schema.brand("ProcessIdentifier"))
 export type ProcessIdentifier = Schema.Schema.Type<typeof ProcessIdentifier>
 
-export const ProcessExecutionId = NonEmptyString.pipe(Schema.brand("ProcessExecutionId"))
+export const ProcessExecutionId = DocId.pipe(Schema.brand("ProcessExecutionId"))
 export type ProcessExecutionId = Schema.Schema.Type<typeof ProcessExecutionId>
 
-export const ProcessStateId = NonEmptyString.pipe(Schema.brand("ProcessStateId"))
+export const ProcessStateId = DocId.pipe(Schema.brand("ProcessStateId"))
 export type ProcessStateId = Schema.Schema.Type<typeof ProcessStateId>
+
+export const ProcessTransitionId = DocId.pipe(Schema.brand("ProcessTransitionId"))
+export type ProcessTransitionId = Schema.Schema.Type<typeof ProcessTransitionId>
 
 export const ProcessCardIdentifier = NonEmptyString.pipe(Schema.brand("ProcessCardIdentifier"))
 export type ProcessCardIdentifier = Schema.Schema.Type<typeof ProcessCardIdentifier>
@@ -52,7 +55,7 @@ export const ProcessStateSummarySchema = Schema.Struct({
 export type ProcessStateSummary = Schema.Schema.Type<typeof ProcessStateSummarySchema>
 
 export const ProcessTransitionSummarySchema = Schema.Struct({
-  id: NonEmptyString,
+  id: ProcessTransitionId,
   fromStateId: Schema.optional(ProcessStateId),
   fromStateTitle: Schema.optional(NonEmptyString),
   toStateId: ProcessStateId,

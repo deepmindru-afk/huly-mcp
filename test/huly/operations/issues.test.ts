@@ -33,6 +33,7 @@ import { addLabel, createIssue, getIssue, listIssues, updateIssue } from "../../
 
 import { contact, core, tags, task, tracker } from "../../../src/huly/huly-plugins.js"
 import { colorCode, email, issueIdentifier, projectIdentifier, statusName } from "../../helpers/brands.js"
+import { docRef } from "../../helpers/huly-sdk.js"
 
 // Helper to create properly typed FindResult for tests
 // FindResult<T> = T[] & { total: number; lookupMap?: Record<string, Doc> }
@@ -486,8 +487,8 @@ describe("listIssues", () => {
         const project = makeProject({ identifier: "TEST" })
         // Input: older issue first (opposite of expected output order)
         const issues = [
-          makeIssue({ identifier: "TEST-2", title: "Issue 2", modifiedOn: 1000 }),
-          makeIssue({ identifier: "TEST-1", title: "Issue 1", modifiedOn: 2000 })
+          makeIssue({ _id: docRef<HulyIssue>("issue-2"), identifier: "TEST-2", title: "Issue 2", modifiedOn: 1000 }),
+          makeIssue({ _id: docRef<HulyIssue>("issue-1"), identifier: "TEST-1", title: "Issue 1", modifiedOn: 2000 })
         ]
         const statuses = [
           makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })
@@ -503,7 +504,9 @@ describe("listIssues", () => {
 
         expect(result).toHaveLength(2)
         // Expect sorted by modifiedOn descending (newer first)
+        expect(result[0].issueId).toBe("issue-1")
         expect(result[0].identifier).toBe("TEST-1")
+        expect(result[1].issueId).toBe("issue-2")
         expect(result[1].identifier).toBe("TEST-2")
       }))
 
@@ -837,6 +840,7 @@ describe("getIssue", () => {
           .pipe(Effect.provide(testLayer))
 
         expect(result.identifier).toBe("TEST-1")
+        expect(result.issueId).toBe("issue-1")
         expect(result.title).toBe("Test Issue")
         expect(result.status).toBe("Open")
         expect(result.project).toBe("TEST")

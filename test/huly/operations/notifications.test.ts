@@ -29,6 +29,7 @@ import {
   updateNotificationProviderSetting
 } from "../../../src/huly/operations/notifications.js"
 import {
+  docId,
   notificationBrandId,
   notificationContextId,
   notificationProviderId,
@@ -597,7 +598,7 @@ describe("getNotificationContext", () => {
       const testLayer = createTestLayerWithMocks({ contexts: [ctx] })
 
       const result = yield* getNotificationContext({
-        objectId: "obj-1",
+        objectId: docId("obj-1"),
         objectClass: objectClassName("tracker.class.Issue")
       }).pipe(Effect.provide(testLayer))
 
@@ -617,7 +618,7 @@ describe("getNotificationContext", () => {
       const testLayer = createTestLayerWithMocks({ contexts: [] })
 
       const result = yield* getNotificationContext({
-        objectId: "nonexistent",
+        objectId: docId("nonexistent"),
         objectClass: objectClassName("tracker.class.Issue")
       }).pipe(Effect.provide(testLayer))
 

@@ -21,7 +21,8 @@ import {
   ProcessDetailSchema,
   ProcessExecutionId,
   ProcessId,
-  ProcessStateId
+  ProcessStateId,
+  ProcessTransitionId
 } from "../../domain/schemas.js"
 import { CardId, MasterTagId } from "../../domain/schemas/shared.js"
 import { normalizeForComparison } from "../../utils/normalize.js"
@@ -169,7 +170,7 @@ const transitionSummary = (
   transition: HulyProcessTransition,
   titles: ReadonlyMap<Ref<HulyProcessState>, string>
 ): ProcessTransitionSummary => ({
-  id: transition._id,
+  id: ProcessTransitionId.make(transition._id),
   fromStateId: transition.from === null ? undefined : ProcessStateId.make(transition.from),
   fromStateTitle: transition.from === null ? undefined : titles.get(transition.from),
   toStateId: ProcessStateId.make(transition.to),

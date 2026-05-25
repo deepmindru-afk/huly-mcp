@@ -24,9 +24,14 @@ export const EmptyParamsSchema = Schema.Struct({}).annotations({
 
 export const emptyParamsJsonSchema = JSONSchema.make(EmptyParamsSchema)
 
+export const enumValuesDescription = (values: ReadonlyArray<string>): string => values.join(", ")
+
 // === Tier 1: Huly Internal Refs (opaque IDs from _id) ===
 
-const HulyRef = <T extends string>(tag: T) => NonEmptyString.pipe(Schema.brand(tag))
+export const DocId = NonEmptyString.pipe(Schema.brand("DocId"))
+export type DocId = Schema.Schema.Type<typeof DocId>
+
+const HulyRef = <T extends string>(tag: T) => DocId.pipe(Schema.brand(tag))
 
 export const PersonId = HulyRef("PersonId")
 export type PersonId = Schema.Schema.Type<typeof PersonId>
@@ -36,6 +41,12 @@ export type OrganizationId = Schema.Schema.Type<typeof OrganizationId>
 
 export const IssueId = HulyRef("IssueId")
 export type IssueId = Schema.Schema.Type<typeof IssueId>
+
+export const AssociationId = HulyRef("AssociationId")
+export type AssociationId = Schema.Schema.Type<typeof AssociationId>
+
+export const RelationId = HulyRef("RelationId")
+export type RelationId = Schema.Schema.Type<typeof RelationId>
 
 export const ComponentId = HulyRef("ComponentId")
 export type ComponentId = Schema.Schema.Type<typeof ComponentId>

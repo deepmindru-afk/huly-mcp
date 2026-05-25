@@ -85,6 +85,34 @@ run_capture() {
   return 0
 }
 
+run_capture_to_var() {
+  local output_var="$1" name="$2" payload="$3"
+  local result
+  result=$(call_tool "$payload")
+  if [ -z "$result" ]; then
+    echo "FAIL: $name (no response)" >&2
+    FAILED=$((FAILED + 1))
+    ERRORS="${ERRORS}\n  - ${name}: no response"
+    printf -v "$output_var" '%s' ""
+    return 1
+  fi
+  local is_error
+  is_error=$(echo "$result" | jq -r '.result.isError // false' 2>/dev/null)
+  if [ "$is_error" = "true" ]; then
+    local err_text
+    err_text=$(echo "$result" | jq -r '.result.content[0].text' 2>/dev/null | head -c 200)
+    echo "FAIL: $name => $err_text" >&2
+    FAILED=$((FAILED + 1))
+    ERRORS="${ERRORS}\n  - ${name}: ${err_text}"
+    printf -v "$output_var" '%s' ""
+    return 1
+  fi
+  echo "PASS: $name" >&2
+  PASSED=$((PASSED + 1))
+  printf -v "$output_var" '%s' "$(echo "$result" | jq -r '.result.content[0].text' 2>/dev/null)"
+  return 0
+}
+
 skip_test() {
   local name="$1"
   local reason="$2"
@@ -136,6 +164,34 @@ assert_json_field_equals() {
   echo "FAIL: $name (expected $expected, got ${value:-<empty>})"
   FAILED=$((FAILED + 1))
   ERRORS="${ERRORS}\n  - ${name}: expected ${expected}, got ${value:-<empty>}"
+  return 1
+}
+
+assert_json_issue_summary_contains_issue_id() {
+  local name="$1" json="$2" identifier="$3" issue_id="$4"
+  if printf '%s\n' "$json" | jq -e --arg identifier "$identifier" --arg issue_id "$issue_id" \
+    'any(.[]?; .identifier == $identifier and .issueId == $issue_id)' >/dev/null 2>&1; then
+    echo "PASS: $name"
+    PASSED=$((PASSED + 1))
+    return 0
+  fi
+  echo "FAIL: $name (issue summary missing issueId)"
+  FAILED=$((FAILED + 1))
+  ERRORS="${ERRORS}\n  - ${name}: issue summary missing issueId"
+  return 1
+}
+
+assert_json_association_has_expected_class_label() {
+  local name="$1" json="$2" class_id="$3" expected_label="$4"
+  if printf '%s\n' "$json" | jq -e --arg class_id "$class_id" --arg expected_label "$expected_label" \
+    'any(.associations[]?; (.sourceClass == $class_id and .sourceClassLabel == $expected_label) or (.targetClass == $class_id and .targetClassLabel == $expected_label))' >/dev/null 2>&1; then
+    echo "PASS: $name"
+    PASSED=$((PASSED + 1))
+    return 0
+  fi
+  echo "FAIL: $name (expected label $expected_label for $class_id)"
+  FAILED=$((FAILED + 1))
+  ERRORS="${ERRORS}\n  - ${name}: expected label ${expected_label} for ${class_id}"
   return 1
 }
 
@@ -412,11 +468,17 @@ if [ $? -eq 0 ]; then
   ISSUE_OBJ_ID=$(echo "$ISSUE_TEXT" | jq -r '.issueId' 2>/dev/null)
   echo "  => $ISSUE_ID ($ISSUE_OBJ_ID)"
 
-  run_test "get_issue($ISSUE_ID)" \
+  run_capture_to_var GET_ISSUE_TEXT "get_issue($ISSUE_ID)" \
     "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"get_issue\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$ISSUE_ID\"}},\"id\":2}"
+  if [ $? -eq 0 ] && [ -n "$ISSUE_OBJ_ID" ]; then
+    assert_json_field_equals "get_issue returns issueId" "$GET_ISSUE_TEXT" ".issueId" "$ISSUE_OBJ_ID"
+  fi
 
-  run_test "list_issues" \
-    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_issues\",\"arguments\":{\"project\":\"$PROJECT\",\"limit\":2}},\"id\":2}"
+  run_capture_to_var LIST_ISSUES_TEXT "list_issues" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_issues\",\"arguments\":{\"project\":\"$PROJECT\",\"titleSearch\":\"IntTest Issue\",\"limit\":10}},\"id\":2}"
+  if [ $? -eq 0 ] && [ -n "$ISSUE_OBJ_ID" ]; then
+    assert_json_issue_summary_contains_issue_id "list_issues includes issueId" "$LIST_ISSUES_TEXT" "$ISSUE_ID" "$ISSUE_OBJ_ID"
+  fi
 
   run_test "update_issue($ISSUE_ID)" \
     "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"update_issue\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$ISSUE_ID\",\"title\":\"Updated IntTest\",\"priority\":\"high\"}},\"id\":2}"
@@ -1161,6 +1223,98 @@ echo ""
 echo "=== 13. Search ==="
 run_test "fulltext_search" \
   '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"fulltext_search","arguments":{"query":"test","limit":3}},"id":2}'
+echo ""
+
+##############################
+# 13b. GENERIC ASSOCIATIONS
+##############################
+echo "=== 13b. Generic Associations ==="
+ASSOCIATIONS_TEXT=$(run_capture "list_associations" \
+  '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_associations","arguments":{"limit":5}},"id":2}')
+ASSOC_ID=$(echo "$ASSOCIATIONS_TEXT" | jq -r '.associations[0].associationId // empty' 2>/dev/null)
+ASSOC_SOURCE_CLASS=$(echo "$ASSOCIATIONS_TEXT" | jq -r '.associations[0].sourceClass // empty' 2>/dev/null)
+ASSOC_TARGET_CLASS=$(echo "$ASSOCIATIONS_TEXT" | jq -r '.associations[0].targetClass // empty' 2>/dev/null)
+ASSOC_KNOWN_CLASS=$(echo "$ASSOCIATIONS_TEXT" | jq -r '
+  first(.associations[]? | [.sourceClass, .targetClass][] | select(
+    . == "tracker:class:Issue"
+    or . == "tracker:class:Project"
+    or . == "document:class:Document"
+    or . == "document:class:Teamspace"
+    or . == "core:class:Relation"
+    or . == "core:class:Doc"
+  )) // empty
+' 2>/dev/null)
+case "$ASSOC_KNOWN_CLASS" in
+  "tracker:class:Issue") ASSOC_EXPECTED_LABEL="Issue" ;;
+  "tracker:class:Project") ASSOC_EXPECTED_LABEL="Project" ;;
+  "document:class:Document") ASSOC_EXPECTED_LABEL="Document" ;;
+  "document:class:Teamspace") ASSOC_EXPECTED_LABEL="Teamspace" ;;
+  "core:class:Relation") ASSOC_EXPECTED_LABEL="Relation" ;;
+  "core:class:Doc") ASSOC_EXPECTED_LABEL="Huly document" ;;
+  *) ASSOC_EXPECTED_LABEL="" ;;
+esac
+
+if [ -n "$ASSOC_ID" ]; then
+  assert_json_field_nonempty "list_associations has id" "$ASSOCIATIONS_TEXT" ".associations[0].associationId"
+  if [ -n "$ASSOC_KNOWN_CLASS" ] && [ -n "$ASSOC_EXPECTED_LABEL" ]; then
+    assert_json_association_has_expected_class_label "list_associations labels $ASSOC_KNOWN_CLASS" \
+      "$ASSOCIATIONS_TEXT" "$ASSOC_KNOWN_CLASS" "$ASSOC_EXPECTED_LABEL"
+  else
+    skip_test "list_associations class labels" "workspace returned no associations for known SDK classes"
+  fi
+  run_test "list_associations(filter:$ASSOC_ID)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_associations\",\"arguments\":{\"association\":\"$ASSOC_ID\"}},\"id\":2}"
+  if [ -n "$ASSOC_SOURCE_CLASS" ] && [ -n "$ASSOC_TARGET_CLASS" ]; then
+    run_test "list_associations(class filters)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_associations\",\"arguments\":{\"sourceClass\":\"$ASSOC_SOURCE_CLASS\",\"targetClass\":\"$ASSOC_TARGET_CLASS\",\"limit\":5}},\"id\":2}"
+  fi
+  run_test "list_relations($ASSOC_ID)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_relations\",\"arguments\":{\"association\":\"$ASSOC_ID\",\"limit\":3}},\"id\":2}"
+else
+  skip_test "list_associations has id" "no visible associations found in workspace"
+  skip_test "list_associations(filter)" "no visible associations found in workspace"
+  skip_test "list_relations" "no visible associations found in workspace"
+fi
+
+WRITABLE_ASSOCIATIONS_TEXT=$(run_capture "list_associations(writableOnly)" \
+  '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_associations","arguments":{"writableOnly":true,"limit":1}},"id":2}')
+WRITABLE_ASSOC_ID=$(echo "$WRITABLE_ASSOCIATIONS_TEXT" | jq -r '.associations[0].associationId // empty' 2>/dev/null)
+if [ -n "$WRITABLE_ASSOC_ID" ]; then
+  skip_test "create_relation/delete_relation" "writable association discovered but disposable endpoint fixture is not defined yet"
+else
+  skip_test "create_relation/delete_relation" "read-only slice: no validated writable generic association allowlist"
+fi
+
+GENERIC_SOURCE_TEXT=$(run_capture "create_issue(for_generic_associations)" \
+  "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_issue\",\"arguments\":{\"project\":\"$PROJECT\",\"title\":\"Generic Associations Source $RUN_ID\"}},\"id\":2}")
+if [ $? -eq 0 ]; then
+  GENERIC_SOURCE_ID=$(echo "$GENERIC_SOURCE_TEXT" | jq -r '.identifier // empty' 2>/dev/null)
+  GENERIC_SOURCE_OBJ_ID=$(echo "$GENERIC_SOURCE_TEXT" | jq -r '.issueId // empty' 2>/dev/null)
+  GENERIC_SOURCE_OBJ_ID_JSON=$(json_string "$GENERIC_SOURCE_OBJ_ID")
+  if [ -n "$GENERIC_SOURCE_OBJ_ID" ]; then
+    OMITTED_RELATIONS_TEXT=$(run_capture "list_relations(source raw issue)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_relations\",\"arguments\":{\"source\":{\"kind\":\"raw\",\"id\":$GENERIC_SOURCE_OBJ_ID_JSON,\"class\":\"tracker:class:Issue\"},\"limit\":3}},\"id\":2}")
+    if [ $? -eq 0 ]; then
+      assert_json_field_nonempty "list_relations(source raw issue) has total" "$OMITTED_RELATIONS_TEXT" ".total"
+    fi
+
+    EITHER_RELATIONS_TEXT=$(run_capture "list_relations(source raw issue,either)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_relations\",\"arguments\":{\"source\":{\"kind\":\"raw\",\"id\":$GENERIC_SOURCE_OBJ_ID_JSON,\"class\":\"tracker:class:Issue\"},\"direction\":\"either\",\"limit\":3}},\"id\":2}")
+    if [ $? -eq 0 ]; then
+      assert_json_field_nonempty "list_relations(source raw issue,either) has total" "$EITHER_RELATIONS_TEXT" ".total"
+    fi
+  else
+    skip_test "list_relations(source raw issue)" "generic association source issue did not return issueId"
+    skip_test "list_relations(source raw issue,either)" "generic association source issue did not return issueId"
+  fi
+  if [ -n "$GENERIC_SOURCE_ID" ]; then
+    run_test "delete_issue(generic_assoc:$GENERIC_SOURCE_ID)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_issue\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$GENERIC_SOURCE_ID\"}},\"id\":2}"
+  fi
+else
+  skip_test "list_relations(source raw issue)" "could not create disposable source issue"
+  skip_test "list_relations(source raw issue,either)" "could not create disposable source issue"
+fi
 echo ""
 
 ##############################

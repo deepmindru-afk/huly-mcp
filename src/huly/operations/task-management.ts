@@ -42,33 +42,44 @@ import { toRef } from "./sdk-boundary.js"
 
 type TaskManagementError = HulyClientError | HulyConnectionError | HulyError
 
-const CATEGORY_TO_REF = {
-  backlog: task.statusCategory.UnStarted,
-  todo: task.statusCategory.ToDo,
-  active: task.statusCategory.Active,
-  done: task.statusCategory.Won,
-  canceled: task.statusCategory.Lost
-} as const satisfies Record<CreateStatusCategoryValue, Ref<StatusCategory>>
+const STATUS_CATEGORY_BY_SDK_KEY = {
+  UnStarted: { value: "backlog", ref: task.statusCategory.UnStarted, name: "Backlog" },
+  ToDo: { value: "todo", ref: task.statusCategory.ToDo, name: "Todo" },
+  Active: { value: "active", ref: task.statusCategory.Active, name: "Active" },
+  Won: { value: "done", ref: task.statusCategory.Won, name: "Done" },
+  Lost: { value: "canceled", ref: task.statusCategory.Lost, name: "Canceled" }
+} satisfies Record<
+  keyof typeof task.statusCategory,
+  { readonly value: CreateStatusCategoryValue; readonly ref: Ref<StatusCategory>; readonly name: string }
+>
 
-const CATEGORY_ENTRIES: ReadonlyArray<readonly [StatusCategoryValue, Ref<StatusCategory>]> = [
-  ["backlog", task.statusCategory.UnStarted],
-  ["todo", task.statusCategory.ToDo],
-  ["active", task.statusCategory.Active],
-  ["done", task.statusCategory.Won],
-  ["canceled", task.statusCategory.Lost]
-]
+type MappedStatusCategory = typeof STATUS_CATEGORY_BY_SDK_KEY[keyof typeof STATUS_CATEGORY_BY_SDK_KEY]["value"]
+type ExactStatusCategoryMapping = [CreateStatusCategoryValue] extends [MappedStatusCategory]
+  ? [MappedStatusCategory] extends [CreateStatusCategoryValue] ? true : never
+  : never
+
+const exactStatusCategoryMapping = <T extends true>(value: T): T => value
+exactStatusCategoryMapping<ExactStatusCategoryMapping>(true)
+
+const CATEGORY_TO_REF: Readonly<Record<CreateStatusCategoryValue, Ref<StatusCategory>>> = {
+  backlog: STATUS_CATEGORY_BY_SDK_KEY.UnStarted.ref,
+  todo: STATUS_CATEGORY_BY_SDK_KEY.ToDo.ref,
+  active: STATUS_CATEGORY_BY_SDK_KEY.Active.ref,
+  done: STATUS_CATEGORY_BY_SDK_KEY.Won.ref,
+  canceled: STATUS_CATEGORY_BY_SDK_KEY.Lost.ref
+}
 
 const REF_TO_CATEGORY = new Map<Ref<StatusCategory>, StatusCategoryValue>(
-  CATEGORY_ENTRIES.map(([value, ref]) => [ref, value])
+  Object.values(STATUS_CATEGORY_BY_SDK_KEY).map((entry) => [entry.ref, entry.value])
 )
 
-const STATUS_CATEGORIES: ReadonlyArray<StatusCategorySummary> = [
-  { value: "backlog", id: task.statusCategory.UnStarted, name: "Backlog" },
-  { value: "todo", id: task.statusCategory.ToDo, name: "Todo" },
-  { value: "active", id: task.statusCategory.Active, name: "Active" },
-  { value: "done", id: task.statusCategory.Won, name: "Done" },
-  { value: "canceled", id: task.statusCategory.Lost, name: "Canceled" }
-]
+const STATUS_CATEGORIES: ReadonlyArray<StatusCategorySummary> = Object.values(STATUS_CATEGORY_BY_SDK_KEY).map((
+  entry
+) => ({
+  value: entry.value,
+  id: entry.ref,
+  name: entry.name
+}))
 
 const WORKFLOW_WARNING = "This changes workspace-level tracker configuration for every project using this project type."
 

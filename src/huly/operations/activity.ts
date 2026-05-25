@@ -29,9 +29,9 @@ import {
 } from "../../domain/schemas/activity.js"
 import {
   ActivityMessageId,
+  DocId,
   EmojiCode,
   MentionId,
-  NonEmptyString,
   ObjectClassName,
   PersonId,
   ReactionId,
@@ -91,7 +91,7 @@ const optionalPersonId = (value: string | undefined): PersonId | undefined =>
 
 interface ActivityTarget {
   readonly client: HulyClient["Type"]
-  readonly objectId: NonEmptyString
+  readonly objectId: DocId
   readonly objectClass: ObjectClassName
 }
 
@@ -101,7 +101,7 @@ const activityTarget = (
   objectClass: string
 ): ActivityTarget => ({
   client,
-  objectId: NonEmptyString.make(objectId),
+  objectId: DocId.make(objectId),
   objectClass: ObjectClassName.make(objectClass)
 })
 
@@ -173,7 +173,7 @@ export const listActivity = (
 
     const result: Array<ActivityMessage> = messages.map((msg) => ({
       id: ActivityMessageId.make(msg._id),
-      objectId: NonEmptyString.make(msg.attachedTo),
+      objectId: DocId.make(msg.attachedTo),
       objectClass: ObjectClassName.make(msg.attachedToClass),
       modifiedBy: PersonId.make(msg.modifiedBy),
       modifiedOn: optionalTimestamp(msg.modifiedOn),

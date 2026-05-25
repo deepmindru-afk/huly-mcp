@@ -2,8 +2,8 @@ import { JSONSchema, Schema } from "effect"
 
 import type { NotificationTypeId } from "./shared.js"
 import {
+  DocId,
   LimitParam,
-  NonEmptyString,
   NotificationContextId,
   NotificationId,
   NotificationProviderId,
@@ -15,7 +15,7 @@ export interface NotificationSummary {
   readonly id: NotificationId
   readonly isViewed: boolean
   readonly archived: boolean
-  readonly objectId?: string | undefined
+  readonly objectId?: DocId | undefined
   readonly objectClass?: ObjectClassName | undefined
   readonly title?: string | undefined
   readonly body?: string | undefined
@@ -27,7 +27,7 @@ export interface Notification {
   readonly id: NotificationId
   readonly isViewed: boolean
   readonly archived: boolean
-  readonly objectId?: string | undefined
+  readonly objectId?: DocId | undefined
   readonly objectClass?: ObjectClassName | undefined
   readonly docNotifyContextId?: NotificationContextId | undefined
   readonly title?: string | undefined
@@ -39,7 +39,7 @@ export interface Notification {
 
 export interface DocNotifyContextSummary {
   readonly id: NotificationContextId
-  readonly objectId: string
+  readonly objectId: DocId
   readonly objectClass: ObjectClassName
   readonly isPinned: boolean
   readonly hidden: boolean
@@ -140,7 +140,7 @@ export type DeleteNotificationParams = Schema.Schema.Type<typeof DeleteNotificat
 // --- Get Notification Context Params ---
 
 export const GetNotificationContextParamsSchema = Schema.Struct({
-  objectId: NonEmptyString.annotations({
+  objectId: DocId.annotations({
     description: "Object ID to get notification context for"
   }),
   objectClass: ObjectClassName.annotations({

@@ -6,6 +6,7 @@ import { Effect } from "effect"
 
 import type {
   AssociationSummary,
+  Cardinality,
   CreateRelationParams,
   CreateRelationResult,
   DeleteRelationParams,
@@ -103,16 +104,13 @@ const isSystemAssociation = (association: HulyAssociation): boolean =>
 const isSymmetric = (association: HulyAssociation): boolean =>
   association.classA === association.classB && association.nameA === association.nameB
 
-const cardinality = (type: HulyAssociation["type"]): AssociationSummary["cardinality"] => {
-  switch (type) {
-    case "1:1":
-      return "one-to-one"
-    case "1:N":
-      return "one-to-many"
-    case "N:N":
-      return "many-to-many"
-  }
-}
+const ASSOCIATION_CARDINALITY = {
+  "1:1": "one-to-one",
+  "1:N": "one-to-many",
+  "N:N": "many-to-many"
+} satisfies Record<HulyAssociation["type"], Cardinality>
+
+const cardinality = (type: HulyAssociation["type"]): Cardinality => ASSOCIATION_CARDINALITY[type]
 
 const toAssociationSummary = (association: HulyAssociation): AssociationSummary => ({
   associationId: AssociationId.make(association._id),

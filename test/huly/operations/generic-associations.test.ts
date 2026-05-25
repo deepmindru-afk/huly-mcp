@@ -217,6 +217,25 @@ describe("listAssociations", () => {
       expect(result.total).toBe(1)
     }))
 
+  it.effect("maps SDK association type to public cardinality", () =>
+    Effect.gen(function*() {
+      const result = yield* listAssociations({}).pipe(
+        Effect.provide(testLayer({
+          associations: [
+            association({ _id: "assoc-1-1" as Ref<HulyAssociation>, type: "1:1" }),
+            association({ _id: "assoc-1-n" as Ref<HulyAssociation>, type: "1:N" }),
+            association({ _id: "assoc-n-n" as Ref<HulyAssociation>, type: "N:N" })
+          ]
+        }))
+      )
+
+      expect(result.associations.map((item) => item.cardinality)).toEqual([
+        "one-to-one",
+        "one-to-many",
+        "many-to-many"
+      ])
+    }))
+
   it.effect("returns no writable associations until a write allowlist exists", () =>
     Effect.gen(function*() {
       const result = yield* listAssociations({ writableOnly: true }).pipe(

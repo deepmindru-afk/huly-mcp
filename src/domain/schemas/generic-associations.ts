@@ -23,10 +23,9 @@ export type RelationIdentifier = Schema.Schema.Type<typeof RelationIdentifier>
 export const CardinalitySchema = Schema.Literal(
   "one-to-one",
   "one-to-many",
-  "many-to-one",
-  "many-to-many",
-  "unknown"
+  "many-to-many"
 )
+export type Cardinality = Schema.Schema.Type<typeof CardinalitySchema>
 
 export const RelationDirectionSchema = Schema.Literal("source-to-target", "target-to-source", "either")
 export type RelationDirection = Schema.Schema.Type<typeof RelationDirectionSchema>
@@ -95,7 +94,7 @@ export const AssociationSummarySchema = Schema.Struct({
   sourceRole: Schema.optional(NonEmptyString),
   targetRole: Schema.optional(NonEmptyString),
   relationClass: Schema.optional(ObjectClassName),
-  cardinality: Schema.optional(CardinalitySchema),
+  cardinality: CardinalitySchema,
   symmetric: Schema.Boolean,
   system: Schema.Boolean,
   canListRelations: Schema.Boolean,

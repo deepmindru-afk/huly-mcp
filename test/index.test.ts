@@ -4,8 +4,8 @@ import { expect } from "vitest"
 import { HulyClient } from "../src/huly/client.js"
 import { HulyStorageClient } from "../src/huly/storage.js"
 import { WorkspaceClient } from "../src/huly/workspace-client.js"
-import { main } from "../src/index.js"
-import { HttpServerFactoryService } from "../src/mcp/http-transport.js"
+import { getHttpPort, main } from "../src/index.js"
+import { DEFAULT_HTTP_PORT, HttpServerFactoryService } from "../src/mcp/http-transport.js"
 import { type ClientBundle, McpServerError, McpServerService } from "../src/mcp/server.js"
 import { TelemetryService } from "../src/telemetry/telemetry.js"
 
@@ -30,6 +30,9 @@ const resolveClientsFromLayer = (
   }
 }
 
+const CLOUD_RUN_TEST_PORT = "8080"
+const MCP_HTTP_TEST_PORT = "9090"
+
 // --- Tests ---
 
 describe("Main Entry Point", () => {
@@ -42,7 +45,8 @@ describe("Main Entry Point", () => {
     "HULY_WORKSPACE",
     "HULY_CONNECTION_TIMEOUT",
     "MCP_TRANSPORT",
-    "MCP_HTTP_PORT"
+    "MCP_HTTP_PORT",
+    "PORT"
   ]
 
   beforeEach(() => {
@@ -73,6 +77,34 @@ describe("Main Entry Point", () => {
 
         expect(error._tag).toBe("ConfigValidationError")
         expect(error.message).toContain("Configuration error")
+      }))
+  })
+
+  describe("HTTP port config", () => {
+    it.effect("uses PORT when MCP_HTTP_PORT is unset", () =>
+      Effect.gen(function*() {
+        process.env["PORT"] = CLOUD_RUN_TEST_PORT
+
+        const port = yield* getHttpPort
+
+        expect(port).toBe(Number(CLOUD_RUN_TEST_PORT))
+      }))
+
+    it.effect("prefers MCP_HTTP_PORT over PORT", () =>
+      Effect.gen(function*() {
+        process.env["MCP_HTTP_PORT"] = MCP_HTTP_TEST_PORT
+        process.env["PORT"] = CLOUD_RUN_TEST_PORT
+
+        const port = yield* getHttpPort
+
+        expect(port).toBe(Number(MCP_HTTP_TEST_PORT))
+      }))
+
+    it.effect("uses the default HTTP port when neither env var is set", () =>
+      Effect.gen(function*() {
+        const port = yield* getHttpPort
+
+        expect(port).toBe(DEFAULT_HTTP_PORT)
       }))
   })
 

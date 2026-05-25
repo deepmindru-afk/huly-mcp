@@ -210,7 +210,7 @@ For a Smithery publish schema example, see [docs/SMITHERY_URL_PUBLISH.md](docs/S
 | `HULY_WORKSPACE` | Yes | Workspace identifier |
 | `HULY_CONNECTION_TIMEOUT` | No | Connection timeout in ms (default: 30000) |
 | `MCP_TRANSPORT` | No | Transport type: `stdio` (default) or `http` |
-| `MCP_HTTP_PORT` | No | HTTP server port (default: 3000) |
+| `MCP_HTTP_PORT` | No | HTTP server port (falls back to `PORT`, then 3000) |
 | `MCP_HTTP_HOST` | No | HTTP server host (default: 127.0.0.1) |
 | `TOOLSETS` | No | Comma-separated tool categories to expose. If unset, all tools are exposed. Example: `issues,projects,search` |
 

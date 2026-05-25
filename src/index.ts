@@ -9,7 +9,7 @@ import "./polyfills.js"
 
 import { NodeRuntime } from "@effect/platform-node"
 import type { ConfigError } from "effect"
-import { Config, Context, Effect, Exit, Layer, Scope } from "effect"
+import { Config, Context, Effect, Exit, Layer, Option, Scope } from "effect"
 import type { Request } from "express"
 
 import { type ConfigValidationError, hulyConfigProviderFromHeaders, HulyConfigService } from "./config/config.js"
@@ -36,8 +36,13 @@ const getTransportType = Config.string("MCP_TRANSPORT").pipe(
   })
 )
 
-const getHttpPort = Config.integer("MCP_HTTP_PORT").pipe(
-  Config.withDefault(DEFAULT_HTTP_PORT)
+export const getHttpPort = Config.all({
+  mcpHttpPort: Config.integer("MCP_HTTP_PORT").pipe(Config.option),
+  cloudRunPort: Config.integer("PORT").pipe(Config.option)
+}).pipe(
+  Effect.map(({ cloudRunPort, mcpHttpPort }) =>
+    Option.getOrElse(mcpHttpPort, () => Option.getOrElse(cloudRunPort, () => DEFAULT_HTTP_PORT))
+  )
 )
 
 const getHttpHost = Config.string("MCP_HTTP_HOST").pipe(
@@ -263,11 +268,6 @@ export const main: Effect.Effect<void, AppError> = Effect.gen(function*() {
 const isMainModule = (() => {
   // CJS bundled: require.main === module
   if (typeof require !== "undefined" && require.main === module) return true
-  // ESM: check if process.argv[1] matches this file
-  if (typeof import.meta !== "undefined" && process.argv[1]) {
-    const arg = process.argv[1]
-    return arg.endsWith("index.ts") || arg.endsWith("index.cjs") || arg.endsWith("index.js")
-  }
   return false
 })()
 

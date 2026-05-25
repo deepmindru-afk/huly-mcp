@@ -5,16 +5,18 @@ import { LimitParam, NonEmptyString, TestCaseIdentifier, TestProjectIdentifier, 
 
 // --- Enum value arrays and schemas ---
 
+const enumValuesDescription = (values: ReadonlyArray<string>): string => values.join(", ")
+
 export const TestCaseTypeValues = ["functional", "performance", "regression", "security", "smoke", "usability"] as const
 export type TestCaseTypeStr = (typeof TestCaseTypeValues)[number]
 export const TestCaseTypeSchema = Schema.Literal(...TestCaseTypeValues).annotations({
-  description: "Test case type: functional, performance, regression, security, smoke, usability"
+  description: `Test case type: ${enumValuesDescription(TestCaseTypeValues)}`
 })
 
 export const TestCasePriorityValues = ["low", "medium", "high", "urgent"] as const
 export type TestCasePriorityStr = (typeof TestCasePriorityValues)[number]
 export const TestCasePrioritySchema = Schema.Literal(...TestCasePriorityValues).annotations({
-  description: "Test case priority: low, medium, high, urgent"
+  description: `Test case priority: ${enumValuesDescription(TestCasePriorityValues)}`
 })
 
 export const TestCaseStatusValues = [
@@ -26,13 +28,13 @@ export const TestCaseStatusValues = [
 ] as const
 export type TestCaseStatusStr = (typeof TestCaseStatusValues)[number]
 export const TestCaseStatusSchema = Schema.Literal(...TestCaseStatusValues).annotations({
-  description: "Test case status: draft, ready-for-review, fix-review-comments, approved, rejected"
+  description: `Test case status: ${enumValuesDescription(TestCaseStatusValues)}`
 })
 
 export const TestRunStatusValues = ["untested", "blocked", "passed", "failed"] as const
 export type TestRunStatusStr = (typeof TestRunStatusValues)[number]
 export const TestRunStatusSchema = Schema.Literal(...TestRunStatusValues).annotations({
-  description: "Test run result status: untested, blocked, passed, failed"
+  description: `Test run result status: ${enumValuesDescription(TestRunStatusValues)}`
 })
 
 // --- Summary types ---

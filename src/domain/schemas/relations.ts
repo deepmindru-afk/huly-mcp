@@ -10,11 +10,20 @@ import {
 } from "./shared.js"
 
 export const RelationTypeValues = ["blocks", "is-blocked-by", "relates-to"] as const
+type RelationTypeValue = (typeof RelationTypeValues)[number]
+
+const RelationTypeDescriptions = {
+  blocks: "source blocks target",
+  "is-blocked-by": "source is blocked by target",
+  "relates-to": "bidirectional link"
+} satisfies Record<RelationTypeValue, string>
+
+const relationTypeDescription = RelationTypeValues.map((value) => `'${value}' (${RelationTypeDescriptions[value]})`)
+  .join(", ")
 
 export const RelationTypeSchema = Schema.Literal(...RelationTypeValues).annotations({
   title: "RelationType",
-  description:
-    "Type of issue relation: 'blocks' (source blocks target), 'is-blocked-by' (source is blocked by target), 'relates-to' (bidirectional link)",
+  description: `Type of issue relation: ${relationTypeDescription}`,
   jsonSchema: { type: "string", enum: [...RelationTypeValues] }
 })
 

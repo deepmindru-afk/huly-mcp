@@ -13,7 +13,7 @@ import {
   Timestamp
 } from "./shared.js"
 
-import { TestRunStatusSchema, type TestRunStatusStr } from "./test-management-core.js"
+import { TestRunStatusSchema, type TestRunStatusStr, TestRunStatusValues } from "./test-management-core.js"
 
 const projectField = TestProjectIdentifier.annotations({ description: "Test project ID or name" })
 const limitField = LimitParam.annotations({ description: "Max items to return (default: 50)" })
@@ -218,7 +218,7 @@ export interface GetTestResultDetail {
   readonly description?: string
 }
 
-const statusField = TestRunStatusSchema.annotations({ description: "Status: untested, blocked, passed, failed" })
+const statusField = TestRunStatusSchema.annotations({ description: `Status: ${TestRunStatusValues.join(", ")}` })
 
 export const CreateTestResultParamsSchema = Schema.Struct({
   project: projectField,

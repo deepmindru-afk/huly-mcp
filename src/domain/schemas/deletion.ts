@@ -6,14 +6,14 @@ const EntityTypeValues = ["issue", "project", "component", "milestone"] as const
 
 const EntityTypeSchema = Schema.Literal(...EntityTypeValues).annotations({
   title: "EntityType",
-  description: "Type of entity to preview deletion for"
+  description: `Type of entity to preview deletion for: ${EntityTypeValues.join(", ")}`
 })
 
 export type EntityType = Schema.Schema.Type<typeof EntityTypeSchema>
 
 export const PreviewDeletionParamsSchema = Schema.Struct({
   entityType: EntityTypeSchema.annotations({
-    description: "Type of entity: issue, project, component, or milestone"
+    description: `Type of entity: ${EntityTypeValues.join(", ")}`
   }),
   project: ProjectIdentifier.annotations({
     description: "Project identifier (e.g., 'HULY'). For entityType='project', this IS the target project."

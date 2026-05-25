@@ -182,6 +182,23 @@ Configure with `MCP_HTTP_PORT` and `MCP_HTTP_HOST`:
 MCP_TRANSPORT=http MCP_HTTP_PORT=8080 MCP_HTTP_HOST=0.0.0.0 npx -y @firfi/huly-mcp@latest
 ```
 
+### Hosted HTTP Header Configuration
+
+For hosted URL deployments, keep the server process configured with `MCP_TRANSPORT=http`. A hosting layer can forward per-session Huly credentials as request headers, so one hosted server can serve different Huly workspaces without process-wide `HULY_*` env vars.
+
+Supported v1 headers:
+
+| Header | Required | Description |
+|--------|----------|-------------|
+| `x-huly-url` | Yes | Huly instance URL |
+| `x-huly-workspace` | Yes | Workspace identifier |
+| `x-huly-token` | Yes | Huly API token |
+| `x-huly-connection-timeout` | No | Connection timeout in ms |
+
+If any `x-huly-*` header is present, all required headers must be present. Missing values are not filled from environment variables. Email/password auth is not supported in hosted header configuration v1.
+
+For a Smithery publish schema example, see [docs/SMITHERY_URL_PUBLISH.md](docs/SMITHERY_URL_PUBLISH.md).
+
 ## Environment Variables
 
 | Variable | Required | Description |

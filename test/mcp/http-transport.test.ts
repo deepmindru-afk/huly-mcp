@@ -17,6 +17,7 @@ import {
   createMcpHandlers,
   type HttpServerFactory,
   HttpServerFactoryService,
+  type HttpTransportDependencies,
   HttpTransportError,
   startHttpTransport
 } from "../../src/mcp/http-transport.js"
@@ -46,6 +47,33 @@ const createProbe = <Args extends Array<unknown>, Result>(
 }
 
 const createVoidProbe = <Args extends Array<unknown>>(): Probe<Args, void> => createProbe<Args, void>(() => undefined)
+
+const createMockTransportDependencies = (): {
+  readonly dependencies: HttpTransportDependencies
+  readonly calls: {
+    readonly handleRequest: Array<[Request, Response, unknown]>
+    readonly close: Array<[]>
+  }
+} => {
+  const handleRequest = createProbe<[Request, Response, unknown], Promise<void>>(() => Promise.resolve())
+  const close = createProbe<[], Promise<void>>(() => Promise.resolve())
+
+  return {
+    dependencies: {
+      createTransport: () =>
+        // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- test fake implements transport methods used by createMcpHandlers
+        ({
+          close: close.fn,
+          handleRequest: handleRequest.fn
+        }) as never,
+      writeError: createVoidProbe<[string]>().fn
+    },
+    calls: {
+      handleRequest: handleRequest.calls,
+      close: close.calls
+    }
+  }
+}
 
 // Mock Express app for testing
 const createMockExpressApp = () => {
@@ -126,10 +154,14 @@ const getResponseCalls = (response: Response): {
     }
   }).__calls
 
-const createMockRequest = (body: unknown = {}): Request => {
+const createMockRequest = (
+  body: unknown = {},
+  headers: Request["headers"] = {}
+): Request => {
   const on = createVoidProbe<[string, (...args: Array<unknown>) => void]>()
   return mock<Request>({
     body,
+    headers,
     on: on.fn,
     __calls: { on: on.calls }
   })
@@ -140,7 +172,8 @@ describe("HTTP Transport", () => {
     // test-revizorro: approved
     it("should handle tool calls in stateless mode (connect server and delegate to transport)", async () => {
       const mockServer = createMockMcpServer()
-      const handlers = createMcpHandlers(() => mockServer)
+      const transport = createMockTransportDependencies()
+      const handlers = createMcpHandlers(() => mockServer, transport.dependencies)
 
       const req = createMockRequest({ jsonrpc: "2.0", method: "tools/list", id: 1 })
 
@@ -148,17 +181,15 @@ describe("HTTP Transport", () => {
 
       await handlers.post(req, res)
 
-      // In stateless mode, every request creates a fresh server and transport
-      // The server should be connected and the request delegated to the transport
       expect(getServerCalls(mockServer).connect).toHaveLength(1)
-      // Response handling is delegated to the SDK transport, so we don't check res.status/json here
-      // The SDK handles JSON-RPC protocol responses
+      expect(transport.calls.handleRequest).toEqual([[req, res, req.body]])
     })
 
     // test-revizorro: approved
     it("should handle initialize requests in stateless mode", async () => {
       const mockServer = createMockMcpServer()
-      const handlers = createMcpHandlers(() => mockServer)
+      const transport = createMockTransportDependencies()
+      const handlers = createMcpHandlers(() => mockServer, transport.dependencies)
 
       const req = createMockRequest({
         jsonrpc: "2.0",
@@ -175,26 +206,25 @@ describe("HTTP Transport", () => {
 
       await handlers.post(req, res)
 
-      // Initialize requests should also be handled via the transport
       expect(getServerCalls(mockServer).connect).toHaveLength(1)
+      expect(transport.calls.handleRequest).toEqual([[req, res, req.body]])
     })
 
     // test-revizorro: approved
     it("should create fresh server for each request in stateless mode", async () => {
       const serverInstances: Array<Server> = []
+      const transport = createMockTransportDependencies()
       const handlers = createMcpHandlers(() => {
         const server = createMockMcpServer()
         serverInstances.push(server)
         return server
-      })
+      }, transport.dependencies)
 
       const res1 = createMockResponse()
       const res2 = createMockResponse()
 
-      // First request - tools/list
       await handlers.post(createMockRequest({ jsonrpc: "2.0", method: "tools/list", id: 1 }), res1)
 
-      // Second request - tools/call
       await handlers.post(
         createMockRequest({
           jsonrpc: "2.0",
@@ -205,11 +235,32 @@ describe("HTTP Transport", () => {
         res2
       )
 
-      // Should have created two separate server instances
       expect(serverInstances).toHaveLength(2)
       expect(serverInstances[0]).not.toBe(serverInstances[1])
       expect(getServerCalls(serverInstances[0]).connect).toHaveLength(1)
       expect(getServerCalls(serverInstances[1]).connect).toHaveLength(1)
+      expect(transport.calls.handleRequest).toHaveLength(2)
+    })
+
+    it("passes request headers to the per-request server factory", async () => {
+      const headers = {
+        "x-huly-url": "https://huly.one",
+        "x-huly-workspace": "workspace-one",
+        "x-huly-token": "token-one"
+      }
+      const capturedHeaders: Array<Request["headers"]> = []
+      const transport = createMockTransportDependencies()
+      const handlers = createMcpHandlers((req) => {
+        capturedHeaders.push(req.headers)
+        return createMockMcpServer()
+      }, transport.dependencies)
+
+      await handlers.post(
+        createMockRequest({ jsonrpc: "2.0", method: "tools/list", id: 1 }, headers),
+        createMockResponse()
+      )
+
+      expect(capturedHeaders).toEqual([headers])
     })
 
     // test-revizorro: approved
@@ -724,7 +775,7 @@ describe("HTTP Transport", () => {
     it("should call createMcpExpressApp via createApp", async () => {
       const program = Effect.gen(function*() {
         const factory = yield* HttpServerFactoryService
-        return factory.createApp("0.0.0.0")
+        return factory.createApp("127.0.0.1")
       })
 
       const result = await Effect.runPromise(

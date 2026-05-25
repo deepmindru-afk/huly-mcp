@@ -21,7 +21,11 @@ import { expect } from "vitest"
 import { HulyClient, type HulyClientOperations } from "../../src/huly/client.js"
 import { HulyStorageClient } from "../../src/huly/storage.js"
 import { WorkspaceClient } from "../../src/huly/workspace-client.js"
-import { HttpServerFactoryService, HttpTransportError } from "../../src/mcp/http-transport.js"
+import {
+  HttpServerFactoryService,
+  type HttpTransportDependencies,
+  HttpTransportError
+} from "../../src/mcp/http-transport.js"
 import { type ClientBundle, McpServerError, McpServerService } from "../../src/mcp/server.js"
 import { TOOL_DEFINITIONS } from "../../src/mcp/tools/index.js"
 import type { ToolDefinition } from "../../src/mcp/tools/registry.js"
@@ -68,16 +72,30 @@ const buildTestServerLayer = (
     httpHost?: string
     autoExit?: boolean
     authMethod?: "token" | "password"
+    httpTransportDependencies?: Partial<HttpTransportDependencies>
   },
   layers: Layer.Layer<HulyClient | HulyStorageClient | WorkspaceClient | TelemetryService>
-) =>
-  McpServerService.layer({
-    ...config,
+) => {
+  const { httpTransportDependencies, ...serverConfig } = config
+  return McpServerService.layer({
+    ...serverConfig,
+    ...(httpTransportDependencies === undefined ? {} : { httpTransportDependencies }),
     createServer: createMockServer,
     // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- test transport is never inspected by the mocked server
     createStdioTransport: () => ({}) as never,
     resolveClients: resolveClientsFromLayer(layers)
   }).pipe(Layer.provide(layers))
+}
+
+const quietHttpTransportDependencies: Partial<HttpTransportDependencies> = {
+  createTransport: () =>
+    // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- test fake implements only methods used by createMcpHandlers
+    ({
+      async close() {},
+      async handleRequest() {}
+    }) as never,
+  writeError: () => {}
+}
 
 // Captured request handlers from mocked MCP Server instances
 type HandlerMap = Map<unknown, (...args: Array<unknown>) => unknown>
@@ -1045,7 +1063,8 @@ describe("McpServerService.layer operations", () => {
         const serverLayer = buildTestServerLayer({
           transport: "http",
           httpPort: 19877,
-          httpHost: "127.0.0.1"
+          httpHost: "127.0.0.1",
+          httpTransportDependencies: quietHttpTransportDependencies
         }, layers)
 
         const ctx = yield* Layer.build(serverLayer)
@@ -1100,6 +1119,105 @@ describe("McpServerService.layer operations", () => {
             // Expected
           }
         }
+
+        yield* Fiber.interrupt(fiber)
+      }), { timeout: 5000 })
+
+    it.scoped("http transport resolves clients from each request headers independently", () =>
+      Effect.gen(function*() {
+        capturedHandlers.clear()
+
+        const baseClientLayer = Layer.mergeAll(
+          HulyClient.testLayer({}),
+          HulyStorageClient.testLayer({}),
+          WorkspaceClient.testLayer({})
+        )
+        const resolveBaseClients = resolveClientsFromLayer(baseClientLayer)
+        const seenWorkspaces: Array<string | ReadonlyArray<string> | undefined> = []
+
+        const serverLayer = McpServerService.layer({
+          transport: "http",
+          httpPort: 19879,
+          httpHost: "127.0.0.1",
+          createServer: createMockServer,
+          resolveClients: resolveBaseClients,
+          resolveClientsForHttpRequest: (req) => {
+            seenWorkspaces.push(req.headers["x-huly-workspace"])
+            return resolveBaseClients()
+          },
+          httpTransportDependencies: {
+            createTransport: () =>
+              // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- test fake implements the transport methods used by createMcpHandlers
+              ({
+                async close() {},
+                async handleRequest(_req: unknown, _res: unknown, body: unknown) {
+                  const handler = capturedHandlers.get(CallToolRequestSchema)
+                  if (handler === undefined) throw new Error("CallTool handler was not registered")
+                  const params = body && typeof body === "object" && "params" in body
+                    ? body.params
+                    : { name: "list_projects", arguments: {} }
+                  await handler({ params })
+                }
+              }) as never
+          }
+        }).pipe(Layer.provide(TelemetryService.testLayer()))
+
+        const ctx = yield* Layer.build(serverLayer)
+        const ops = yield* McpServerService.pipe(
+          Effect.provide(Layer.succeedContext(ctx))
+        )
+
+        const postHandlers: Array<(req: unknown, res: unknown) => Promise<void>> = []
+        const mockHttpFactory: HttpServerFactoryService["Type"] = {
+          createApp: () =>
+            // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- test fake implements the Express methods used by startHttpTransport
+            ({
+              post: (_path: string, handler: (req: unknown, res: unknown) => Promise<void>) => {
+                postHandlers.push(handler)
+              },
+              get: () => {},
+              delete: () => {}
+            }) as never,
+          listen: () =>
+            Effect.succeed({
+              close: (cb: (err?: Error) => void) => cb()
+            } as never)
+        }
+
+        const fiber = yield* Effect.fork(
+          ops.run().pipe(
+            Effect.provideService(HttpServerFactoryService, mockHttpFactory)
+          )
+        )
+
+        yield* Effect.promise(() => new Promise((r) => setTimeout(r, 100)))
+        expect(postHandlers).toHaveLength(1)
+
+        const handler = postHandlers[0]
+        const response = {
+          headersSent: false,
+          status: () => ({ json: () => {} }),
+          on: () => {}
+        }
+        const makeRequest = (workspace: string) => ({
+          body: {
+            jsonrpc: "2.0",
+            method: "tools/call",
+            id: 1,
+            params: { name: "list_projects", arguments: {} }
+          },
+          headers: {
+            "x-huly-url": "https://huly.app",
+            "x-huly-workspace": workspace,
+            "x-huly-token": `token-${workspace}`
+          },
+          on: () => {}
+        })
+
+        yield* Effect.promise(() => handler(makeRequest("workspace-one"), response))
+        yield* Effect.promise(() => handler(makeRequest("workspace-two"), response))
+
+        expect(seenWorkspaces).toEqual(["workspace-one", "workspace-two"])
 
         yield* Fiber.interrupt(fiber)
       }), { timeout: 5000 })

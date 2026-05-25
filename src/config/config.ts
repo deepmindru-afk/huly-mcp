@@ -6,9 +6,45 @@
  * @module
  */
 import type { ConfigError } from "effect"
-import { Config, Context, Effect, Layer, Redacted, Schema } from "effect"
+import { Config, ConfigProvider, Context, Effect, Layer, Redacted, Schema } from "effect"
 
 const DEFAULT_TIMEOUT = 30000
+// Required only when a request provides any x-huly-* header; otherwise HTTP falls back to process env config.
+const REQUIRED_HULY_CONFIG_HEADERS = ["x-huly-url", "x-huly-workspace", "x-huly-token"] as const
+const HULY_CONFIG_HEADERS = [
+  ...REQUIRED_HULY_CONFIG_HEADERS,
+  "x-huly-connection-timeout"
+] as const
+
+type HulyConfigHeader = typeof HULY_CONFIG_HEADERS[number]
+type HulyEnvNamePattern = `HULY_${string}`
+const HeaderValueSchema = Schema.Union(Schema.String, Schema.Array(Schema.String), Schema.Undefined)
+const HeaderRecordSchema = Schema.Record({ key: Schema.String, value: HeaderValueSchema })
+type HeaderRecord = Schema.Schema.Type<typeof HeaderRecordSchema>
+type HeaderValue = Schema.Schema.Type<typeof HeaderValueSchema>
+type UrlHeaderEntries = ReadonlyMap<HulyConfigEnvName, string>
+
+type UrlHeaderConfig =
+  | { readonly _tag: "NoUrlHeaders" }
+  | {
+    readonly _tag: "UrlHeaders"
+    readonly entries: UrlHeaderEntries
+  }
+
+const headerToEnvName = {
+  "x-huly-url": "HULY_URL",
+  "x-huly-workspace": "HULY_WORKSPACE",
+  "x-huly-token": "HULY_TOKEN",
+  "x-huly-connection-timeout": "HULY_CONNECTION_TIMEOUT"
+} as const satisfies Record<HulyConfigHeader, HulyEnvNamePattern>
+
+type HulyConfigEnvName = typeof headerToEnvName[HulyConfigHeader]
+type ConfigMapEntry = readonly [HulyConfigEnvName, string]
+
+const hulyConfigHeaderSet = new Set<string>(HULY_CONFIG_HEADERS)
+
+const isHulyConfigHeader = (name: string): name is HulyConfigHeader => hulyConfigHeaderSet.has(name)
+const isConfigMapEntry = (entry: ConfigMapEntry | undefined): entry is ConfigMapEntry => entry !== undefined
 
 /**
  * Schema for URL validation - must be valid http/https URL.
@@ -85,6 +121,115 @@ export class ConfigValidationError extends Schema.TaggedError<ConfigValidationEr
     cause: Schema.optional(Schema.Defect)
   }
 ) {}
+
+const configValidationError = (
+  message: string,
+  field: string
+): ConfigValidationError => new ConfigValidationError({ message, field })
+
+const decodeHeaderRecord = (
+  headers: unknown
+): Effect.Effect<HeaderRecord, ConfigValidationError> =>
+  Schema.decodeUnknown(HeaderRecordSchema)(headers).pipe(
+    Effect.mapError((cause) =>
+      new ConfigValidationError({
+        message: `Invalid HTTP request headers: ${cause.message}`,
+        field: "headers",
+        cause
+      })
+    )
+  )
+
+const parseUrlHeaderConfig = (
+  headers: HeaderRecord
+): Effect.Effect<UrlHeaderConfig, ConfigValidationError> =>
+  Effect.gen(function*() {
+    const hulyHeaders = Object.entries(headers).filter(([name]) => name.toLowerCase().startsWith("x-huly-"))
+    if (hulyHeaders.length === 0) return { _tag: "NoUrlHeaders" }
+
+    const normalized = yield* Effect.forEach(hulyHeaders, ([rawName, value]): Effect.Effect<
+      readonly [HulyConfigHeader, HeaderValue],
+      ConfigValidationError
+    > => {
+      const name = rawName.toLowerCase()
+      if (!isHulyConfigHeader(name)) {
+        return Effect.fail(
+          configValidationError(
+            `Unsupported Huly config header "${rawName}". Supported headers: ${HULY_CONFIG_HEADERS.join(", ")}.`,
+            rawName
+          )
+        )
+      }
+
+      return Effect.succeed([name, value])
+    })
+
+    const normalizedNames = normalized.map(([name]) => name)
+    const duplicateName = normalizedNames.find((name, index) => normalizedNames.indexOf(name) !== index)
+    if (duplicateName !== undefined) {
+      return yield* configValidationError(
+        `Duplicate Huly config header "${duplicateName}" received with different casing.`,
+        duplicateName
+      )
+    }
+
+    const normalizedHeaders = new Map(normalized)
+    const configEntries = yield* Effect.forEach(HULY_CONFIG_HEADERS, (headerName): Effect.Effect<
+      ConfigMapEntry | undefined,
+      ConfigValidationError
+    > => {
+      const value = normalizedHeaders.get(headerName)
+      if (value === undefined) {
+        if (REQUIRED_HULY_CONFIG_HEADERS.includes(headerName)) {
+          return Effect.fail(
+            configValidationError(
+              `Missing required Huly config header "${headerName}". When any x-huly-* header is present, `
+                + `${REQUIRED_HULY_CONFIG_HEADERS.join(", ")} must all be provided.`,
+              headerName
+            )
+          )
+        }
+        return Effect.succeed(undefined)
+      }
+
+      if (typeof value !== "string") {
+        return Effect.fail(
+          configValidationError(
+            `Huly config header "${headerName}" must have exactly one value.`,
+            headerName
+          )
+        )
+      }
+
+      return Effect.succeed([headerToEnvName[headerName], value])
+    })
+
+    return { _tag: "UrlHeaders", entries: new Map(configEntries.filter(isConfigMapEntry)) }
+  })
+
+const configProviderFromUrlHeaders = (
+  config: Extract<UrlHeaderConfig, { readonly _tag: "UrlHeaders" }>
+): ConfigProvider.ConfigProvider => ConfigProvider.fromMap(new Map(config.entries))
+
+/**
+ * Build an Effect ConfigProvider from URL mode headers.
+ *
+ * If no x-huly-* headers are present, returns undefined so callers can use the
+ * existing process environment resolver. If any x-huly-* header is present,
+ * only token auth headers are accepted and all required fields must come from
+ * headers; missing values are never filled from process env.
+ */
+export const hulyConfigProviderFromHeaders = (
+  headers: unknown
+): Effect.Effect<ConfigProvider.ConfigProvider | undefined, ConfigValidationError> =>
+  decodeHeaderRecord(headers).pipe(
+    Effect.flatMap(parseUrlHeaderConfig),
+    Effect.flatMap((config) =>
+      config._tag === "NoUrlHeaders"
+        ? Effect.succeed(undefined)
+        : Effect.succeed(configProviderFromUrlHeaders(config))
+    )
+  )
 
 const TokenAuthFromEnv = Config.map(
   Schema.Config("HULY_TOKEN", Schema.Redacted(NonWhitespaceString)),

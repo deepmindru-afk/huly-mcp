@@ -1,5 +1,6 @@
 #!/usr/bin/env tsx
 
+// Keeps MCP registry metadata in server.json aligned with package.json identity and version fields.
 import { readFileSync, writeFileSync } from "fs"
 import { join } from "path"
 import { Schema } from "effect"

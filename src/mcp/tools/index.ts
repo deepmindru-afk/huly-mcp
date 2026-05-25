@@ -21,7 +21,14 @@ import { notificationTools } from "./notifications.js"
 import { processTools } from "./processes.js"
 import { projectTools } from "./projects.js"
 import type { RegisteredTool, ToolDefinition } from "./registry.js"
-import { resolveAnnotations } from "./registry.js"
+import {
+  createMissingArgumentsError,
+  createUnexpectedArgumentsError,
+  isEmptyArgumentsObject,
+  isNoArgumentTool,
+  requiresArgumentsObject,
+  resolveAnnotations
+} from "./registry.js"
 import { searchTools } from "./search.js"
 import { storageTools } from "./storage.js"
 import { tagCategoryTools } from "./tag-categories.js"
@@ -93,7 +100,13 @@ const buildRegistry = (tools: ReadonlyArray<RegisteredTool>): ToolRegistry => {
     handleToolCall: async (toolName, args, hulyClient, storageClient, workspaceClient) => {
       const tool = map.get(toolName)
       if (!tool) return null
-      return tool.handler(args, hulyClient, storageClient, workspaceClient)
+      if (isNoArgumentTool(tool) && !isEmptyArgumentsObject(args)) {
+        return createUnexpectedArgumentsError(toolName)
+      }
+      if (args === undefined && requiresArgumentsObject(tool)) {
+        return createMissingArgumentsError(toolName)
+      }
+      return tool.handler(args ?? {}, hulyClient, storageClient, workspaceClient)
     }
   }
 }

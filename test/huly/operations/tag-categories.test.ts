@@ -260,17 +260,19 @@ describe("updateTagCategory", () => {
       expect(captureUpdateDoc.operations?.default).toBe(true)
     }))
 
-  it.effect("returns updated=false when no fields provided", () =>
+  it.effect("fails when no fields provided", () =>
     Effect.gen(function*() {
       const cat = makeTagCategory({ label: "Test" })
 
       const testLayer = createTestLayerWithMocks({ categories: [cat] })
 
-      const result = yield* updateTagCategory({
-        category: tagCategoryIdentifier("Test")
-      }).pipe(Effect.provide(testLayer))
+      const error = yield* Effect.flip(
+        updateTagCategory({
+          category: tagCategoryIdentifier("Test")
+        }).pipe(Effect.provide(testLayer))
+      )
 
-      expect(result.updated).toBe(false)
+      expect(error._tag).toBe("NoUpdateFieldsError")
     }))
 
   it.effect("returns TagCategoryNotFoundError for nonexistent category", () =>

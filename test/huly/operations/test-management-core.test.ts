@@ -373,7 +373,7 @@ describe("updateTestSuite", () => {
       expect(captureUpdateDoc.operations?.name).toBe("Updated Suite")
     }))
 
-  it.effect("returns updated=false when no fields provided", () =>
+  it.effect("fails when no fields provided", () =>
     Effect.gen(function*() {
       const project = makeTestProject()
       const suite = makeTestSuite()
@@ -383,12 +383,14 @@ describe("updateTestSuite", () => {
         suites: [suite]
       })
 
-      const result = yield* updateTestSuite({
-        project: testProjectIdentifier("QA Project"),
-        suite: testSuiteIdentifier("Login Suite")
-      }).pipe(Effect.provide(testLayer))
+      const error = yield* Effect.flip(
+        updateTestSuite({
+          project: testProjectIdentifier("QA Project"),
+          suite: testSuiteIdentifier("Login Suite")
+        }).pipe(Effect.provide(testLayer))
+      )
 
-      expect(result.updated).toBe(false)
+      expect(error._tag).toBe("NoUpdateFieldsError")
     }))
 
   it.effect("returns TestSuiteNotFoundError for nonexistent suite", () =>
@@ -603,7 +605,7 @@ describe("updateTestCase", () => {
       expect(captureUpdateDoc.operations?.type).toBe(TestCaseType.Regression)
     }))
 
-  it.effect("returns updated=false when no fields provided", () =>
+  it.effect("fails when no fields provided", () =>
     Effect.gen(function*() {
       const project = makeTestProject()
       const tc = makeTestCase()
@@ -613,12 +615,14 @@ describe("updateTestCase", () => {
         cases: [tc]
       })
 
-      const result = yield* updateTestCase({
-        project: testProjectIdentifier("QA Project"),
-        testCase: testCaseIdentifier("Login with valid creds")
-      }).pipe(Effect.provide(testLayer))
+      const error = yield* Effect.flip(
+        updateTestCase({
+          project: testProjectIdentifier("QA Project"),
+          testCase: testCaseIdentifier("Login with valid creds")
+        }).pipe(Effect.provide(testLayer))
+      )
 
-      expect(result.updated).toBe(false)
+      expect(error._tag).toBe("NoUpdateFieldsError")
     }))
 })
 

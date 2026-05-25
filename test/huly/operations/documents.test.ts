@@ -760,7 +760,7 @@ describe("editDocument", () => {
         expect(captureUpdateDoc.operations?.content).toBeNull()
       }))
 
-    it.effect("returns updated=false when no fields provided", () =>
+    it.effect("fails when no fields provided", () =>
       Effect.gen(function*() {
         const teamspace = makeTeamspace({ _id: "ts-1" as Ref<HulyTeamspace>, name: "My Docs" })
         const doc = makeDocument({
@@ -774,13 +774,134 @@ describe("editDocument", () => {
           documents: [doc]
         })
 
-        const result = yield* editDocument({
-          teamspace: teamspaceIdentifier("My Docs"),
-          document: documentIdentifier("Test Doc")
-        }).pipe(Effect.provide(testLayer))
+        const error = yield* Effect.flip(
+          editDocument({
+            teamspace: teamspaceIdentifier("My Docs"),
+            document: documentIdentifier("Test Doc")
+          }).pipe(Effect.provide(testLayer))
+        )
 
-        expect(result.id).toBe("doc-1")
-        expect(result.updated).toBe(false)
+        expect(error._tag).toBe("NoUpdateFieldsError")
+      }))
+
+    it.effect("fails with invalid edit mode when only one search-and-replace field is provided", () =>
+      Effect.gen(function*() {
+        const teamspace = makeTeamspace({ _id: "ts-1" as Ref<HulyTeamspace>, name: "My Docs" })
+        const doc = makeDocument({
+          _id: "doc-1" as Ref<HulyDocument>,
+          title: "Test Doc",
+          space: "ts-1" as Ref<HulyTeamspace>
+        })
+
+        const testLayer = createTestLayerWithMocks({
+          teamspaces: [teamspace],
+          documents: [doc]
+        })
+
+        const error = yield* Effect.flip(
+          editDocument({
+            teamspace: teamspaceIdentifier("My Docs"),
+            document: documentIdentifier("Test Doc"),
+            old_text: "old"
+          }).pipe(Effect.provide(testLayer))
+        )
+
+        expect(error._tag).toBe("DocumentEditModeError")
+        if (error._tag === "DocumentEditModeError") {
+          expect(error.reason).toBe("old_text and new_text must be provided together")
+        }
+      }))
+
+    it.effect("fails when full content and search-and-replace modes are combined", () =>
+      Effect.gen(function*() {
+        const teamspace = makeTeamspace({ _id: "ts-1" as Ref<HulyTeamspace>, name: "My Docs" })
+        const doc = makeDocument({
+          _id: "doc-1" as Ref<HulyDocument>,
+          title: "Test Doc",
+          space: "ts-1" as Ref<HulyTeamspace>,
+          content: "markup-id-1" as MarkupBlobRef
+        })
+
+        const testLayer = createTestLayerWithMocks({
+          teamspaces: [teamspace],
+          documents: [doc],
+          markupContent: { "markup-id-1": "old content" }
+        })
+
+        const error = yield* Effect.flip(
+          editDocument({
+            teamspace: teamspaceIdentifier("My Docs"),
+            document: documentIdentifier("Test Doc"),
+            content: "replacement content",
+            old_text: "old",
+            new_text: "new"
+          }).pipe(Effect.provide(testLayer))
+        )
+
+        expect(error._tag).toBe("DocumentEditModeError")
+        if (error._tag === "DocumentEditModeError") {
+          expect(error.reason).toBe("content cannot be combined with old_text or new_text")
+        }
+      }))
+
+    it.effect("fails when replace_all is provided outside search-and-replace mode", () =>
+      Effect.gen(function*() {
+        const teamspace = makeTeamspace({ _id: "ts-1" as Ref<HulyTeamspace>, name: "My Docs" })
+        const doc = makeDocument({
+          _id: "doc-1" as Ref<HulyDocument>,
+          title: "Test Doc",
+          space: "ts-1" as Ref<HulyTeamspace>
+        })
+
+        const testLayer = createTestLayerWithMocks({
+          teamspaces: [teamspace],
+          documents: [doc]
+        })
+
+        const error = yield* Effect.flip(
+          editDocument({
+            teamspace: teamspaceIdentifier("My Docs"),
+            document: documentIdentifier("Test Doc"),
+            title: "New Title",
+            replace_all: true
+          }).pipe(Effect.provide(testLayer))
+        )
+
+        expect(error._tag).toBe("DocumentEditModeError")
+        if (error._tag === "DocumentEditModeError") {
+          expect(error.reason).toBe("replace_all requires both old_text and new_text")
+        }
+      }))
+
+    it.effect("fails before content lookup when old_text is empty", () =>
+      Effect.gen(function*() {
+        const teamspace = makeTeamspace({ _id: "ts-1" as Ref<HulyTeamspace>, name: "My Docs" })
+        const doc = makeDocument({
+          _id: "doc-1" as Ref<HulyDocument>,
+          title: "Test Doc",
+          space: "ts-1" as Ref<HulyTeamspace>,
+          content: "markup-id-1" as MarkupBlobRef
+        })
+
+        const testLayer = createTestLayerWithMocks({
+          teamspaces: [teamspace],
+          documents: [doc],
+          markupContent: { "markup-id-1": "content" }
+        })
+
+        const error = yield* Effect.flip(
+          editDocument({
+            teamspace: teamspaceIdentifier("My Docs"),
+            document: documentIdentifier("Test Doc"),
+            old_text: "",
+            new_text: "replacement"
+          }).pipe(Effect.provide(testLayer))
+        )
+
+        expect(error._tag).toBe("DocumentEditModeError")
+        if (error._tag === "DocumentEditModeError") {
+          expect(error.reason).toBe("old_text must be non-empty")
+        }
       }))
 
     it.effect("updates title and full content at once", () =>
@@ -1291,16 +1412,18 @@ describe("updateTeamspace", () => {
       expect(captureUpdateDoc.operations?.archived).toBe(true)
     }))
 
-  it.effect("returns updated=false when no fields", () =>
+  it.effect("fails when no fields", () =>
     Effect.gen(function*() {
       const teamspace = makeTeamspace({ _id: "ts-1" as Ref<HulyTeamspace>, name: "TS" })
       const testLayer = createTestLayerWithMocks({ teamspaces: [teamspace] })
 
-      const result = yield* updateTeamspace({
-        teamspace: teamspaceIdentifier("TS")
-      }).pipe(Effect.provide(testLayer))
+      const error = yield* Effect.flip(
+        updateTeamspace({
+          teamspace: teamspaceIdentifier("TS")
+        }).pipe(Effect.provide(testLayer))
+      )
 
-      expect(result.updated).toBe(false)
+      expect(error._tag).toBe("NoUpdateFieldsError")
     }))
 
   it.effect("returns TeamspaceNotFoundError when not found", () =>

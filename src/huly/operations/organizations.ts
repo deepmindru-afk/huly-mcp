@@ -29,9 +29,15 @@ import type {
   RemoveOrganizationMemberResult,
   UpdateOrganizationResult
 } from "../../domain/schemas/contacts.js"
+import { UPDATE_ORGANIZATION_FIELDS } from "../../domain/schemas/contacts.js"
 import { Email, OrganizationId, PersonId, PersonName } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
-import { OrganizationIdentifierAmbiguousError, OrganizationNotFoundError, PersonNotFoundError } from "../errors.js"
+import {
+  type NoUpdateFieldsError,
+  OrganizationIdentifierAmbiguousError,
+  OrganizationNotFoundError,
+  PersonNotFoundError
+} from "../errors.js"
 import { contact } from "../huly-plugins.js"
 import { leadClassIds } from "../lead-plugin.js"
 import { buildContactUrlFromConfig } from "../url-builders.js"
@@ -39,11 +45,16 @@ import { batchGetEmailsForPersons, findPersonByEmail, findPersonById } from "./c
 import { toChannelProviderRef } from "./organization-channel-providers.js"
 import { clampLimit } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
+import { requireUpdateFields } from "./update-guards.js"
 
 type ListOrganizationsError = HulyClientError
 type CreateOrganizationError = HulyClientError | PersonNotFoundError
 type GetOrganizationError = HulyClientError | OrganizationIdentifierAmbiguousError | OrganizationNotFoundError
-type UpdateOrganizationError = HulyClientError | OrganizationIdentifierAmbiguousError | OrganizationNotFoundError
+type UpdateOrganizationError =
+  | HulyClientError
+  | NoUpdateFieldsError
+  | OrganizationIdentifierAmbiguousError
+  | OrganizationNotFoundError
 type DeleteOrganizationError = HulyClientError | OrganizationIdentifierAmbiguousError | OrganizationNotFoundError
 type AddOrganizationChannelError =
   | HulyClientError
@@ -241,6 +252,8 @@ export const updateOrganization = (
   params: UpdateOrganizationParams
 ): Effect.Effect<UpdateOrganizationResult, UpdateOrganizationError, HulyClient> =>
   Effect.gen(function*() {
+    yield* requireUpdateFields("update_organization", params, UPDATE_ORGANIZATION_FIELDS)
+
     const client = yield* HulyClient
     const org = yield* findOrganizationByIdentifier(client, params.identifier)
     if (org === undefined) {
@@ -255,15 +268,15 @@ export const updateOrganization = (
     if (params.city !== undefined) {
       updateOps.city = params.city === null ? "" : params.city
     }
-    const descriptionUpdatedInPlace = yield* Effect.gen(function*() {
-      if (params.description === undefined) return false
+    yield* Effect.gen(function*() {
+      if (params.description === undefined) return
       if (params.description === null || params.description === "") {
         updateOps.description = null
-        return false
+        return
       }
       if (org.description !== null) {
         yield* client.updateMarkup(contact.class.Organization, org._id, "description", params.description, "markdown")
-        return true
+        return
       }
       updateOps.description = yield* client.uploadMarkup(
         contact.class.Organization,
@@ -272,19 +285,16 @@ export const updateOrganization = (
         params.description,
         "markdown"
       )
-      return false
     })
 
-    if (Object.keys(updateOps).length === 0 && !descriptionUpdatedInPlace) {
-      return { id: OrganizationId.make(org._id), updated: false }
+    if (Object.keys(updateOps).length > 0) {
+      yield* client.updateDoc(
+        contact.class.Organization,
+        contact.space.Contacts,
+        org._id,
+        updateOps
+      )
     }
-
-    yield* client.updateDoc(
-      contact.class.Organization,
-      contact.space.Contacts,
-      org._id,
-      updateOps
-    )
 
     return { id: OrganizationId.make(org._id), updated: true }
   })

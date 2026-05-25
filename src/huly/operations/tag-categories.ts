@@ -15,15 +15,17 @@ import type {
   UpdateTagCategoryParams,
   UpdateTagCategoryResult
 } from "../../domain/schemas/tag-categories.js"
+import { UPDATE_TAG_CATEGORY_FIELDS } from "../../domain/schemas/tag-categories.js"
 import { HulyClient, type HulyClientError } from "../client.js"
-import { TagCategoryNotFoundError } from "../errors.js"
+import { type NoUpdateFieldsError, TagCategoryNotFoundError } from "../errors.js"
 import { core, tags, tracker } from "../huly-plugins.js"
 import { clampLimit } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
+import { requireUpdateFields } from "./update-guards.js"
 
 type ListTagCategoriesError = HulyClientError
 type CreateTagCategoryError = HulyClientError
-type UpdateTagCategoryError = HulyClientError | TagCategoryNotFoundError
+type UpdateTagCategoryError = HulyClientError | NoUpdateFieldsError | TagCategoryNotFoundError
 type DeleteTagCategoryError = HulyClientError | TagCategoryNotFoundError
 
 const issueClassRef = toRef<Class<Doc>>(tracker.class.Issue)
@@ -136,6 +138,8 @@ export const updateTagCategory = (
   params: UpdateTagCategoryParams
 ): Effect.Effect<UpdateTagCategoryResult, UpdateTagCategoryError, HulyClient> =>
   Effect.gen(function*() {
+    yield* requireUpdateFields("update_tag_category", params, UPDATE_TAG_CATEGORY_FIELDS)
+
     const client = yield* HulyClient
 
     const cat = yield* findCategoryOrFail(client, params.category)
@@ -147,10 +151,6 @@ export const updateTagCategory = (
     }
     if (params.default !== undefined) {
       updateOps.default = params.default
-    }
-
-    if (Object.keys(updateOps).length === 0) {
-      return { id: TagCategoryId.make(cat._id), updated: false }
     }
 
     yield* client.updateDoc(

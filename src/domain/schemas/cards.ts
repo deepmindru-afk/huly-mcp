@@ -1,7 +1,15 @@
 import { JSONSchema, Schema } from "effect"
 
 import type { CardId, CardSpaceId, MasterTagId } from "./shared.js"
-import { CardIdentifier, CardSpaceIdentifier, LimitParam, MasterTagIdentifier, NonEmptyString } from "./shared.js"
+import {
+  atLeastOneUpdateFieldMessage,
+  CardIdentifier,
+  CardSpaceIdentifier,
+  LimitParam,
+  MasterTagIdentifier,
+  NonEmptyString,
+  withAtLeastOneRequired
+} from "./shared.js"
 
 export interface CardSpaceSummary {
   readonly id: CardSpaceId
@@ -151,6 +159,8 @@ export const CreateCardParamsSchema = Schema.Struct({
 
 export type CreateCardParams = Schema.Schema.Type<typeof CreateCardParamsSchema>
 
+export const UPDATE_CARD_FIELDS: ReadonlyArray<"title" | "content"> = ["title", "content"]
+
 export const UpdateCardParamsSchema = Schema.Struct({
   cardSpace: CardSpaceIdentifier.annotations({
     description: "Card space name or ID"
@@ -166,7 +176,7 @@ export const UpdateCardParamsSchema = Schema.Struct({
   }))
 }).annotations({
   title: "UpdateCardParams",
-  description: "Parameters for updating a card"
+  description: `Parameters for updating a card. ${atLeastOneUpdateFieldMessage(UPDATE_CARD_FIELDS)}`
 })
 
 export type UpdateCardParams = Schema.Schema.Type<typeof UpdateCardParamsSchema>
@@ -190,7 +200,10 @@ export const listMasterTagsParamsJsonSchema = JSONSchema.make(ListMasterTagsPara
 export const listCardsParamsJsonSchema = JSONSchema.make(ListCardsParamsSchema)
 export const getCardParamsJsonSchema = JSONSchema.make(GetCardParamsSchema)
 export const createCardParamsJsonSchema = JSONSchema.make(CreateCardParamsSchema)
-export const updateCardParamsJsonSchema = JSONSchema.make(UpdateCardParamsSchema)
+export const updateCardParamsJsonSchema = withAtLeastOneRequired(
+  JSONSchema.make(UpdateCardParamsSchema),
+  UPDATE_CARD_FIELDS
+)
 export const deleteCardParamsJsonSchema = JSONSchema.make(DeleteCardParamsSchema)
 
 export const parseListCardSpacesParams = Schema.decodeUnknown(ListCardSpacesParamsSchema)

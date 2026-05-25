@@ -79,3 +79,17 @@ export class DocumentEmptyContentError extends Schema.TaggedError<DocumentEmptyC
     return `Document '${this.identifier}' has no content. Use 'content' mode or create_document to set initial content.`
   }
 }
+
+/**
+ * edit_document parameters mix mutually exclusive edit modes.
+ */
+export class DocumentEditModeError extends Schema.TaggedError<DocumentEditModeError>()(
+  "DocumentEditModeError",
+  {
+    reason: Schema.String
+  }
+) {
+  override get message(): string {
+    return `Invalid edit_document mode: ${this.reason}`
+  }
+}

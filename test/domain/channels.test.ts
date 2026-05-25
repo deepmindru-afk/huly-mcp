@@ -24,7 +24,13 @@ type JsonSchemaObject = {
   $schema?: string
   type?: string
   required?: Array<string>
+  anyOf?: Array<{ required?: Array<string> }>
   properties?: Record<string, { description?: string }>
+}
+
+const expectJsonSchemaObject = (schema: unknown): JsonSchemaObject => {
+  if (typeof schema === "object" && schema !== null) return schema
+  throw new Error("Expected JSON schema object")
 }
 
 describe("Channel Domain Schemas", () => {
@@ -151,10 +157,13 @@ describe("Channel Domain Schemas", () => {
 
   describe("UpdateChannelParamsSchema", () => {
     // test-revizorro: approved
-    it.effect("parses minimal params", () =>
+    it.effect("parses minimal params and advertises update-field requirement in JSON Schema", () =>
       Effect.gen(function*() {
         const result = yield* parseUpdateChannelParams({ channel: "general" })
         expect(result).toEqual({ channel: "general" })
+
+        const schema = expectJsonSchemaObject(updateChannelParamsJsonSchema)
+        expect(schema.anyOf).toEqual(expect.arrayContaining([{ required: ["name"] }, { required: ["topic"] }]))
       }))
 
     // test-revizorro: approved

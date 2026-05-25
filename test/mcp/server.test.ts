@@ -1530,6 +1530,36 @@ describe("McpServerService.layer operations", () => {
         yield* Fiber.interrupt(fiber)
       })
 
+    const buildAndRunWithResolveClients = (
+      resolveClients: () => Promise<ClientBundle>,
+      telemetryOps: Partial<TelemetryOperations>
+    ) =>
+      Effect.gen(function*() {
+        const serverLayer = McpServerService.layer({
+          transport: "stdio",
+          autoExit: true,
+          createServer: createMockServer,
+          // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- test transport is never inspected by the mocked server
+          createStdioTransport: () => ({}) as never,
+          resolveClients
+        }).pipe(Layer.provide(TelemetryService.testLayer(telemetryOps)))
+        const ctx = yield* Layer.build(serverLayer)
+        const ops = yield* McpServerService.pipe(
+          Effect.provide(Layer.succeedContext(ctx))
+        )
+        const fiber = yield* Effect.fork(
+          ops.run().pipe(
+            Effect.provideService(
+              HttpServerFactoryService,
+              // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- mock stub
+              { createApp: () => ({}) as never, listen: () => Effect.void as never }
+            )
+          )
+        )
+        yield* Effect.promise(() => new Promise((r) => setTimeout(r, 50)))
+        return fiber
+      })
+
     it.scoped("ListTools handler returns tool definitions", () =>
       Effect.gen(function*() {
         capturedHandlers.clear()
@@ -1607,6 +1637,132 @@ describe("McpServerService.layer operations", () => {
         yield* cleanup(fiber)
       }), { timeout: 5000 })
 
+    it.scoped("CallTool validates missing required arguments before resolving clients", () =>
+      Effect.gen(function*() {
+        capturedHandlers.clear()
+        let resolveCalled = false
+        let toolCalledProps: ToolCalledProps | null = null
+        const telemetryOps: Partial<TelemetryOperations> = {
+          firstListTools: () => {},
+          sessionStart: () => {},
+          toolCalled: (props) => {
+            toolCalledProps = props
+          },
+          shutdown: async () => {}
+        }
+        const fiber = yield* buildAndRunWithResolveClients(
+          async () => {
+            resolveCalled = true
+            throw new Error("client resolution should be skipped")
+          },
+          telemetryOps
+        )
+
+        const callToolHandler = capturedHandlers.get(CallToolRequestSchema) as
+          | ((req: { params: { name: string; arguments?: Record<string, unknown> } }) => Promise<unknown>)
+          | undefined
+        expect(callToolHandler).toBeDefined()
+
+        const result = (yield* Effect.promise(() =>
+          callToolHandler!({
+            params: { name: "get_issue" }
+          })
+        )) as { content: Array<{ text: string }>; isError?: boolean }
+
+        expect(result.isError).toBe(true)
+        expect(result.content[0]?.text).toContain("missing arguments object")
+        expect(resolveCalled).toBe(false)
+        expect(toolCalledProps).not.toBeNull()
+        expect(toolCalledProps!.status).toBe("error")
+        expect(toolCalledProps!.errorTag).toBe("MissingArguments")
+
+        yield* cleanup(fiber)
+      }), { timeout: 5000 })
+
+    it.scoped("CallTool validates anyOf-required arguments before resolving clients", () =>
+      Effect.gen(function*() {
+        capturedHandlers.clear()
+        let resolveCalled = false
+        let toolCalledProps: ToolCalledProps | null = null
+        const telemetryOps: Partial<TelemetryOperations> = {
+          firstListTools: () => {},
+          sessionStart: () => {},
+          toolCalled: (props) => {
+            toolCalledProps = props
+          },
+          shutdown: async () => {}
+        }
+        const fiber = yield* buildAndRunWithResolveClients(
+          async () => {
+            resolveCalled = true
+            throw new Error("client resolution should be skipped")
+          },
+          telemetryOps
+        )
+
+        const callToolHandler = capturedHandlers.get(CallToolRequestSchema) as
+          | ((req: { params: { name: string; arguments?: Record<string, unknown> } }) => Promise<unknown>)
+          | undefined
+        expect(callToolHandler).toBeDefined()
+
+        const result = (yield* Effect.promise(() =>
+          callToolHandler!({
+            params: { name: "update_user_profile" }
+          })
+        )) as { content: Array<{ text: string }>; isError?: boolean }
+
+        expect(result.isError).toBe(true)
+        expect(result.content[0]?.text).toContain("missing arguments object")
+        expect(resolveCalled).toBe(false)
+        expect(toolCalledProps).not.toBeNull()
+        expect(toolCalledProps!.status).toBe("error")
+        expect(toolCalledProps!.errorTag).toBe("MissingArguments")
+
+        yield* cleanup(fiber)
+      }), { timeout: 5000 })
+
+    it.scoped("CallTool validates oneOf-required arguments before resolving clients", () =>
+      Effect.gen(function*() {
+        capturedHandlers.clear()
+        let resolveCalled = false
+        let toolCalledProps: ToolCalledProps | null = null
+        const telemetryOps: Partial<TelemetryOperations> = {
+          firstListTools: () => {},
+          sessionStart: () => {},
+          toolCalled: (props) => {
+            toolCalledProps = props
+          },
+          shutdown: async () => {}
+        }
+        const fiber = yield* buildAndRunWithResolveClients(
+          async () => {
+            resolveCalled = true
+            throw new Error("client resolution should be skipped")
+          },
+          telemetryOps
+        )
+
+        const callToolHandler = capturedHandlers.get(CallToolRequestSchema) as
+          | ((req: { params: { name: string; arguments?: Record<string, unknown> } }) => Promise<unknown>)
+          | undefined
+        expect(callToolHandler).toBeDefined()
+
+        const result = (yield* Effect.promise(() =>
+          callToolHandler!({
+            params: { name: "list_activity" }
+          })
+        )) as { content: Array<{ text: string }>; isError?: boolean }
+
+        expect(result.isError).toBe(true)
+        expect(result.content[0]?.text).toContain("missing arguments object")
+        expect(resolveCalled).toBe(false)
+        expect(toolCalledProps).not.toBeNull()
+        expect(toolCalledProps!.status).toBe("error")
+        expect(toolCalledProps!.errorTag).toBe("MissingArguments")
+
+        yield* cleanup(fiber)
+      }), { timeout: 5000 })
+
     it.scoped("CallTool handler handles known tool", () =>
       Effect.gen(function*() {
         capturedHandlers.clear()
@@ -1649,33 +1805,38 @@ describe("McpServerService.layer operations", () => {
         yield* cleanup(fiber)
       }), { timeout: 5000 })
 
-    it.scoped("CallTool handler handles tool with no arguments", () =>
-      Effect.gen(function*() {
-        capturedHandlers.clear()
-        const layers = Layer.mergeAll(
-          HulyClient.testLayer({}),
-          HulyStorageClient.testLayer({}),
-          WorkspaceClient.testLayer({}),
-          TelemetryService.testLayer()
-        )
-        const fiber = yield* buildAndRun(layers)
+    it.scoped(
+      "CallTool handler accepts omitted arguments for all-optional parameter tools",
+      () =>
+        Effect.gen(function*() {
+          capturedHandlers.clear()
+          const layers = Layer.mergeAll(
+            HulyClient.testLayer({}),
+            HulyStorageClient.testLayer({}),
+            WorkspaceClient.testLayer({}),
+            TelemetryService.testLayer()
+          )
+          const fiber = yield* buildAndRun(layers)
 
-        const callToolHandler = capturedHandlers.get(CallToolRequestSchema) as
-          | ((req: { params: { name: string; arguments?: Record<string, unknown> } }) => Promise<unknown>)
-          | undefined
-        expect(callToolHandler).toBeDefined()
+          const callToolHandler = capturedHandlers.get(CallToolRequestSchema) as
+            | ((req: { params: { name: string; arguments?: Record<string, unknown> } }) => Promise<unknown>)
+            | undefined
+          expect(callToolHandler).toBeDefined()
 
-        // Call without arguments field - should use {} as default
-        const result = (yield* Effect.promise(() =>
-          callToolHandler!({
-            params: { name: "list_projects" }
-          })
-        )) as { content: Array<{ text: string }> }
+          const result = (yield* Effect.promise(() =>
+            callToolHandler!({
+              params: { name: "list_projects" }
+            })
+          )) as { content: Array<{ text: string }>; isError?: boolean }
 
-        expect(result.content).toBeDefined()
+          expect(result.content).toBeDefined()
+          expect(result.isError).toBeUndefined()
+          expect(result.content[0]?.text).toBe("{\"projects\":[],\"total\":0}")
 
-        yield* cleanup(fiber)
-      }), { timeout: 5000 })
+          yield* cleanup(fiber)
+        }),
+      { timeout: 5000 }
+    )
 
     it.scoped("CallTool records error telemetry for parse errors", () =>
       Effect.gen(function*() {
@@ -1711,6 +1872,7 @@ describe("McpServerService.layer operations", () => {
         expect(result.content).toBeDefined()
         expect(toolCalledProps).not.toBeNull()
         expect(toolCalledProps!.toolName).toBe("get_issue")
+        expect(toolCalledProps!.status).toBe("error")
 
         yield* cleanup(fiber)
       }), { timeout: 5000 })

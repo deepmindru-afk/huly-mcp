@@ -2,12 +2,14 @@ import { JSONSchema, Schema } from "effect"
 
 import type { TestCaseId, TestProjectId, TestSuiteId } from "./shared.js"
 import {
+  atLeastOneUpdateFieldMessage,
   enumValuesDescription,
   LimitParam,
   NonEmptyString,
   TestCaseIdentifier,
   TestProjectIdentifier,
-  TestSuiteIdentifier
+  TestSuiteIdentifier,
+  withAtLeastOneRequired
 } from "./shared.js"
 
 // --- Enum value arrays and schemas ---
@@ -142,6 +144,8 @@ export const CreateTestSuiteParamsSchema = Schema.Struct({
 
 export type CreateTestSuiteParams = Schema.Schema.Type<typeof CreateTestSuiteParamsSchema>
 
+export const UPDATE_TEST_SUITE_FIELDS: ReadonlyArray<"name" | "description"> = ["name", "description"]
+
 export const UpdateTestSuiteParamsSchema = Schema.Struct({
   project: TestProjectIdentifier.annotations({
     description: "Test project ID or name"
@@ -161,7 +165,9 @@ export const UpdateTestSuiteParamsSchema = Schema.Struct({
   )
 }).annotations({
   title: "UpdateTestSuiteParams",
-  description: "Parameters for updating a test suite. Only provided fields are modified."
+  description: `Parameters for updating a test suite. Only provided fields are modified. ${
+    atLeastOneUpdateFieldMessage(UPDATE_TEST_SUITE_FIELDS)
+  }`
 })
 
 export type UpdateTestSuiteParams = Schema.Schema.Type<typeof UpdateTestSuiteParamsSchema>
@@ -262,6 +268,10 @@ export const CreateTestCaseParamsSchema = Schema.Struct({
 
 export type CreateTestCaseParams = Schema.Schema.Type<typeof CreateTestCaseParamsSchema>
 
+export const UPDATE_TEST_CASE_FIELDS: ReadonlyArray<
+  "name" | "description" | "type" | "priority" | "status" | "assignee"
+> = ["name", "description", "type", "priority", "status", "assignee"]
+
 export const UpdateTestCaseParamsSchema = Schema.Struct({
   project: TestProjectIdentifier.annotations({
     description: "Test project ID or name"
@@ -301,7 +311,9 @@ export const UpdateTestCaseParamsSchema = Schema.Struct({
   )
 }).annotations({
   title: "UpdateTestCaseParams",
-  description: "Parameters for updating a test case. Only provided fields are modified."
+  description: `Parameters for updating a test case. Only provided fields are modified. ${
+    atLeastOneUpdateFieldMessage(UPDATE_TEST_CASE_FIELDS)
+  }`
 })
 
 export type UpdateTestCaseParams = Schema.Schema.Type<typeof UpdateTestCaseParamsSchema>
@@ -326,12 +338,18 @@ export const listTestProjectsParamsJsonSchema = JSONSchema.make(ListTestProjects
 export const listTestSuitesParamsJsonSchema = JSONSchema.make(ListTestSuitesParamsSchema)
 export const getTestSuiteParamsJsonSchema = JSONSchema.make(GetTestSuiteParamsSchema)
 export const createTestSuiteParamsJsonSchema = JSONSchema.make(CreateTestSuiteParamsSchema)
-export const updateTestSuiteParamsJsonSchema = JSONSchema.make(UpdateTestSuiteParamsSchema)
+export const updateTestSuiteParamsJsonSchema = withAtLeastOneRequired(
+  JSONSchema.make(UpdateTestSuiteParamsSchema),
+  UPDATE_TEST_SUITE_FIELDS
+)
 export const deleteTestSuiteParamsJsonSchema = JSONSchema.make(DeleteTestSuiteParamsSchema)
 export const listTestCasesParamsJsonSchema = JSONSchema.make(ListTestCasesParamsSchema)
 export const getTestCaseParamsJsonSchema = JSONSchema.make(GetTestCaseParamsSchema)
 export const createTestCaseParamsJsonSchema = JSONSchema.make(CreateTestCaseParamsSchema)
-export const updateTestCaseParamsJsonSchema = JSONSchema.make(UpdateTestCaseParamsSchema)
+export const updateTestCaseParamsJsonSchema = withAtLeastOneRequired(
+  JSONSchema.make(UpdateTestCaseParamsSchema),
+  UPDATE_TEST_CASE_FIELDS
+)
 export const deleteTestCaseParamsJsonSchema = JSONSchema.make(DeleteTestCaseParamsSchema)
 
 // --- Parse functions ---

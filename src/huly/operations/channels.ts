@@ -36,12 +36,14 @@ import type {
   SendChannelMessageResult,
   UpdateChannelResult
 } from "../../domain/schemas/channels.js"
+import { UPDATE_CHANNEL_FIELDS } from "../../domain/schemas/channels.js"
 import { AccountUuid, ChannelId, ChannelName, MessageId, PersonName } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
-import { ChannelNotFoundError } from "../errors.js"
+import { ChannelNotFoundError, type NoUpdateFieldsError } from "../errors.js"
 import { markdownToMarkupString, markupToMarkdownString } from "./markup.js"
 import { clampLimit, escapeLikeWildcards, findByNameOrId } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
+import { requireUpdateFields } from "./update-guards.js"
 
 import { chunter, contact } from "../huly-plugins.js"
 
@@ -59,6 +61,7 @@ type CreateChannelError = HulyClientError
 
 type UpdateChannelError =
   | HulyClientError
+  | NoUpdateFieldsError
   | ChannelNotFoundError
 
 type DeleteChannelError =
@@ -314,6 +317,8 @@ export const updateChannel = (
   params: UpdateChannelParams
 ): Effect.Effect<UpdateChannelResult, UpdateChannelError, HulyClient> =>
   Effect.gen(function*() {
+    yield* requireUpdateFields("update_channel", params, UPDATE_CHANNEL_FIELDS)
+
     const { channel, client } = yield* findChannel(params.channel)
 
     const updateOps: DocumentUpdate<HulyChannel> = {}
@@ -324,10 +329,6 @@ export const updateChannel = (
 
     if (params.topic !== undefined) {
       updateOps.topic = params.topic
-    }
-
-    if (Object.keys(updateOps).length === 0) {
-      return { id: ChannelId.make(channel._id), updated: false }
     }
 
     yield* client.updateDoc(

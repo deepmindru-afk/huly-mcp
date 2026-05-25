@@ -545,17 +545,19 @@ describe("updateProject", () => {
       expect(captureUpdateDoc.operations?.description).toBe("")
     }))
 
-  it.effect("returns updated=false when no fields provided", () =>
+  it.effect("fails when no fields provided", () =>
     Effect.gen(function*() {
       const proj = makeProject({ identifier: "UPD" })
 
       const testLayer = createTestLayerWithMocks({ projects: [proj] })
 
-      const result = yield* updateProject({
-        project: projectIdentifier("UPD")
-      }).pipe(Effect.provide(testLayer))
+      const error = yield* Effect.flip(
+        updateProject({
+          project: projectIdentifier("UPD")
+        }).pipe(Effect.provide(testLayer))
+      )
 
-      expect(result.updated).toBe(false)
+      expect(error._tag).toBe("NoUpdateFieldsError")
     }))
 
   it.effect("returns ProjectNotFoundError for nonexistent project", () =>

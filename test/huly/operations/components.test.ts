@@ -708,7 +708,7 @@ describe("updateComponent", () => {
       expect(captureUpdateDoc.operations?.lead).toBeNull()
     }))
 
-  it.effect("returns updated=false when no changes provided", () =>
+  it.effect("fails when no changes provided", () =>
     Effect.gen(function*() {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "PROJ" })
       const comp = makeComponent({
@@ -722,13 +722,14 @@ describe("updateComponent", () => {
         components: [comp]
       })
 
-      const result = yield* updateComponent({
-        project: projectIdentifier("PROJ"),
-        component: componentIdentifier("Backend")
-      }).pipe(Effect.provide(testLayer))
+      const error = yield* Effect.flip(
+        updateComponent({
+          project: projectIdentifier("PROJ"),
+          component: componentIdentifier("Backend")
+        }).pipe(Effect.provide(testLayer))
+      )
 
-      expect(result.id).toBe("comp-1")
-      expect(result.updated).toBe(false)
+      expect(error._tag).toBe("NoUpdateFieldsError")
     }))
 
   it.effect("returns ComponentNotFoundError when component doesn't exist", () =>

@@ -412,14 +412,16 @@ describe("updateEvent", () => {
     }))
 
   // test-revizorro: approved
-  it.effect("returns updated=false when no fields provided", () =>
+  it.effect("fails when no fields provided", () =>
     Effect.gen(function*() {
       const event = makeEvent({ eventId: "evt-1" })
       const testLayer = createTestLayer({ events: [event] })
 
-      const result = yield* updateEvent({ eventId: eventBrandId("evt-1") }).pipe(Effect.provide(testLayer))
+      const error = yield* Effect.flip(
+        updateEvent({ eventId: eventBrandId("evt-1") }).pipe(Effect.provide(testLayer))
+      )
 
-      expect(result.updated).toBe(false)
+      expect(error._tag).toBe("NoUpdateFieldsError")
     }))
 
   // test-revizorro: approved

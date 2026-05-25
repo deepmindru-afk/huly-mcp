@@ -591,18 +591,18 @@ describe("Contacts Operations", () => {
 
   describe("updatePerson", () => {
     // test-revizorro: approved
-    it("returns updated=false when no changes", async () => {
+    it("fails when no changes", async () => {
       const mockPerson = createMockPerson()
 
       const testLayer = createTestLayer({
         persons: [mockPerson]
       })
 
-      const result = await Effect.runPromise(
-        updatePerson({ personId: PersonId.make("person-123") }).pipe(Effect.provide(testLayer))
+      const error = await Effect.runPromise(
+        Effect.flip(updatePerson({ personId: PersonId.make("person-123") }).pipe(Effect.provide(testLayer)))
       )
 
-      expect(result.updated).toBe(false)
+      expect(error._tag).toBe("NoUpdateFieldsError")
     })
 
     // test-revizorro: approved
@@ -652,7 +652,7 @@ describe("Contacts Operations", () => {
       const testLayer = createTestLayer({ persons: [] })
 
       const result = await Effect.runPromiseExit(
-        updatePerson({ personId: PersonId.make("nonexistent") }).pipe(Effect.provide(testLayer))
+        updatePerson({ personId: PersonId.make("nonexistent"), firstName: "Jane" }).pipe(Effect.provide(testLayer))
       )
 
       expect(Exit.isFailure(result)).toBe(true)

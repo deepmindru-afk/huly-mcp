@@ -1089,7 +1089,7 @@ fi
 
 # Create a temp channel for message/thread/reaction tests — deleting it cleans up all messages
 CH_TEXT=$(run_capture "create_channel" \
-  '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"create_channel","arguments":{"name":"inttest-chan","description":"test channel"}},"id":2}')
+  '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"create_channel","arguments":{"name":"inttest-chan","topic":"test channel"}},"id":2}')
 if [ $? -eq 0 ]; then
   CH_ID=$(echo "$CH_TEXT" | jq -r '.id' 2>/dev/null)
   echo "  => channel: $CH_ID"
@@ -1131,7 +1131,7 @@ if [ $? -eq 0 ]; then
   fi
 
   run_test "update_channel($CH_ID)" \
-    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"update_channel\",\"arguments\":{\"channel\":\"$CH_ID\",\"description\":\"updated\"}},\"id\":2}"
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"update_channel\",\"arguments\":{\"channel\":\"$CH_ID\",\"topic\":\"updated\"}},\"id\":2}"
   run_test "delete_channel($CH_ID)" \
     "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_channel\",\"arguments\":{\"channel\":\"$CH_ID\"}},\"id\":2}"
 fi

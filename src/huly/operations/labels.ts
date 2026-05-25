@@ -11,19 +11,21 @@ import type {
   TagElementSummary,
   UpdateLabelResult
 } from "../../domain/schemas/labels.js"
+import { UPDATE_LABEL_FIELDS } from "../../domain/schemas/labels.js"
 import { ColorCode, IssueIdentifier, TagElementId } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
-import type { IssueNotFoundError, ProjectNotFoundError } from "../errors.js"
+import type { IssueNotFoundError, NoUpdateFieldsError, ProjectNotFoundError } from "../errors.js"
 import { TagCategoryNotFoundError, TagNotFoundError } from "../errors.js"
 import { core, tags, tracker } from "../huly-plugins.js"
 import { findProjectAndIssue } from "./issues-shared.js"
 import { clampLimit, hulyQuery, type StrictDocumentQuery } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
 import { findCategoryByIdOrLabel } from "./tag-categories.js"
+import { requireUpdateFields } from "./update-guards.js"
 
 type ListLabelsError = HulyClientError | TagCategoryNotFoundError
 type CreateLabelError = HulyClientError | TagCategoryNotFoundError
-type UpdateLabelError = HulyClientError | TagNotFoundError
+type UpdateLabelError = HulyClientError | NoUpdateFieldsError | TagNotFoundError
 type DeleteLabelError = HulyClientError | TagNotFoundError
 type RemoveIssueLabelError = HulyClientError | ProjectNotFoundError | IssueNotFoundError | TagNotFoundError
 
@@ -156,6 +158,8 @@ export const updateLabel = (
   params: UpdateLabelParams
 ): Effect.Effect<UpdateLabelResult, UpdateLabelError, HulyClient> =>
   Effect.gen(function*() {
+    yield* requireUpdateFields("update_label", params, UPDATE_LABEL_FIELDS)
+
     const client = yield* HulyClient
 
     const tag = yield* findTagOrFail(client, params.label)
@@ -170,10 +174,6 @@ export const updateLabel = (
     }
     if (params.description !== undefined) {
       updateOps.description = params.description
-    }
-
-    if (Object.keys(updateOps).length === 0) {
-      return { id: TagElementId.make(tag._id), updated: false }
     }
 
     yield* client.updateDoc(

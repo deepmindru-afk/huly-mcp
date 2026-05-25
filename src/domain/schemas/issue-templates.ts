@@ -3,6 +3,7 @@ import { JSONSchema, Schema } from "effect"
 import { IssuePrioritySchema } from "./issues.js"
 import type { IssueId, IssueIdentifier } from "./shared.js"
 import {
+  atLeastOneUpdateFieldMessage,
   ComponentIdentifier,
   ComponentLabel,
   IssueTemplateChildId,
@@ -15,7 +16,8 @@ import {
   ProjectIdentifier,
   StatusName,
   TemplateIdentifier,
-  Timestamp
+  Timestamp,
+  withAtLeastOneRequired
 } from "./shared.js"
 
 // --- Child template schemas ---
@@ -196,6 +198,10 @@ export const CreateIssueFromTemplateParamsSchema = Schema.Struct({
 
 export type CreateIssueFromTemplateParams = Schema.Schema.Type<typeof CreateIssueFromTemplateParamsSchema>
 
+export const UPDATE_ISSUE_TEMPLATE_FIELDS: ReadonlyArray<
+  "title" | "description" | "priority" | "assignee" | "component" | "estimation"
+> = ["title", "description", "priority", "assignee", "component", "estimation"]
+
 export const UpdateIssueTemplateParamsSchema = Schema.Struct({
   project: ProjectIdentifier.annotations({
     description: "Project identifier (e.g., 'HULY')"
@@ -227,7 +233,9 @@ export const UpdateIssueTemplateParamsSchema = Schema.Struct({
   }))
 }).annotations({
   title: "UpdateIssueTemplateParams",
-  description: "Parameters for updating an issue template"
+  description: `Parameters for updating an issue template. ${
+    atLeastOneUpdateFieldMessage(UPDATE_ISSUE_TEMPLATE_FIELDS)
+  }`
 })
 
 export type UpdateIssueTemplateParams = Schema.Schema.Type<typeof UpdateIssueTemplateParamsSchema>
@@ -286,7 +294,10 @@ export const listIssueTemplatesParamsJsonSchema = JSONSchema.make(ListIssueTempl
 export const getIssueTemplateParamsJsonSchema = JSONSchema.make(GetIssueTemplateParamsSchema)
 export const createIssueTemplateParamsJsonSchema = JSONSchema.make(CreateIssueTemplateParamsSchema)
 export const createIssueFromTemplateParamsJsonSchema = JSONSchema.make(CreateIssueFromTemplateParamsSchema)
-export const updateIssueTemplateParamsJsonSchema = JSONSchema.make(UpdateIssueTemplateParamsSchema)
+export const updateIssueTemplateParamsJsonSchema = withAtLeastOneRequired(
+  JSONSchema.make(UpdateIssueTemplateParamsSchema),
+  UPDATE_ISSUE_TEMPLATE_FIELDS
+)
 export const deleteIssueTemplateParamsJsonSchema = JSONSchema.make(DeleteIssueTemplateParamsSchema)
 export const addTemplateChildParamsJsonSchema = JSONSchema.make(AddTemplateChildParamsSchema)
 export const removeTemplateChildParamsJsonSchema = JSONSchema.make(RemoveTemplateChildParamsSchema)

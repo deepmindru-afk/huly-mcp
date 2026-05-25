@@ -1,6 +1,13 @@
 import { JSONSchema, Schema } from "effect"
 
-import { LimitParam, NonEmptyString, TagCategoryId, TagCategoryIdentifier } from "./shared.js"
+import {
+  atLeastOneUpdateFieldMessage,
+  LimitParam,
+  NonEmptyString,
+  TagCategoryId,
+  TagCategoryIdentifier,
+  withAtLeastOneRequired
+} from "./shared.js"
 
 export const TagCategorySummarySchema = Schema.Struct({
   id: TagCategoryId,
@@ -54,6 +61,8 @@ export const CreateTagCategoryParamsSchema = Schema.Struct({
 
 export type CreateTagCategoryParams = Schema.Schema.Type<typeof CreateTagCategoryParamsSchema>
 
+export const UPDATE_TAG_CATEGORY_FIELDS: ReadonlyArray<"label" | "default"> = ["label", "default"]
+
 export const UpdateTagCategoryParamsSchema = Schema.Struct({
   category: TagCategoryIdentifier.annotations({
     description: "Category ID or label name to update"
@@ -68,7 +77,7 @@ export const UpdateTagCategoryParamsSchema = Schema.Struct({
   )
 }).annotations({
   title: "UpdateTagCategoryParams",
-  description: "Parameters for updating a tag category"
+  description: `Parameters for updating a tag category. ${atLeastOneUpdateFieldMessage(UPDATE_TAG_CATEGORY_FIELDS)}`
 })
 
 export type UpdateTagCategoryParams = Schema.Schema.Type<typeof UpdateTagCategoryParamsSchema>
@@ -86,7 +95,10 @@ export type DeleteTagCategoryParams = Schema.Schema.Type<typeof DeleteTagCategor
 
 export const listTagCategoriesParamsJsonSchema = JSONSchema.make(ListTagCategoriesParamsSchema)
 export const createTagCategoryParamsJsonSchema = JSONSchema.make(CreateTagCategoryParamsSchema)
-export const updateTagCategoryParamsJsonSchema = JSONSchema.make(UpdateTagCategoryParamsSchema)
+export const updateTagCategoryParamsJsonSchema = withAtLeastOneRequired(
+  JSONSchema.make(UpdateTagCategoryParamsSchema),
+  UPDATE_TAG_CATEGORY_FIELDS
+)
 export const deleteTagCategoryParamsJsonSchema = JSONSchema.make(DeleteTagCategoryParamsSchema)
 
 export const parseListTagCategoriesParams = Schema.decodeUnknown(ListTagCategoriesParamsSchema)

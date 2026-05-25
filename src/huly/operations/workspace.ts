@@ -38,10 +38,12 @@ import type {
   WorkspaceMember,
   WorkspaceSummary
 } from "../../domain/schemas/workspace.js"
-import type { InvalidPersonUuidError } from "../errors.js"
+import { UPDATE_GUEST_SETTINGS_FIELDS, UPDATE_USER_PROFILE_FIELDS } from "../../domain/schemas/workspace.js"
+import type { InvalidPersonUuidError, NoUpdateFieldsError } from "../errors.js"
 import { WorkspaceClient, type WorkspaceClientError } from "../workspace-client.js"
 import { clampLimit } from "./query-helpers.js"
 import { validatePersonUuid } from "./sdk-boundary.js"
+import { requireUpdateFields } from "./update-guards.js"
 
 // Exhaustive map guarantees compile-time alignment between AccountRole literals and HulyAccountRole enum.
 // If either side adds a value, TS will error here.
@@ -72,8 +74,8 @@ type ListWorkspacesError = WorkspaceClientError
 type CreateWorkspaceError = WorkspaceClientError
 type DeleteWorkspaceError = WorkspaceClientError
 type GetUserProfileError = WorkspaceClientError
-type UpdateUserProfileError = WorkspaceClientError
-type UpdateGuestSettingsError = WorkspaceClientError
+type UpdateUserProfileError = WorkspaceClientError | NoUpdateFieldsError
+type UpdateGuestSettingsError = WorkspaceClientError | NoUpdateFieldsError
 type CreateAccessLinkError = WorkspaceClientError
 type GetRegionsError = WorkspaceClientError
 
@@ -239,6 +241,8 @@ export const updateUserProfile = (
   params: UpdateUserProfileParams
 ): Effect.Effect<UpdateUserProfileResult, UpdateUserProfileError, WorkspaceClient> =>
   Effect.gen(function*() {
+    yield* requireUpdateFields("update_user_profile", params, UPDATE_USER_PROFILE_FIELDS)
+
     const ops = yield* WorkspaceClient
 
     const profileUpdate: Parameters<typeof ops.setMyProfile>[0] = {}
@@ -262,10 +266,6 @@ export const updateUserProfile = (
       profileUpdate.isPublic = params.isPublic
     }
 
-    if (Object.keys(profileUpdate).length === 0) {
-      return { updated: false }
-    }
-
     yield* ops.setMyProfile(profileUpdate)
 
     return { updated: true }
@@ -275,22 +275,20 @@ export const updateGuestSettings = (
   params: UpdateGuestSettingsParams
 ): Effect.Effect<UpdateGuestSettingsResult, UpdateGuestSettingsError, WorkspaceClient> =>
   Effect.gen(function*() {
-    const ops = yield* WorkspaceClient
+    yield* requireUpdateFields("update_guest_settings", params, UPDATE_GUEST_SETTINGS_FIELDS)
 
-    let updated = false
+    const ops = yield* WorkspaceClient
 
     if (params.allowReadOnly !== undefined) {
       yield* ops.updateAllowReadOnlyGuests(params.allowReadOnly)
-      updated = true
     }
 
     if (params.allowSignUp !== undefined) {
       yield* ops.updateAllowGuestSignUp(params.allowSignUp)
-      updated = true
     }
 
     return {
-      updated,
+      updated: true,
       allowReadOnly: params.allowReadOnly,
       allowSignUp: params.allowSignUp
     }

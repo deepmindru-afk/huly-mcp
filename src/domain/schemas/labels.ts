@@ -1,6 +1,15 @@
 import { JSONSchema, Schema } from "effect"
 
-import { ColorCode, LimitParam, NonEmptyString, TagCategoryIdentifier, TagElementId, TagIdentifier } from "./shared.js"
+import {
+  atLeastOneUpdateFieldMessage,
+  ColorCode,
+  LimitParam,
+  NonEmptyString,
+  TagCategoryIdentifier,
+  TagElementId,
+  TagIdentifier,
+  withAtLeastOneRequired
+} from "./shared.js"
 
 export const TagElementSummarySchema = Schema.Struct({
   id: TagElementId,
@@ -56,6 +65,8 @@ export const CreateLabelParamsSchema = Schema.Struct({
 
 export type CreateLabelParams = Schema.Schema.Type<typeof CreateLabelParamsSchema>
 
+export const UPDATE_LABEL_FIELDS: ReadonlyArray<"title" | "color" | "description"> = ["title", "color", "description"]
+
 export const UpdateLabelParamsSchema = Schema.Struct({
   label: TagIdentifier.annotations({
     description: "Label ID or title to update"
@@ -73,7 +84,7 @@ export const UpdateLabelParamsSchema = Schema.Struct({
   }))
 }).annotations({
   title: "UpdateLabelParams",
-  description: "Parameters for updating a label definition"
+  description: `Parameters for updating a label definition. ${atLeastOneUpdateFieldMessage(UPDATE_LABEL_FIELDS)}`
 })
 
 export type UpdateLabelParams = Schema.Schema.Type<typeof UpdateLabelParamsSchema>
@@ -91,7 +102,10 @@ export type DeleteLabelParams = Schema.Schema.Type<typeof DeleteLabelParamsSchem
 
 export const listLabelsParamsJsonSchema = JSONSchema.make(ListLabelsParamsSchema)
 export const createLabelParamsJsonSchema = JSONSchema.make(CreateLabelParamsSchema)
-export const updateLabelParamsJsonSchema = JSONSchema.make(UpdateLabelParamsSchema)
+export const updateLabelParamsJsonSchema = withAtLeastOneRequired(
+  JSONSchema.make(UpdateLabelParamsSchema),
+  UPDATE_LABEL_FIELDS
+)
 export const deleteLabelParamsJsonSchema = JSONSchema.make(DeleteLabelParamsSchema)
 
 export const parseListLabelsParams = Schema.decodeUnknown(ListLabelsParamsSchema)

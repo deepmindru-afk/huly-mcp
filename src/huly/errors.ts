@@ -18,7 +18,7 @@
  */
 import { Schema } from "effect"
 
-import { HulyAuthError, HulyConnectionError, HulyError } from "./errors-base.js"
+import { HulyAuthError, HulyConnectionError, HulyError, NoUpdateFieldsError } from "./errors-base.js"
 import { CalendarNotAccessibleError, EventNotFoundError, RecurringEventNotFoundError } from "./errors-calendar.js"
 import { CardNotFoundError, CardSpaceNotFoundError, MasterTagNotFoundError } from "./errors-cards.js"
 import {
@@ -31,6 +31,7 @@ import {
 } from "./errors-contacts.js"
 import { CustomFieldNotFoundError, CustomFieldObjectNotFoundError } from "./errors-custom-fields.js"
 import {
+  DocumentEditModeError,
   DocumentEmptyContentError,
   DocumentNotFoundError,
   DocumentTextMultipleMatchesError,
@@ -122,6 +123,7 @@ export {
   CustomFieldObjectNotFoundError,
   DirectMessageIdentifierAmbiguousError,
   DirectMessageNotFoundError,
+  DocumentEditModeError,
   DocumentEmptyContentError,
   DocumentNotFoundError,
   DocumentTextMultipleMatchesError,
@@ -151,6 +153,7 @@ export {
   MilestoneNotFoundError,
   NotificationContextNotFoundError,
   NotificationNotFoundError,
+  NoUpdateFieldsError,
   OrganizationIdentifierAmbiguousError,
   OrganizationNotFoundError,
   PersonIdentifierAmbiguousError,
@@ -189,95 +192,12 @@ export {
 }
 
 /**
- * Union of all Huly domain errors.
- */
-export type HulyDomainError =
-  | HulyError
-  | HulyConnectionError
-  | HulyAuthError
-  | IssueNotFoundError
-  | ProjectNotFoundError
-  | InvalidStatusError
-  | PersonIdentifierAmbiguousError
-  | PersonNotFoundError
-  | OrganizationNotFoundError
-  | OrganizationIdentifierAmbiguousError
-  | InvalidContactProviderError
-  | FileUploadError
-  | InvalidFileDataError
-  | FileNotFoundError
-  | FileFetchError
-  | TeamspaceNotFoundError
-  | DocumentNotFoundError
-  | DocumentTextNotFoundError
-  | DocumentTextMultipleMatchesError
-  | DocumentEmptyContentError
-  | CommentNotFoundError
-  | MilestoneNotFoundError
-  | ChannelNotFoundError
-  | CannotDirectMessageSelfError
-  | DirectMessageIdentifierAmbiguousError
-  | DirectMessageNotFoundError
-  | MessageNotFoundError
-  | PersonNotAnEmployeeError
-  | ThreadReplyNotFoundError
-  | CalendarNotAccessibleError
-  | EventNotFoundError
-  | RecurringEventNotFoundError
-  | ActivityMessageNotFoundError
-  | ReactionNotFoundError
-  | SavedMessageNotFoundError
-  | AttachmentNotFoundError
-  | CardSpaceNotFoundError
-  | CardNotFoundError
-  | MasterTagNotFoundError
-  | TagNotFoundError
-  | TagCategoryNotFoundError
-  | TestProjectNotFoundError
-  | TestSuiteNotFoundError
-  | TestCaseNotFoundError
-  | TestPlanNotFoundError
-  | TestRunNotFoundError
-  | TestResultNotFoundError
-  | TestPlanItemNotFoundError
-  | ComponentNotFoundError
-  | CustomFieldNotFoundError
-  | CustomFieldObjectNotFoundError
-  | IssueTemplateNotFoundError
-  | TemplateChildNotFoundError
-  | NotificationNotFoundError
-  | NotificationContextNotFoundError
-  | InvalidPersonUuidError
-  | FunnelNotFoundError
-  | LeadNotFoundError
-  | FileTooLargeError
-  | InvalidContentTypeError
-  | ProcessNotFoundError
-  | ProcessIdentifierAmbiguousError
-  | ProcessMasterTagAmbiguousError
-  | ProcessMasterTagNotFoundError
-  | ProcessCardIdentifierAmbiguousError
-  | ProcessCardNotFoundError
-  | ProcessInitialStateNotFoundError
-  | ProcessParallelExecutionForbiddenError
-  | ProcessExecutionNotFoundError
-  | ProcessExecutionNotCancellableError
-  | AssociationNotFoundError
-  | AssociationIdentifierAmbiguousError
-  | RelationNotFoundError
-  | RelationIdentifierAmbiguousError
-  | RelationMutationUnsupportedError
-  | RelationEndpointClassMismatchError
-  | GenericObjectIdentifierAmbiguousError
-  | GenericObjectLocatorInvalidError
-  | GenericObjectNotFoundError
-
-/**
  * Schema for all Huly domain errors (for serialization).
  */
 export const HulyDomainError: Schema.Union<
   [
     typeof HulyError,
+    typeof NoUpdateFieldsError,
     typeof HulyConnectionError,
     typeof HulyAuthError,
     typeof IssueNotFoundError,
@@ -297,6 +217,7 @@ export const HulyDomainError: Schema.Union<
     typeof DocumentTextNotFoundError,
     typeof DocumentTextMultipleMatchesError,
     typeof DocumentEmptyContentError,
+    typeof DocumentEditModeError,
     typeof CommentNotFoundError,
     typeof MilestoneNotFoundError,
     typeof ChannelNotFoundError,
@@ -359,6 +280,7 @@ export const HulyDomainError: Schema.Union<
   ]
 > = Schema.Union(
   HulyError,
+  NoUpdateFieldsError,
   HulyConnectionError,
   HulyAuthError,
   IssueNotFoundError,
@@ -378,6 +300,7 @@ export const HulyDomainError: Schema.Union<
   DocumentTextNotFoundError,
   DocumentTextMultipleMatchesError,
   DocumentEmptyContentError,
+  DocumentEditModeError,
   CommentNotFoundError,
   MilestoneNotFoundError,
   ChannelNotFoundError,
@@ -438,3 +361,8 @@ export const HulyDomainError: Schema.Union<
   GenericObjectLocatorInvalidError,
   GenericObjectNotFoundError
 )
+
+/**
+ * Union of all Huly domain errors.
+ */
+export type HulyDomainError = Schema.Schema.Type<typeof HulyDomainError>

@@ -43,6 +43,7 @@ import type {
   RemoveTemplateChildResult,
   UpdateIssueTemplateResult
 } from "../../domain/schemas/issue-templates.js"
+import { UPDATE_ISSUE_TEMPLATE_FIELDS } from "../../domain/schemas/issue-templates.js"
 import {
   ComponentLabel,
   Email,
@@ -52,7 +53,14 @@ import {
   PersonName
 } from "../../domain/schemas/shared.js"
 import type { HulyClient, HulyClientError } from "../client.js"
-import type { HulyError, InvalidStatusError, IssueNotFoundError, ProjectNotFoundError } from "../errors.js"
+import type {
+  HulyConnectionError,
+  HulyError,
+  InvalidStatusError,
+  IssueNotFoundError,
+  NoUpdateFieldsError,
+  ProjectNotFoundError
+} from "../errors.js"
 import {
   ComponentNotFoundError,
   IssueTemplateNotFoundError,
@@ -64,6 +72,7 @@ import { findPersonByEmailOrName } from "./contacts-shared.js"
 import { findProject, priorityToString, stringToPriority, zeroAsUnset } from "./issues-shared.js"
 import { createIssue } from "./issues.js"
 import { toRef } from "./sdk-boundary.js"
+import { requireUpdateFields } from "./update-guards.js"
 
 import { contact, tracker } from "../huly-plugins.js"
 import { type MarkupUrlConfig, optionalMarkdownToMarkup, optionalMarkupToMarkdown } from "./markup.js"
@@ -85,6 +94,7 @@ type CreateIssueTemplateError =
 
 type CreateIssueFromTemplateError =
   | HulyClientError
+  | HulyConnectionError
   | HulyError
   | ProjectNotFoundError
   | IssueNotFoundError
@@ -94,6 +104,7 @@ type CreateIssueFromTemplateError =
 
 type UpdateIssueTemplateError =
   | HulyClientError
+  | NoUpdateFieldsError
   | ProjectNotFoundError
   | IssueTemplateNotFoundError
   | PersonNotFoundError
@@ -516,6 +527,8 @@ export const updateIssueTemplate = (
   params: UpdateIssueTemplateParams
 ): Effect.Effect<UpdateIssueTemplateResult, UpdateIssueTemplateError, HulyClient> =>
   Effect.gen(function*() {
+    yield* requireUpdateFields("update_issue_template", params, UPDATE_ISSUE_TEMPLATE_FIELDS)
+
     const { client, project, template } = yield* findProjectAndTemplate(params)
     const markupUrlConfig = client.markupUrlConfig
 
@@ -562,10 +575,6 @@ export const updateIssueTemplate = (
 
     if (params.estimation !== undefined) {
       updateOps.estimation = params.estimation
-    }
-
-    if (Object.keys(updateOps).length === 0) {
-      return { id: IssueTemplateId.make(template._id), updated: false }
     }
 
     yield* client.updateDoc(

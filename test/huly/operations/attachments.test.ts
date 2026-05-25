@@ -499,16 +499,18 @@ describe("updateAttachment", () => {
     }))
 
   // test-revizorro: approved
-  it.effect("returns updated=false when no fields provided", () =>
+  it.effect("fails when no fields provided", () =>
     Effect.gen(function*() {
       const att = makeAttachment({ _id: "att-1" as Ref<HulyAttachment> })
       const testLayer = createTestLayer({ attachments: [att] })
 
-      const result = yield* updateAttachment({ attachmentId: attachmentBrandId("att-1") }).pipe(
-        Effect.provide(testLayer)
+      const error = yield* Effect.flip(
+        updateAttachment({ attachmentId: attachmentBrandId("att-1") }).pipe(
+          Effect.provide(testLayer)
+        )
       )
 
-      expect(result.updated).toBe(false)
+      expect(error._tag).toBe("NoUpdateFieldsError")
     }))
 
   // test-revizorro: approved

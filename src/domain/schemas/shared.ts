@@ -26,6 +26,22 @@ export const emptyParamsJsonSchema = JSONSchema.make(EmptyParamsSchema)
 
 export const enumValuesDescription = (values: ReadonlyArray<string>): string => values.join(", ")
 
+export const hasAtLeastOneDefined = <K extends string>(
+  params: { readonly [P in K]?: unknown },
+  fields: ReadonlyArray<K>
+): boolean => fields.some((field) => params[field] !== undefined)
+
+export const atLeastOneUpdateFieldMessage = (fields: ReadonlyArray<string>): string =>
+  `At least one update field must be provided: ${fields.join(", ")}.`
+
+export const withAtLeastOneRequired = <K extends string>(
+  schema: object,
+  fields: ReadonlyArray<K>
+): object => ({
+  ...schema,
+  anyOf: fields.map((field) => ({ required: [field] }))
+})
+
 // === Tier 1: Huly Internal Refs (opaque IDs from _id) ===
 
 export const DocId = NonEmptyString.pipe(Schema.brand("DocId"))

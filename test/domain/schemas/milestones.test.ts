@@ -24,7 +24,13 @@ type JsonSchemaObject = {
   $schema?: string
   type?: string
   required?: Array<string>
+  anyOf?: Array<{ required?: Array<string> }>
   properties?: Record<string, { description?: string }>
+}
+
+const expectJsonSchemaObject = (schema: unknown): JsonSchemaObject => {
+  if (typeof schema === "object" && schema !== null) return schema
+  throw new Error("Expected JSON schema object")
 }
 
 describe("Milestone Schemas", () => {
@@ -431,14 +437,23 @@ describe("Milestone Schemas", () => {
 
   describe("UpdateMilestoneParamsSchema", () => {
     // test-revizorro: approved
-    it.effect("parses minimal params (no updates)", () =>
+    it.effect("parses minimal params and advertises update-field requirement in JSON Schema", () =>
       Effect.gen(function*() {
         const result = yield* parseUpdateMilestoneParams({
           project: "HULY",
           milestone: "Sprint 1"
         })
-        expect(result.project).toBe("HULY")
-        expect(result.milestone).toBe("Sprint 1")
+        expect(result).toEqual({ project: "HULY", milestone: "Sprint 1" })
+
+        const schema = expectJsonSchemaObject(updateMilestoneParamsJsonSchema)
+        expect(schema.anyOf).toEqual(
+          expect.arrayContaining([
+            { required: ["label"] },
+            { required: ["description"] },
+            { required: ["targetDate"] },
+            { required: ["status"] }
+          ])
+        )
       }))
 
     // test-revizorro: approved

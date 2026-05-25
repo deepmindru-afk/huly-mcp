@@ -1,3 +1,6 @@
+# This config is for local stdio/package discovery only.
+# It is not a production-ready hosted Smithery URL deployment: hosted use
+# needs per-session Huly auth/config instead of process-wide HULY_* env vars.
 startCommand:
   type: stdio
   configSchema:

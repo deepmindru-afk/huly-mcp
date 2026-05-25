@@ -362,7 +362,12 @@ export const parseListOrganizationMembersParams = Schema.decodeUnknown(ListOrgan
 export const parseListPersonOrganizationsParams = Schema.decodeUnknown(ListPersonOrganizationsParamsSchema)
 export const parseRemoveOrganizationMemberParams = Schema.decodeUnknown(RemoveOrganizationMemberParamsSchema)
 
-export const listPersonsParamsJsonSchema = JSONSchema.make(ListPersonsParamsSchema)
+export const listPersonsParamsJsonSchema = {
+  ...JSONSchema.make(ListPersonsParamsBase),
+  allOf: [
+    { not: { required: ["nameSearch", "nameRegex"] } }
+  ]
+}
 export const getPersonParamsJsonSchema = JSONSchema.make(GetPersonParamsSchema)
 export const createPersonParamsJsonSchema = JSONSchema.make(CreatePersonParamsSchema)
 export const updatePersonParamsJsonSchema = JSONSchema.make(UpdatePersonParamsSchema)

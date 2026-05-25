@@ -339,10 +339,25 @@ export const getTeamspaceParamsJsonSchema = JSONSchema.make(GetTeamspaceParamsSc
 export const createTeamspaceParamsJsonSchema = JSONSchema.make(CreateTeamspaceParamsSchema)
 export const updateTeamspaceParamsJsonSchema = JSONSchema.make(UpdateTeamspaceParamsSchema)
 export const deleteTeamspaceParamsJsonSchema = JSONSchema.make(DeleteTeamspaceParamsSchema)
-export const listDocumentsParamsJsonSchema = JSONSchema.make(ListDocumentsParamsSchema)
+export const listDocumentsParamsJsonSchema = {
+  ...JSONSchema.make(ListDocumentsParamsBase),
+  allOf: [
+    { not: { required: ["titleSearch", "titleRegex"] } }
+  ]
+}
 export const getDocumentParamsJsonSchema = JSONSchema.make(GetDocumentParamsSchema)
 export const createDocumentParamsJsonSchema = JSONSchema.make(CreateDocumentParamsSchema)
-export const editDocumentParamsJsonSchema = JSONSchema.make(EditDocumentParamsSchema)
+export const editDocumentParamsJsonSchema = {
+  ...JSONSchema.make(EditDocumentParamsBase),
+  allOf: [
+    { not: { required: ["content", "old_text"] } },
+    { not: { required: ["content", "new_text"] } }
+  ],
+  dependencies: {
+    old_text: ["new_text"],
+    new_text: ["old_text"]
+  }
+}
 export const listInlineCommentsParamsJsonSchema = JSONSchema.make(ListInlineCommentsParamsSchema)
 export const deleteDocumentParamsJsonSchema = JSONSchema.make(DeleteDocumentParamsSchema)
 

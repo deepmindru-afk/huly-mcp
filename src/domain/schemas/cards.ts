@@ -187,7 +187,12 @@ export type DeleteCardParams = Schema.Schema.Type<typeof DeleteCardParamsSchema>
 
 export const listCardSpacesParamsJsonSchema = JSONSchema.make(ListCardSpacesParamsSchema)
 export const listMasterTagsParamsJsonSchema = JSONSchema.make(ListMasterTagsParamsSchema)
-export const listCardsParamsJsonSchema = JSONSchema.make(ListCardsParamsSchema)
+export const listCardsParamsJsonSchema = {
+  ...JSONSchema.make(ListCardsParamsBase),
+  allOf: [
+    { not: { required: ["titleSearch", "titleRegex"] } }
+  ]
+}
 export const getCardParamsJsonSchema = JSONSchema.make(GetCardParamsSchema)
 export const createCardParamsJsonSchema = JSONSchema.make(CreateCardParamsSchema)
 export const updateCardParamsJsonSchema = JSONSchema.make(UpdateCardParamsSchema)

@@ -42,6 +42,13 @@ export interface UploadFileResult {
   readonly url: string
 }
 
-export const uploadFileParamsJsonSchema = JSONSchema.make(UploadFileParamsSchema)
+export const uploadFileParamsJsonSchema = {
+  ...JSONSchema.make(UploadFileParamsBase),
+  anyOf: [
+    { required: ["filePath"] },
+    { required: ["fileUrl"] },
+    { required: ["data"] }
+  ]
+}
 
 export const parseUploadFileParams = Schema.decodeUnknown(UploadFileParamsSchema)

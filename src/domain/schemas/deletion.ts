@@ -11,7 +11,7 @@ const EntityTypeSchema = Schema.Literal(...EntityTypeValues).annotations({
 
 export type EntityType = Schema.Schema.Type<typeof EntityTypeSchema>
 
-export const PreviewDeletionParamsSchema = Schema.Struct({
+const PreviewDeletionParamsBaseSchema = Schema.Struct({
   entityType: EntityTypeSchema.annotations({
     description: `Type of entity: ${enumValuesDescription(EntityTypeValues)}`
   }),
@@ -22,7 +22,12 @@ export const PreviewDeletionParamsSchema = Schema.Struct({
     description:
       "Entity identifier within the project. Required for issue (e.g., 'PROJ-123' or number), component (label or ID), milestone (label or ID). Ignored for entityType='project'."
   })
-}).pipe(
+}).annotations({
+  title: "PreviewDeletionParams",
+  description: "Parameters for previewing deletion impact"
+})
+
+export const PreviewDeletionParamsSchema = PreviewDeletionParamsBaseSchema.pipe(
   Schema.filter((params) => {
     if (params.entityType !== "project" && (params.identifier === undefined || params.identifier.trim() === "")) {
       return {
@@ -58,5 +63,18 @@ export interface DeletionImpact {
   readonly totalAffected: number
 }
 
-export const previewDeletionParamsJsonSchema = JSONSchema.make(PreviewDeletionParamsSchema)
+export const previewDeletionParamsJsonSchema = {
+  ...JSONSchema.make(PreviewDeletionParamsBaseSchema),
+  allOf: [
+    {
+      if: {
+        required: ["entityType"],
+        properties: {
+          entityType: { enum: ["issue", "component", "milestone"] }
+        }
+      },
+      then: { required: ["identifier"] }
+    }
+  ]
+}
 export const parsePreviewDeletionParams = Schema.decodeUnknown(PreviewDeletionParamsSchema)

@@ -351,7 +351,22 @@ export const MoveIssueParamsSchema = Schema.Struct({
 
 export type MoveIssueParams = Schema.Schema.Type<typeof MoveIssueParamsSchema>
 
-export const listIssuesParamsJsonSchema = JSONSchema.make(ListIssuesParamsSchema)
+export const listIssuesParamsJsonSchema = {
+  ...JSONSchema.make(ListIssuesParamsBase),
+  allOf: [
+    { not: { required: ["titleSearch", "titleRegex"] } },
+    { not: { required: ["assignee", "hasAssignee"] } },
+    { not: { required: ["component", "hasComponent"] } },
+    {
+      not: {
+        required: ["parentIssue", "isTopLevel"],
+        properties: {
+          isTopLevel: { const: true }
+        }
+      }
+    }
+  ]
+}
 export const getIssueParamsJsonSchema = JSONSchema.make(GetIssueParamsSchema)
 export const createIssueParamsJsonSchema = JSONSchema.make(CreateIssueParamsSchema)
 export const updateIssueParamsJsonSchema = JSONSchema.make(UpdateIssueParamsSchema)

@@ -102,6 +102,12 @@ const hasFileSource = (params: {
   return hasSource ? true : "Must provide filePath, fileUrl, or data"
 }
 
+const fileSourceAnyOfJsonSchema = [
+  { required: ["filePath"] },
+  { required: ["fileUrl"] },
+  { required: ["data"] }
+]
+
 const AddAttachmentParamsBase = Schema.Struct({
   objectId: DocId.annotations({
     description: "ID of the parent object (issue, document, etc.)"
@@ -219,13 +225,22 @@ export type AddDocumentAttachmentParams = Schema.Schema.Type<typeof AddDocumentA
 
 export const listAttachmentsParamsJsonSchema = JSONSchema.make(ListAttachmentsParamsSchema)
 export const getAttachmentParamsJsonSchema = JSONSchema.make(GetAttachmentParamsSchema)
-export const addAttachmentParamsJsonSchema = JSONSchema.make(AddAttachmentParamsSchema)
+export const addAttachmentParamsJsonSchema = {
+  ...JSONSchema.make(AddAttachmentParamsBase),
+  anyOf: fileSourceAnyOfJsonSchema
+}
 export const updateAttachmentParamsJsonSchema = JSONSchema.make(UpdateAttachmentParamsSchema)
 export const deleteAttachmentParamsJsonSchema = JSONSchema.make(DeleteAttachmentParamsSchema)
 export const pinAttachmentParamsJsonSchema = JSONSchema.make(PinAttachmentParamsSchema)
 export const downloadAttachmentParamsJsonSchema = JSONSchema.make(DownloadAttachmentParamsSchema)
-export const addIssueAttachmentParamsJsonSchema = JSONSchema.make(AddIssueAttachmentParamsSchema)
-export const addDocumentAttachmentParamsJsonSchema = JSONSchema.make(AddDocumentAttachmentParamsSchema)
+export const addIssueAttachmentParamsJsonSchema = {
+  ...JSONSchema.make(AddIssueAttachmentParamsBase),
+  anyOf: fileSourceAnyOfJsonSchema
+}
+export const addDocumentAttachmentParamsJsonSchema = {
+  ...JSONSchema.make(AddDocumentAttachmentParamsBase),
+  anyOf: fileSourceAnyOfJsonSchema
+}
 
 export const parseListAttachmentsParams = Schema.decodeUnknown(ListAttachmentsParamsSchema)
 export const parseGetAttachmentParams = Schema.decodeUnknown(GetAttachmentParamsSchema)

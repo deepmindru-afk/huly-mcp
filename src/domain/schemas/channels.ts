@@ -328,7 +328,12 @@ export type DeleteThreadReplyParams = Schema.Schema.Type<typeof DeleteThreadRepl
 
 // --- JSON Schemas for MCP ---
 
-export const listChannelsParamsJsonSchema = JSONSchema.make(ListChannelsParamsSchema)
+export const listChannelsParamsJsonSchema = {
+  ...JSONSchema.make(ListChannelsParamsBase),
+  allOf: [
+    { not: { required: ["nameSearch", "nameRegex"] } }
+  ]
+}
 export const getChannelParamsJsonSchema = JSONSchema.make(GetChannelParamsSchema)
 export const createChannelParamsJsonSchema = JSONSchema.make(CreateChannelParamsSchema)
 export const updateChannelParamsJsonSchema = JSONSchema.make(UpdateChannelParamsSchema)

@@ -160,7 +160,7 @@ export const ListAssociationsResultSchema = Schema.Struct({
 })
 export type ListAssociationsResult = Schema.Schema.Type<typeof ListAssociationsResultSchema>
 
-export const ListRelationsParamsSchema = Schema.Struct({
+const ListRelationsParamsBaseSchema = Schema.Struct({
   association: Schema.optional(AssociationIdentifier.annotations({
     description: "Association _id or name. If omitted, relations are listed only across supported visible associations."
   })),
@@ -176,7 +176,12 @@ export const ListRelationsParamsSchema = Schema.Struct({
   limit: Schema.optional(LimitParam.annotations({
     description: "Maximum number of relations to return (default: 50)"
   }))
-}).pipe(
+}).annotations({
+  title: "ListRelationsParams",
+  description: "Parameters for listing concrete Huly relation instances"
+})
+
+export const ListRelationsParamsSchema = ListRelationsParamsBaseSchema.pipe(
   Schema.filter((params) =>
     params.association === undefined && params.source === undefined && params.target === undefined
       ? "Provide at least one of association, source, or target to avoid broad workspace scans."
@@ -272,7 +277,14 @@ export const DeleteRelationResultSchema = Schema.Struct({
 export type DeleteRelationResult = Schema.Schema.Type<typeof DeleteRelationResultSchema>
 
 export const listAssociationsParamsJsonSchema = JSONSchema.make(ListAssociationsParamsSchema)
-export const listRelationsParamsJsonSchema = JSONSchema.make(ListRelationsParamsSchema)
+export const listRelationsParamsJsonSchema = {
+  ...JSONSchema.make(ListRelationsParamsBaseSchema),
+  anyOf: [
+    { required: ["association"] },
+    { required: ["source"] },
+    { required: ["target"] }
+  ]
+}
 export const createRelationParamsJsonSchema = JSONSchema.make(CreateRelationParamsSchema)
 export const deleteRelationParamsJsonSchema = {
   ...JSONSchema.make(DeleteRelationParamsSchema),

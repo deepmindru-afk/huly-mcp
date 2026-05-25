@@ -4,6 +4,7 @@ import { expect } from "vitest"
 
 import {
   deleteRelationParamsJsonSchema,
+  listRelationsParamsJsonSchema,
   parseCreateRelationParams,
   parseDeleteRelationParams,
   parseListAssociationsParams,
@@ -30,6 +31,23 @@ describe("generic association schemas", () => {
     Effect.gen(function*() {
       const error = yield* Effect.flip(parseListRelationsParams({}))
       expect(error._tag).toBe("ParseError")
+    }))
+
+  it.effect("emits JSON schema filter alternatives for list_relations", () =>
+    Effect.gen(function*() {
+      expect(listRelationsParamsJsonSchema).toMatchObject({
+        type: "object",
+        properties: {
+          association: expect.any(Object),
+          source: expect.any(Object),
+          target: expect.any(Object)
+        },
+        anyOf: [
+          { required: ["association"] },
+          { required: ["source"] },
+          { required: ["target"] }
+        ]
+      })
     }))
 
   it.effect("parses raw, issue, and document locators", () =>

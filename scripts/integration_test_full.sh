@@ -1197,6 +1197,37 @@ if [ -n "$WRITABLE_ASSOC_ID" ]; then
 else
   skip_test "create_relation/delete_relation" "read-only slice: no validated writable generic association allowlist"
 fi
+
+GENERIC_SOURCE_TEXT=$(run_capture "create_issue(for_generic_associations)" \
+  "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_issue\",\"arguments\":{\"project\":\"$PROJECT\",\"title\":\"Generic Associations Source $RUN_ID\"}},\"id\":2}")
+if [ $? -eq 0 ]; then
+  GENERIC_SOURCE_ID=$(echo "$GENERIC_SOURCE_TEXT" | jq -r '.identifier // empty' 2>/dev/null)
+  GENERIC_SOURCE_OBJ_ID=$(echo "$GENERIC_SOURCE_TEXT" | jq -r '.issueId // empty' 2>/dev/null)
+  GENERIC_SOURCE_OBJ_ID_JSON=$(json_string "$GENERIC_SOURCE_OBJ_ID")
+  if [ -n "$GENERIC_SOURCE_OBJ_ID" ]; then
+    OMITTED_RELATIONS_TEXT=$(run_capture "list_relations(source raw issue)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_relations\",\"arguments\":{\"source\":{\"kind\":\"raw\",\"id\":$GENERIC_SOURCE_OBJ_ID_JSON,\"class\":\"tracker:class:Issue\"},\"limit\":3}},\"id\":2}")
+    if [ $? -eq 0 ]; then
+      assert_json_field_nonempty "list_relations(source raw issue) has total" "$OMITTED_RELATIONS_TEXT" ".total"
+    fi
+
+    EITHER_RELATIONS_TEXT=$(run_capture "list_relations(source raw issue,either)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_relations\",\"arguments\":{\"source\":{\"kind\":\"raw\",\"id\":$GENERIC_SOURCE_OBJ_ID_JSON,\"class\":\"tracker:class:Issue\"},\"direction\":\"either\",\"limit\":3}},\"id\":2}")
+    if [ $? -eq 0 ]; then
+      assert_json_field_nonempty "list_relations(source raw issue,either) has total" "$EITHER_RELATIONS_TEXT" ".total"
+    fi
+  else
+    skip_test "list_relations(source raw issue)" "generic association source issue did not return issueId"
+    skip_test "list_relations(source raw issue,either)" "generic association source issue did not return issueId"
+  fi
+  if [ -n "$GENERIC_SOURCE_ID" ]; then
+    run_test "delete_issue(generic_assoc:$GENERIC_SOURCE_ID)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_issue\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$GENERIC_SOURCE_ID\"}},\"id\":2}"
+  fi
+else
+  skip_test "list_relations(source raw issue)" "could not create disposable source issue"
+  skip_test "list_relations(source raw issue,either)" "could not create disposable source issue"
+fi
 echo ""
 
 ##############################

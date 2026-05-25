@@ -239,7 +239,6 @@ describe("Contact Schemas", () => {
   })
 
   describe("AddOrganizationChannelParamsSchema", () => {
-    // test-revizorro: approved
     it("accepts supported organization channel provider", () => {
       const result = Schema.decodeUnknownSync(AddOrganizationChannelParamsSchema)({
         organizationId: "org-1",
@@ -253,7 +252,6 @@ describe("Contact Schemas", () => {
       })
     })
 
-    // test-revizorro: approved
     it("rejects unsupported organization channel provider", () => {
       const result = Effect.runSync(
         Effect.either(

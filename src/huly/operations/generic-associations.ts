@@ -76,6 +76,7 @@ type AssociationListFilters = AssociationFilters & {
 }
 
 const WRITE_UNSUPPORTED_REASON = "no generic association relation write path has been live-validated for this workspace"
+// Broad association scans use this local guardrail, not an SDK page size. Keep it at the public max result cap.
 const ASSOCIATION_DISCOVERY_LIMIT = 200
 const ASSOCIATION_LOOKUP_AMBIGUITY_LIMIT = 2
 

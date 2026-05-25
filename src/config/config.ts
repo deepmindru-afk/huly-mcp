@@ -9,6 +9,7 @@ import type { ConfigError } from "effect"
 import { Config, ConfigProvider, Context, Effect, Layer, Redacted, Schema } from "effect"
 
 const DEFAULT_TIMEOUT = 30000
+// Required only when a request provides any x-huly-* header; otherwise HTTP falls back to process env config.
 const REQUIRED_HULY_CONFIG_HEADERS = ["x-huly-url", "x-huly-workspace", "x-huly-token"] as const
 const HULY_CONFIG_HEADERS = [
   ...REQUIRED_HULY_CONFIG_HEADERS,
@@ -16,8 +17,8 @@ const HULY_CONFIG_HEADERS = [
 ] as const
 
 type HulyConfigHeader = typeof HULY_CONFIG_HEADERS[number]
+type HulyEnvNamePattern = `HULY_${string}`
 type HeaderValue = string | ReadonlyArray<string> | undefined
-type ConfigMapEntry = readonly [string, string]
 type UrlHeaderEntries = ReadonlyMap<HulyConfigHeader, HeaderValue>
 
 type UrlHeaderConfig =
@@ -27,12 +28,15 @@ type UrlHeaderConfig =
     readonly entries: UrlHeaderEntries
   }
 
-const headerToEnvName: Record<HulyConfigHeader, string> = {
+const headerToEnvName = {
   "x-huly-url": "HULY_URL",
   "x-huly-workspace": "HULY_WORKSPACE",
   "x-huly-token": "HULY_TOKEN",
   "x-huly-connection-timeout": "HULY_CONNECTION_TIMEOUT"
-}
+} as const satisfies Record<HulyConfigHeader, HulyEnvNamePattern>
+
+type HulyConfigEnvName = typeof headerToEnvName[HulyConfigHeader]
+type ConfigMapEntry = readonly [HulyConfigEnvName, string]
 
 const hulyConfigHeaderSet = new Set<string>(HULY_CONFIG_HEADERS)
 

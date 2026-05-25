@@ -1,6 +1,7 @@
 /* eslint-disable max-lines -- barrel re-export index; no logic, only re-exports from domain modules */
 export {
   AssociationId,
+  DocId,
   emptyParamsJsonSchema,
   EmptyParamsSchema,
   IssueId,
@@ -231,6 +232,7 @@ export {
   ProcessStateSummarySchema,
   type ProcessSummary,
   ProcessSummarySchema,
+  ProcessTransitionId,
   type ProcessTransitionSummary,
   ProcessTransitionSummarySchema
 } from "./processes.js"

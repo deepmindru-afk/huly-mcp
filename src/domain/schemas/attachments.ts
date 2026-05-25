@@ -3,6 +3,7 @@ import { JSONSchema, Schema } from "effect"
 import type { BlobId } from "./shared.js"
 import {
   AttachmentId,
+  DocId,
   DocumentIdentifier,
   IssueIdentifier,
   LimitParam,
@@ -39,7 +40,7 @@ export interface Attachment {
 }
 
 export const ListAttachmentsParamsSchema = Schema.Struct({
-  objectId: NonEmptyString.annotations({
+  objectId: DocId.annotations({
     description: "ID of the parent object (issue, document, etc.)"
   }),
   objectClass: ObjectClassName.annotations({
@@ -102,7 +103,7 @@ const hasFileSource = (params: {
 }
 
 const AddAttachmentParamsBase = Schema.Struct({
-  objectId: NonEmptyString.annotations({
+  objectId: DocId.annotations({
     description: "ID of the parent object (issue, document, etc.)"
   }),
   objectClass: ObjectClassName.annotations({

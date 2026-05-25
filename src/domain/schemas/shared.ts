@@ -26,7 +26,10 @@ export const emptyParamsJsonSchema = JSONSchema.make(EmptyParamsSchema)
 
 // === Tier 1: Huly Internal Refs (opaque IDs from _id) ===
 
-const HulyRef = <T extends string>(tag: T) => NonEmptyString.pipe(Schema.brand(tag))
+export const DocId = NonEmptyString.pipe(Schema.brand("DocId"))
+export type DocId = Schema.Schema.Type<typeof DocId>
+
+const HulyRef = <T extends string>(tag: T) => DocId.pipe(Schema.brand(tag))
 
 export const PersonId = HulyRef("PersonId")
 export type PersonId = Schema.Schema.Type<typeof PersonId>

@@ -19,7 +19,7 @@ import type {
   RelationSummary,
   ResolvedObjectSummary
 } from "../../domain/schemas/generic-associations.js"
-import { AssociationId, NonEmptyString, ObjectClassName, RelationId } from "../../domain/schemas/shared.js"
+import { AssociationId, DocId, NonEmptyString, ObjectClassName, RelationId } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError, type HulyClientOperations } from "../client.js"
 import type {
   DocumentNotFoundError,
@@ -57,7 +57,7 @@ type GenericAssociationsError =
   | IssueNotFoundError
 
 type AssociationCandidate = {
-  readonly id: string
+  readonly id: AssociationId
   readonly name?: string | undefined
   readonly sourceClass?: string | undefined
   readonly targetClass?: string | undefined
@@ -132,7 +132,7 @@ const toAssociationSummary = (association: HulyAssociation): AssociationSummary 
 })
 
 const toCandidate = (association: HulyAssociation): AssociationCandidate => ({
-  id: association._id,
+  id: AssociationId.make(association._id),
   name: associationName(association),
   sourceClass: association.classA,
   targetClass: association.classB
@@ -335,7 +335,7 @@ const resolvedSummary = (
   locatorKind: ResolvedObjectSummary["locatorKind"],
   warning?: string
 ): ResolvedObjectSummary => ({
-  id: NonEmptyString.make(doc._id),
+  id: DocId.make(doc._id),
   class: ObjectClassName.make(doc._class),
   display: NonEmptyString.make(displayFromDoc(doc)),
   locatorKind,
@@ -424,8 +424,8 @@ const resolveDocumentWithoutTeamspace = (
         field,
         identifier,
         candidates: byTitle.map((doc) => ({
-          id: doc._id,
-          class: doc._class,
+          id: DocId.make(doc._id),
+          class: ObjectClassName.make(doc._class),
           display: doc.title
         }))
       })
@@ -487,7 +487,7 @@ const unresolvedRelationEndpoint = (
   className: string,
   warning: string
 ): ResolvedObjectSummary => ({
-  id: NonEmptyString.make(id),
+  id: DocId.make(id),
   class: ObjectClassName.make(className),
   display: NonEmptyString.make(id),
   locatorKind: "raw",

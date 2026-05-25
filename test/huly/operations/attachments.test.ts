@@ -26,6 +26,7 @@ import {
 import { HulyStorageClient } from "../../../src/huly/storage.js"
 import {
   attachmentBrandId,
+  docId,
   documentIdentifier,
   issueIdentifier,
   mimeType,
@@ -269,7 +270,7 @@ describe("listAttachments", () => {
       const testLayer = createTestLayer({ attachments })
 
       const result = yield* listAttachments({
-        objectId: "parent-1",
+        objectId: docId("parent-1"),
         objectClass: objectClassName("tracker:class:Issue")
       }).pipe(Effect.provide(testLayer))
 
@@ -284,7 +285,7 @@ describe("listAttachments", () => {
       const testLayer = createTestLayer({})
 
       const result = yield* listAttachments({
-        objectId: "parent-1",
+        objectId: docId("parent-1"),
         objectClass: objectClassName("tracker:class:Issue")
       }).pipe(Effect.provide(testLayer))
 
@@ -305,7 +306,7 @@ describe("listAttachments", () => {
       const testLayer = createTestLayer({ attachments: [att] })
 
       const result = yield* listAttachments({
-        objectId: "parent-1",
+        objectId: docId("parent-1"),
         objectClass: objectClassName("tracker:class:Issue")
       }).pipe(Effect.provide(testLayer))
 
@@ -383,7 +384,7 @@ describe("addAttachment", () => {
       const testLayer = createTestLayer({ captureAddCollection })
 
       const result = yield* addAttachment({
-        objectId: "parent-1",
+        objectId: docId("parent-1"),
         objectClass: objectClassName("tracker:class:Issue"),
         space: spaceBrandId("space-1"),
         filename: "test.txt",
@@ -408,7 +409,7 @@ describe("addAttachment", () => {
       const testLayer = createTestLayer({ captureAddCollection })
 
       yield* addAttachment({
-        objectId: "parent-1",
+        objectId: docId("parent-1"),
         objectClass: objectClassName("tracker:class:Issue"),
         space: spaceBrandId("space-1"),
         filename: "test.txt",
@@ -431,7 +432,7 @@ describe("addAttachment", () => {
         const testLayer = createTestLayer({ captureAddCollection })
 
         const result = yield* addAttachment({
-          objectId: "parent-1",
+          objectId: docId("parent-1"),
           objectClass: objectClassName("tracker:class:Issue"),
           space: spaceBrandId("space-1"),
           filename: "from-disk.txt",

@@ -1,6 +1,6 @@
 import { JSONSchema, Schema } from "effect"
 
-import { CustomFieldId, LimitParam, NonEmptyString, ObjectClassName } from "./shared.js"
+import { CustomFieldId, DocId, LimitParam, NonEmptyString, ObjectClassName } from "./shared.js"
 
 export const ListCustomFieldsParamsSchema = Schema.Struct({
   targetClass: Schema.optional(
@@ -22,10 +22,10 @@ export const ListCustomFieldsParamsSchema = Schema.Struct({
 export type ListCustomFieldsParams = Schema.Schema.Type<typeof ListCustomFieldsParamsSchema>
 
 export const GetCustomFieldValuesParamsSchema = Schema.Struct({
-  objectId: NonEmptyString.annotations({
+  objectId: DocId.annotations({
     description: "Document ID to read custom field values from"
   }),
-  objectClass: NonEmptyString.annotations({
+  objectClass: ObjectClassName.annotations({
     description:
       "Class of the document (e.g. 'tracker:class:Issue', 'card:class:Card', or a dynamic master tag class ID)"
   })
@@ -37,14 +37,14 @@ export const GetCustomFieldValuesParamsSchema = Schema.Struct({
 export type GetCustomFieldValuesParams = Schema.Schema.Type<typeof GetCustomFieldValuesParamsSchema>
 
 export const SetCustomFieldParamsSchema = Schema.Struct({
-  objectId: NonEmptyString.annotations({
+  objectId: DocId.annotations({
     description: "Document ID to set the custom field value on"
   }),
-  objectClass: NonEmptyString.annotations({
+  objectClass: ObjectClassName.annotations({
     description:
       "Class of the document (e.g. 'tracker:class:Issue', 'card:class:Card', or a dynamic master tag class ID)"
   }),
-  fieldId: NonEmptyString.annotations({
+  fieldId: CustomFieldId.annotations({
     description: "Custom field attribute ID (the _id from list_custom_fields)"
   }),
   value: Schema.String.annotations({
@@ -130,7 +130,7 @@ export interface CustomFieldValue {
 }
 
 export interface SetCustomFieldResult {
-  readonly objectId: NonEmptyString
+  readonly objectId: DocId
   readonly fieldId: CustomFieldId
   readonly label: string
   readonly value: unknown
@@ -200,7 +200,7 @@ export const CustomFieldValueWireSchema = Schema.Struct({
 })
 
 export const SetCustomFieldResultWireSchema = Schema.Struct({
-  objectId: NonEmptyString,
+  objectId: DocId,
   fieldId: CustomFieldId,
   label: Schema.String,
   value: Schema.Unknown,

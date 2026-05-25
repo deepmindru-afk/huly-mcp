@@ -1,9 +1,9 @@
 import { Schema } from "effect"
 
-import { AssociationId, RelationId } from "../domain/schemas/shared.js"
+import { AssociationId, DocId, ObjectClassName, RelationId } from "../domain/schemas/shared.js"
 
 const CandidateSchema = Schema.Struct({
-  id: Schema.String,
+  id: AssociationId,
   name: Schema.optional(Schema.String),
   sourceClass: Schema.optional(Schema.String),
   targetClass: Schema.optional(Schema.String)
@@ -102,8 +102,8 @@ export class GenericObjectIdentifierAmbiguousError extends Schema.TaggedError<Ge
     field: Schema.String,
     identifier: Schema.String,
     candidates: Schema.Array(Schema.Struct({
-      id: Schema.String,
-      class: Schema.String,
+      id: DocId,
+      class: ObjectClassName,
       display: Schema.String
     }))
   }

@@ -2,6 +2,7 @@ import { JSONSchema, Schema } from "effect"
 
 import {
   AssociationId,
+  DocId,
   DocumentIdentifier,
   IssueIdentifier,
   LimitParam,
@@ -35,7 +36,7 @@ export type RelationIfExists = Schema.Schema.Type<typeof RelationIfExistsSchema>
 
 const RawObjectLocatorSchema = Schema.Struct({
   kind: Schema.Literal("raw"),
-  id: NonEmptyString.annotations({
+  id: DocId.annotations({
     description: "Raw Huly document _id"
   }),
   class: Schema.optional(ObjectClassName.annotations({
@@ -76,7 +77,7 @@ export const GenericObjectLocatorSchema = Schema.Union(
 export type GenericObjectLocator = Schema.Schema.Type<typeof GenericObjectLocatorSchema>
 
 export const ResolvedObjectSummarySchema = Schema.Struct({
-  id: NonEmptyString,
+  id: DocId,
   class: ObjectClassName,
   display: NonEmptyString,
   locatorKind: Schema.Literal("raw", "issue", "document"),

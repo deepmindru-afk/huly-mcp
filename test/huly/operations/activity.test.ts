@@ -34,6 +34,7 @@ import {
 import {
   activityMessageId,
   channelIdentifier,
+  docId,
   documentIdentifier,
   emojiCode,
   issueIdentifier,
@@ -386,7 +387,7 @@ describe("listActivity", () => {
       const testLayer = createTestLayerWithMocks({ activityMessages: messages })
 
       const result = yield* listActivity({
-        objectId: "obj-1",
+        objectId: docId("obj-1"),
         objectClass: objectClassName("tracker:class:Issue")
       }).pipe(Effect.provide(testLayer))
 
@@ -401,7 +402,7 @@ describe("listActivity", () => {
       const testLayer = createTestLayerWithMocks({ activityMessages: [] })
 
       const result = yield* listActivity({
-        objectId: "obj-1",
+        objectId: docId("obj-1"),
         objectClass: objectClassName("tracker:class:Issue")
       }).pipe(Effect.provide(testLayer))
 
@@ -426,7 +427,7 @@ describe("listActivity", () => {
       const testLayer = createTestLayerWithMocks({ activityMessages: [msg] })
 
       const result = yield* listActivity({
-        objectId: "obj-1",
+        objectId: docId("obj-1"),
         objectClass: objectClassName("tracker:class:Issue")
       }).pipe(Effect.provide(testLayer))
 
@@ -462,7 +463,7 @@ describe("listActivity", () => {
       const testLayer = createTestLayerWithMocks({ activityMessages: messages })
 
       const result = yield* listActivity({
-        objectId: "obj-1",
+        objectId: docId("obj-1"),
         objectClass: objectClassName("tracker:class:Issue")
       }).pipe(Effect.provide(testLayer))
 

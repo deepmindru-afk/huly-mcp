@@ -1,6 +1,6 @@
 import { JSONSchema, Schema } from "effect"
 
-import { LimitParam, NonEmptyString } from "./shared.js"
+import { DocId, LimitParam, NonEmptyString, ObjectClassName } from "./shared.js"
 
 export const FulltextSearchParamsSchema = Schema.Struct({
   query: NonEmptyString.annotations({
@@ -21,8 +21,8 @@ export type FulltextSearchParams = Schema.Schema.Type<typeof FulltextSearchParam
 // --- API boundary schemas for Huly SearchResult ---
 
 const SearchResultDocInner = Schema.Struct({
-  _id: Schema.String,
-  _class: Schema.String,
+  _id: DocId,
+  _class: ObjectClassName,
   createdOn: Schema.optional(Schema.Number)
 })
 
@@ -46,8 +46,8 @@ export const parseSearchResult = Schema.decodeUnknown(SearchResultSchema)
 // --- Output types (internal, post-mapping) ---
 
 export interface SearchResultItem {
-  readonly id: string
-  readonly class: string
+  readonly id: DocId
+  readonly class: ObjectClassName
   readonly title?: string | undefined
   readonly description?: string | undefined
   readonly score?: number | undefined

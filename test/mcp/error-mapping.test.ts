@@ -3,7 +3,15 @@ import type { ParseResult } from "effect"
 import { Cause, Effect, Schema } from "effect"
 import { expect } from "vitest"
 import { ProcessId } from "../../src/domain/schemas/processes.js"
-import { AssociationId, CardId, MasterTagId, NonEmptyString, RelationId } from "../../src/domain/schemas/shared.js"
+import {
+  AssociationId,
+  CardId,
+  DocId,
+  MasterTagId,
+  NonEmptyString,
+  ObjectClassName,
+  RelationId
+} from "../../src/domain/schemas/shared.js"
 import {
   AssociationIdentifierAmbiguousError,
   AssociationNotFoundError,
@@ -295,7 +303,7 @@ describe("Error Mapping to MCP", () => {
             new AssociationNotFoundError({ identifier: "relates" }),
             new AssociationIdentifierAmbiguousError({
               identifier: "relates",
-              candidates: [{ id: "assoc-1", name: "relates" }]
+              candidates: [{ id: AssociationId.make("assoc-1"), name: "relates" }]
             }),
             new RelationNotFoundError({ identifier: "rel-1" }),
             new RelationIdentifierAmbiguousError({
@@ -314,7 +322,11 @@ describe("Error Mapping to MCP", () => {
             new GenericObjectIdentifierAmbiguousError({
               field: "target",
               identifier: "Spec",
-              candidates: [{ id: "doc-1", class: "document:class:Document", display: "Spec" }]
+              candidates: [{
+                id: DocId.make("doc-1"),
+                class: ObjectClassName.make("document:class:Document"),
+                display: "Spec"
+              }]
             }),
             new GenericObjectLocatorInvalidError({
               field: "source",

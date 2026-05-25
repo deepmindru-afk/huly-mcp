@@ -1,7 +1,7 @@
 import { describe, it } from "@effect/vitest"
 import { Effect, Schema } from "effect"
 import { expect } from "vitest"
-import { RelationId } from "../../src/domain/schemas/shared.js"
+import { AssociationId, DocId, ObjectClassName, RelationId } from "../../src/domain/schemas/shared.js"
 import {
   ActivityMessageNotFoundError,
   AssociationIdentifierAmbiguousError,
@@ -894,7 +894,7 @@ describe("Huly Errors", () => {
           matchError(
             new AssociationIdentifierAmbiguousError({
               identifier: "links",
-              candidates: [{ id: "assoc-1" }, { id: "assoc-2" }]
+              candidates: [{ id: AssociationId.make("assoc-1") }, { id: AssociationId.make("assoc-2") }]
             })
           )
         ).toBe("association-ambiguous:links:2")
@@ -924,7 +924,11 @@ describe("Huly Errors", () => {
             new GenericObjectIdentifierAmbiguousError({
               field: "source",
               identifier: "Spec",
-              candidates: [{ id: "doc-1", class: "document:class:Document", display: "Spec" }]
+              candidates: [{
+                id: DocId.make("doc-1"),
+                class: ObjectClassName.make("document:class:Document"),
+                display: "Spec"
+              }]
             })
           )
         ).toBe("generic-object-ambiguous:source:1")

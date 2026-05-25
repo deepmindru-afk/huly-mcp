@@ -31,7 +31,7 @@ import {
   listAssociations,
   listRelations
 } from "../../../src/huly/operations/generic-associations.js"
-import { documentIdentifier, issueIdentifier } from "../../helpers/brands.js"
+import { docId, documentIdentifier, issueIdentifier } from "../../helpers/brands.js"
 
 const person = "person-1" as PersonId
 const space = "space-1" as Ref<Space>
@@ -358,8 +358,8 @@ describe("listRelations", () => {
 
       const result = yield* listRelations({
         association: assocId,
-        source: { kind: "raw", id: "issue-1", class: issueClass },
-        target: { kind: "raw", id: "issue-2", class: issueClass }
+        source: { kind: "raw", id: docId("issue-1"), class: issueClass },
+        target: { kind: "raw", id: docId("issue-2"), class: issueClass }
       }).pipe(
         Effect.provide(testLayer({
           associations: [assoc],
@@ -381,8 +381,8 @@ describe("listRelations", () => {
 
       const result = yield* listRelations({
         association: assocId,
-        source: { kind: "raw", id: "issue-2", class: issueClass },
-        target: { kind: "raw", id: "issue-1", class: issueClass },
+        source: { kind: "raw", id: docId("issue-2"), class: issueClass },
+        target: { kind: "raw", id: docId("issue-1"), class: issueClass },
         direction: "either"
       }).pipe(
         Effect.provide(testLayer({
@@ -413,8 +413,8 @@ describe("listRelations", () => {
 
       const result = yield* listRelations({
         association: assocId,
-        source: { kind: "raw", id: "doc-1", class: documentClass },
-        target: { kind: "raw", id: "issue-1", class: issueClass },
+        source: { kind: "raw", id: docId("doc-1"), class: documentClass },
+        target: { kind: "raw", id: docId("issue-1"), class: issueClass },
         direction: "target-to-source"
       }).pipe(
         Effect.provide(testLayer({
@@ -447,8 +447,8 @@ describe("listRelations", () => {
 
       const result = yield* listRelations({
         association: assocId,
-        source: { kind: "raw", id: "doc-1", class: documentClass },
-        target: { kind: "raw", id: "issue-1", class: issueClass },
+        source: { kind: "raw", id: docId("doc-1"), class: documentClass },
+        target: { kind: "raw", id: docId("issue-1"), class: issueClass },
         direction: "either"
       }).pipe(
         Effect.provide(testLayer({
@@ -476,7 +476,7 @@ describe("listRelations", () => {
       const rel = relation({})
 
       const result = yield* listRelations({
-        source: { kind: "raw", id: "issue-1", class: issueClass }
+        source: { kind: "raw", id: docId("issue-1"), class: issueClass }
       }).pipe(
         Effect.provide(testLayer({
           associations: [documentAssociation, issueAssociation],
@@ -494,7 +494,7 @@ describe("listRelations", () => {
       const error = yield* Effect.flip(
         listRelations({
           association: assocId,
-          source: { kind: "raw", id: "doc-1", class: documentClass }
+          source: { kind: "raw", id: docId("doc-1"), class: documentClass }
         }).pipe(
           Effect.provide(testLayer({
             associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })],
@@ -510,7 +510,7 @@ describe("listRelations", () => {
     Effect.gen(function*() {
       const error = yield* Effect.flip(
         listRelations({
-          source: { kind: "raw", id: "issue-1" }
+          source: { kind: "raw", id: docId("issue-1") }
         }).pipe(Effect.provide(testLayer({ associations: [association({})] })))
       )
 
@@ -522,7 +522,7 @@ describe("listRelations", () => {
       const error = yield* Effect.flip(
         listRelations({
           association: assocId,
-          source: { kind: "raw", id: "missing-issue", class: issueClass }
+          source: { kind: "raw", id: docId("missing-issue"), class: issueClass }
         }).pipe(Effect.provide(testLayer({ associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })] })))
       )
 
@@ -558,8 +558,8 @@ describe("relation mutations", () => {
       const error = yield* Effect.flip(
         createRelation({
           association: assocId,
-          source: { kind: "raw", id: "issue-1", class: issueClass },
-          target: { kind: "raw", id: "issue-2", class: issueClass }
+          source: { kind: "raw", id: docId("issue-1"), class: issueClass },
+          target: { kind: "raw", id: docId("issue-2"), class: issueClass }
         }).pipe(Effect.provide(testLayer({ associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })] })))
       )
 
@@ -571,8 +571,8 @@ describe("relation mutations", () => {
       const error = yield* Effect.flip(
         deleteRelation({
           association: assocId,
-          source: { kind: "raw", id: "issue-1", class: issueClass },
-          target: { kind: "raw", id: "issue-2", class: issueClass }
+          source: { kind: "raw", id: docId("issue-1"), class: issueClass },
+          target: { kind: "raw", id: docId("issue-2"), class: issueClass }
         }).pipe(Effect.provide(testLayer({ associations: [association({ _id: "assoc-1" as Ref<HulyAssociation> })] })))
       )
 

@@ -1,6 +1,6 @@
 import { JSONSchema, ParseResult, Schema } from "effect"
 
-import { LimitParam, PersonName, PersonRefInput, StatusName, Timestamp } from "./shared.js"
+import { DocId, LimitParam, NonEmptyString, PersonName, PersonRefInput, StatusName, Timestamp } from "./shared.js"
 
 // --- Lead IDs ---
 // Upstream Huly reference:
@@ -8,12 +8,10 @@ import { LimitParam, PersonName, PersonRefInput, StatusName, Timestamp } from ".
 // Funnel is a Project-derived space; expose the stable `_id` as the machine identifier.
 // Lead identifiers use the upstream `LEAD-<number>` convention.
 
-const HulyRef = <T extends string>(tag: T) => Schema.Trim.pipe(Schema.nonEmptyString(), Schema.brand(tag))
-
-export const FunnelReference = HulyRef("FunnelReference")
+export const FunnelReference = NonEmptyString.pipe(Schema.brand("FunnelReference"))
 export type FunnelReference = Schema.Schema.Type<typeof FunnelReference>
 
-export const FunnelIdentifier = HulyRef("FunnelIdentifier")
+export const FunnelIdentifier = DocId.pipe(Schema.brand("FunnelIdentifier"))
 export type FunnelIdentifier = Schema.Schema.Type<typeof FunnelIdentifier>
 
 // Specific upstream proof for the LEAD prefix:

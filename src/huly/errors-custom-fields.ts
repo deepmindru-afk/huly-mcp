@@ -5,6 +5,8 @@
  */
 import { Schema } from "effect"
 
+import { DocId, ObjectClassName } from "../domain/schemas/shared.js"
+
 export class CustomFieldNotFoundError extends Schema.TaggedError<CustomFieldNotFoundError>()(
   "CustomFieldNotFoundError",
   {
@@ -19,8 +21,8 @@ export class CustomFieldNotFoundError extends Schema.TaggedError<CustomFieldNotF
 export class CustomFieldObjectNotFoundError extends Schema.TaggedError<CustomFieldObjectNotFoundError>()(
   "CustomFieldObjectNotFoundError",
   {
-    objectId: Schema.String,
-    objectClass: Schema.String
+    objectId: DocId,
+    objectClass: ObjectClassName
   }
 ) {
   override get message(): string {

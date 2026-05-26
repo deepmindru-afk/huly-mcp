@@ -3,7 +3,7 @@
 
  * @module
  */
-import { Server } from "@modelcontextprotocol/sdk/server/index.js"
+import type { Server } from "@modelcontextprotocol/sdk/server/index.js"
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js"
 import { Config, Context, Effect, Layer, Ref, Schema } from "effect"
@@ -21,6 +21,8 @@ import { TelemetryService } from "../telemetry/telemetry.js"
 import { VERSION } from "../version.js"
 import type { McpToolResponse } from "./error-mapping.js"
 import { createSuccessResponse, createUnknownToolError, mapDomainErrorToMcp, toMcpResponse } from "./error-mapping.js"
+import { registerResourceHandlers } from "./resources.js"
+import { createDefaultMcpSdkServer } from "./sdk-server.js"
 import { defaultToolOutputSchema, versionToolOutputSchema } from "./tool-output-schema.js"
 import type { ToolRegistry } from "./tools/index.js"
 import { CATEGORY_NAMES, createFilteredRegistry, resolveAnnotations, toolRegistry } from "./tools/index.js"
@@ -160,18 +162,7 @@ const createMcpServer = (
   resolveClients: () => Promise<ClientBundle>,
   telemetry: TelemetryOperations,
   registry: ToolRegistry,
-  createServer: () => Server = () =>
-    new Server(
-      {
-        name: "huly-mcp",
-        version: VERSION
-      },
-      {
-        capabilities: {
-          tools: {}
-        }
-      }
-    )
+  createServer: () => Server = createDefaultMcpSdkServer
 ): McpServerHandle => {
   let inflight = 0
   const drainInflight = (): Promise<void> => {
@@ -207,6 +198,15 @@ const createMcpServer = (
           }]
         })
       ]
+    }
+  })
+
+  registerResourceHandlers(server, resolveClients, {
+    enter: () => {
+      inflight++
+    },
+    leave: () => {
+      inflight--
     }
   })
 

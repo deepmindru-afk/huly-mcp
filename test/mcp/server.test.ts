@@ -15,7 +15,14 @@ import {
   type Project as HulyProject,
   TimeReportDayType
 } from "@hcengineering/tracker"
-import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js"
+import {
+  CallToolRequestSchema,
+  ListResourcesRequestSchema,
+  ListResourceTemplatesRequestSchema,
+  ListToolsRequestSchema,
+  McpError,
+  ReadResourceRequestSchema
+} from "@modelcontextprotocol/sdk/types.js"
 import { Context, Effect, Fiber, Layer } from "effect"
 import { expect } from "vitest"
 import { HulyClient, type HulyClientOperations } from "../../src/huly/client.js"
@@ -26,6 +33,7 @@ import {
   type HttpTransportDependencies,
   HttpTransportError
 } from "../../src/mcp/http-transport.js"
+import { createDefaultMcpSdkServer } from "../../src/mcp/sdk-server.js"
 import { type ClientBundle, McpServerError, McpServerService } from "../../src/mcp/server.js"
 import { TOOL_DEFINITIONS } from "../../src/mcp/tools/index.js"
 import type { ToolDefinition } from "../../src/mcp/tools/registry.js"
@@ -128,6 +136,11 @@ const makeProject = (overrides?: Partial<HulyProject>): HulyProject => {
     space: "space-1" as Ref<Space>,
     identifier: "TEST",
     name: "Test Project",
+    description: "Project used by MCP server tests",
+    private: false,
+    members: [],
+    owners: [],
+    archived: false,
     sequence: 1,
     defaultIssueStatus: "status-open" as Ref<Status>,
     defaultTimeReportDay: TimeReportDayType.CurrentWorkDay,
@@ -1222,6 +1235,107 @@ describe("McpServerService.layer operations", () => {
         yield* Fiber.interrupt(fiber)
       }), { timeout: 5000 })
 
+    it.scoped("http transport resolves request-scoped clients for resource reads", () =>
+      Effect.gen(function*() {
+        capturedHandlers.clear()
+
+        const baseClientLayer = Layer.mergeAll(
+          createMockHulyClientLayer({
+            projects: [makeProject()]
+          }),
+          HulyStorageClient.testLayer({}),
+          WorkspaceClient.testLayer({})
+        )
+        const resolveBaseClients = resolveClientsFromLayer(baseClientLayer)
+        const seenWorkspaces: Array<string | ReadonlyArray<string> | undefined> = []
+
+        const serverLayer = McpServerService.layer({
+          transport: "http",
+          httpPort: 19880,
+          httpHost: "127.0.0.1",
+          createServer: createMockServer,
+          resolveClients: resolveBaseClients,
+          resolveClientsForHttpRequest: (req) => {
+            seenWorkspaces.push(req.headers["x-huly-workspace"])
+            return resolveBaseClients()
+          },
+          httpTransportDependencies: {
+            createTransport: () =>
+              // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- test fake implements the transport methods used by createMcpHandlers
+              ({
+                async close() {},
+                async handleRequest(_req: unknown, _res: unknown, body: unknown) {
+                  const handler = capturedHandlers.get(ReadResourceRequestSchema)
+                  if (handler === undefined) throw new Error("ReadResource handler was not registered")
+                  const params = body && typeof body === "object" && "params" in body
+                    ? body.params
+                    : { uri: "huly://projects/TEST" }
+                  await handler({ params })
+                }
+              }) as never
+          }
+        }).pipe(Layer.provide(TelemetryService.testLayer()))
+
+        const ctx = yield* Layer.build(serverLayer)
+        const ops = yield* McpServerService.pipe(
+          Effect.provide(Layer.succeedContext(ctx))
+        )
+
+        const postHandlers: Array<(req: unknown, res: unknown) => Promise<void>> = []
+        const mockHttpFactory: HttpServerFactoryService["Type"] = {
+          createApp: () =>
+            // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- test fake implements the Express methods used by startHttpTransport
+            ({
+              post: (_path: string, handler: (req: unknown, res: unknown) => Promise<void>) => {
+                postHandlers.push(handler)
+              },
+              get: () => {},
+              delete: () => {}
+            }) as never,
+          listen: () =>
+            Effect.succeed({
+              close: (cb: (err?: Error) => void) => cb()
+            } as never)
+        }
+
+        const fiber = yield* Effect.fork(
+          ops.run().pipe(
+            Effect.provideService(HttpServerFactoryService, mockHttpFactory)
+          )
+        )
+
+        yield* Effect.promise(() => new Promise((r) => setTimeout(r, 100)))
+        expect(postHandlers).toHaveLength(1)
+
+        const handler = postHandlers[0]
+        const response = {
+          headersSent: false,
+          status: () => ({ json: () => {} }),
+          on: () => {}
+        }
+        const makeRequest = (workspace: string) => ({
+          body: {
+            jsonrpc: "2.0",
+            method: "resources/read",
+            id: 1,
+            params: { uri: "huly://projects/TEST" }
+          },
+          headers: {
+            "x-huly-url": "https://huly.app",
+            "x-huly-workspace": workspace,
+            "x-huly-token": `token-${workspace}`
+          },
+          on: () => {}
+        })
+
+        yield* Effect.promise(() => handler(makeRequest("workspace-one"), response))
+        yield* Effect.promise(() => handler(makeRequest("workspace-two"), response))
+
+        expect(seenWorkspaces).toEqual(["workspace-one", "workspace-two"])
+
+        yield* Fiber.interrupt(fiber)
+      }), { timeout: 5000 })
+
     it.scoped("http transport run completes via SIGTERM and flushes telemetry", () => {
       return Effect.gen(function*() {
         const telemetryOps: Partial<TelemetryOperations> = {
@@ -1560,6 +1674,18 @@ describe("McpServerService.layer operations", () => {
         return fiber
       })
 
+    it("default SDK server advertises resources without subscribe or listChanged", () => {
+      const server = createDefaultMcpSdkServer()
+      const getCapabilities = Object.getOwnPropertyDescriptor(Object.getPrototypeOf(server), "getCapabilities")?.value
+      if (typeof getCapabilities !== "function") {
+        throw new Error("SDK server getCapabilities function was not found")
+      }
+      expect(getCapabilities.call(server)).toEqual({
+        resources: {},
+        tools: {}
+      })
+    })
+
     it.scoped("ListTools handler returns tool definitions", () =>
       Effect.gen(function*() {
         capturedHandlers.clear()
@@ -1596,6 +1722,182 @@ describe("McpServerService.layer operations", () => {
 
         yield* cleanup(fiber)
       }), { timeout: 5000 })
+
+    it.scoped("ListResourceTemplates handler returns Huly resource templates", () =>
+      Effect.gen(function*() {
+        capturedHandlers.clear()
+        const layers = Layer.mergeAll(
+          HulyClient.testLayer({}),
+          HulyStorageClient.testLayer({}),
+          WorkspaceClient.testLayer({}),
+          TelemetryService.testLayer()
+        )
+        const fiber = yield* buildAndRun(layers)
+
+        const handler = capturedHandlers.get(ListResourceTemplatesRequestSchema) as
+          | (() => { resourceTemplates: Array<{ name: string; uriTemplate: string }> })
+          | undefined
+        expect(handler).toBeDefined()
+
+        const result = handler!()
+        expect(result.resourceTemplates).toEqual([
+          expect.objectContaining({
+            name: "huly-project",
+            uriTemplate: "huly://projects/{project}",
+            mimeType: "application/json"
+          }),
+          expect.objectContaining({
+            name: "huly-issue",
+            uriTemplate: "huly://issues/{issue}",
+            mimeType: "application/json"
+          })
+        ])
+
+        yield* cleanup(fiber)
+      }), { timeout: 5000 })
+
+    it.scoped("ListResources handler returns an intentionally empty concrete list", () =>
+      Effect.gen(function*() {
+        capturedHandlers.clear()
+        const layers = Layer.mergeAll(
+          HulyClient.testLayer({}),
+          HulyStorageClient.testLayer({}),
+          WorkspaceClient.testLayer({}),
+          TelemetryService.testLayer()
+        )
+        const fiber = yield* buildAndRun(layers)
+
+        const handler = capturedHandlers.get(ListResourcesRequestSchema) as
+          | (() => { resources: Array<unknown> })
+          | undefined
+        expect(handler).toBeDefined()
+
+        const result = handler!()
+        expect(result).toEqual({ resources: [] })
+
+        yield* cleanup(fiber)
+      }), { timeout: 5000 })
+
+    it.scoped("ReadResource handler returns project JSON resource contents", () =>
+      Effect.gen(function*() {
+        capturedHandlers.clear()
+        const layers = Layer.mergeAll(
+          createMockHulyClientLayer({
+            projects: [makeProject()]
+          }),
+          HulyStorageClient.testLayer({}),
+          WorkspaceClient.testLayer({}),
+          TelemetryService.testLayer()
+        )
+        const fiber = yield* buildAndRun(layers)
+
+        const handler = capturedHandlers.get(ReadResourceRequestSchema) as
+          | ((
+            req: { params: { uri: string } }
+          ) => Promise<{ contents: Array<{ uri: string; mimeType?: string; text: string }> }>)
+          | undefined
+        expect(handler).toBeDefined()
+
+        const result = yield* Effect.promise(() =>
+          handler!({
+            params: { uri: "huly://projects/TEST" }
+          })
+        )
+        expect(result.contents).toHaveLength(1)
+        expect(result.contents[0]?.uri).toBe("huly://projects/TEST")
+        expect(result.contents[0]?.mimeType).toBe("application/json")
+        expect(JSON.parse(result.contents[0]?.text ?? "{}")).toMatchObject({
+          type: "huly.project",
+          uri: "huly://projects/TEST",
+          project: {
+            identifier: "TEST",
+            name: "Test Project",
+            archived: false
+          }
+        })
+
+        yield* cleanup(fiber)
+      }), { timeout: 5000 })
+
+    it.scoped("ReadResource handler returns issue JSON resource contents", () =>
+      Effect.gen(function*() {
+        capturedHandlers.clear()
+        const layers = Layer.mergeAll(
+          createMockHulyClientLayer({
+            projects: [makeProject()],
+            issues: [makeIssue()]
+          }),
+          HulyStorageClient.testLayer({}),
+          WorkspaceClient.testLayer({}),
+          TelemetryService.testLayer()
+        )
+        const fiber = yield* buildAndRun(layers)
+
+        const handler = capturedHandlers.get(ReadResourceRequestSchema) as
+          | ((
+            req: { params: { uri: string } }
+          ) => Promise<{ contents: Array<{ uri: string; mimeType?: string; text: string }> }>)
+          | undefined
+        expect(handler).toBeDefined()
+
+        const result = yield* Effect.promise(() =>
+          handler!({
+            params: { uri: "huly://issues/TEST-1" }
+          })
+        )
+        expect(result.contents).toHaveLength(1)
+        expect(result.contents[0]?.uri).toBe("huly://issues/TEST-1")
+        expect(result.contents[0]?.mimeType).toBe("application/json")
+        expect(JSON.parse(result.contents[0]?.text ?? "{}")).toMatchObject({
+          type: "huly.issue",
+          uri: "huly://issues/TEST-1",
+          issue: {
+            identifier: "TEST-1",
+            title: "Test Issue",
+            project: "TEST"
+          }
+        })
+
+        yield* cleanup(fiber)
+      }), { timeout: 5000 })
+
+    it.scoped(
+      "ReadResource handler rejects malformed resource URIs with JSON-RPC errors",
+      () =>
+        Effect.gen(function*() {
+          capturedHandlers.clear()
+          const layers = Layer.mergeAll(
+            HulyClient.testLayer({}),
+            HulyStorageClient.testLayer({}),
+            WorkspaceClient.testLayer({}),
+            TelemetryService.testLayer()
+          )
+          const fiber = yield* buildAndRun(layers)
+
+          const handler = capturedHandlers.get(ReadResourceRequestSchema) as
+            | ((req: { params: { uri: string } }) => Promise<unknown>)
+            | undefined
+          expect(handler).toBeDefined()
+
+          const error = yield* Effect.flip(
+            Effect.tryPromise({
+              try: () =>
+                handler!({
+                  params: { uri: "huly://issues/123" }
+                }),
+              catch: (e) => e
+            })
+          )
+
+          expect(error).toBeInstanceOf(McpError)
+          if (error instanceof McpError) {
+            expect(error.code).toBe(-32602)
+          }
+
+          yield* cleanup(fiber)
+        }),
+      { timeout: 5000 }
+    )
 
     it.scoped("CallTool handler returns null for unknown tool", () =>
       Effect.gen(function*() {

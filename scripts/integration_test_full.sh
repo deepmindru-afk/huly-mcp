@@ -176,6 +176,14 @@ run_test() {
     ERRORS="${ERRORS}\n  - ${name}: no response"
     return 1
   fi
+  local rpc_error
+  rpc_error=$(echo "$result" | jq -r '.error.message // empty' 2>/dev/null)
+  if [ -n "$rpc_error" ]; then
+    echo "FAIL: $name => $rpc_error"
+    FAILED=$((FAILED + 1))
+    ERRORS="${ERRORS}\n  - ${name}: ${rpc_error}"
+    return 1
+  fi
   local is_error
   is_error=$(echo "$result" | jq -r '.result.isError // false' 2>/dev/null)
   if [ "$is_error" = "true" ]; then
@@ -202,6 +210,14 @@ run_capture() {
     ERRORS="${ERRORS}\n  - ${name}: no response"
     return 1
   fi
+  local rpc_error
+  rpc_error=$(echo "$result" | jq -r '.error.message // empty' 2>/dev/null)
+  if [ -n "$rpc_error" ]; then
+    echo "FAIL: $name => $rpc_error" >&2
+    FAILED=$((FAILED + 1))
+    ERRORS="${ERRORS}\n  - ${name}: ${rpc_error}"
+    return 1
+  fi
   local is_error
   is_error=$(echo "$result" | jq -r '.result.isError // false' 2>/dev/null)
   if [ "$is_error" = "true" ]; then
@@ -226,6 +242,15 @@ run_capture_to_var() {
     echo "FAIL: $name (no response)" >&2
     FAILED=$((FAILED + 1))
     ERRORS="${ERRORS}\n  - ${name}: no response"
+    printf -v "$output_var" '%s' ""
+    return 1
+  fi
+  local rpc_error
+  rpc_error=$(echo "$result" | jq -r '.error.message // empty' 2>/dev/null)
+  if [ -n "$rpc_error" ]; then
+    echo "FAIL: $name => $rpc_error" >&2
+    FAILED=$((FAILED + 1))
+    ERRORS="${ERRORS}\n  - ${name}: ${rpc_error}"
     printf -v "$output_var" '%s' ""
     return 1
   fi
@@ -457,6 +482,18 @@ skip_test "delete_project" "would pollute workspace"
 echo ""
 
 ##############################
+# 1r. MCP RESOURCES
+##############################
+echo "=== 1r. MCP Resources ==="
+run_test "resources/templates/list" \
+  '{"jsonrpc":"2.0","method":"resources/templates/list","id":2}'
+run_test "resources/list(empty v1)" \
+  '{"jsonrpc":"2.0","method":"resources/list","id":2}'
+run_test "resources/read project($PROJECT)" \
+  "{\"jsonrpc\":\"2.0\",\"method\":\"resources/read\",\"params\":{\"uri\":\"huly://projects/$PROJECT\"},\"id\":2}"
+echo ""
+
+##############################
 # 1a. TASK MANAGEMENT (controlled workspace pollution)
 ##############################
 echo "=== 1a. Task Management ==="
@@ -606,6 +643,9 @@ if [ $? -eq 0 ]; then
   if [ $? -eq 0 ] && [ -n "$ISSUE_OBJ_ID" ]; then
     assert_json_field_equals "get_issue returns issueId" "$GET_ISSUE_TEXT" ".issueId" "$ISSUE_OBJ_ID"
   fi
+
+  run_test "resources/read issue($ISSUE_ID)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"resources/read\",\"params\":{\"uri\":\"huly://issues/$ISSUE_ID\"},\"id\":2}"
 
   run_capture_to_var LIST_ISSUES_TEXT "list_issues" \
     "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_issues\",\"arguments\":{\"project\":\"$PROJECT\",\"titleSearch\":\"IntTest Issue\",\"limit\":10}},\"id\":2}"

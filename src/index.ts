@@ -227,7 +227,8 @@ const buildAppLayer = (
     resolveClients,
     resolveClientsForHttpRequest,
     getRuntimeConfigContext: () => sanitizeHulyRuntimeConfigFromEnv(process.env),
-    getRuntimeConfigContextForHttpRequest: (req) => sanitizeHulyRuntimeConfigFromHeaders(req.headers, process.env)
+    getRuntimeConfigContextForHttpRequest: (req: Request) =>
+      sanitizeHulyRuntimeConfigFromHeaders(req.headers, process.env)
   }
   const mcpServerLayer = McpServerService.layer(mcpServerConfig).pipe(Layer.provide(TelemetryService.layer))
 

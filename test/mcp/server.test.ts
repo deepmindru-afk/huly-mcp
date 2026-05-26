@@ -2121,6 +2121,10 @@ describe("McpServerService.layer operations", () => {
 
         expect(result.isError).toBeUndefined()
         expect(result.structuredContent?.result).toBeDefined()
+
+        yield* cleanup(fiber)
+      }), { timeout: 5000 })
+
     it.scoped("ListResourceTemplates handler returns Huly resource templates", () =>
       Effect.gen(function*() {
         capturedHandlers.clear()
@@ -2346,6 +2350,7 @@ describe("McpServerService.layer operations", () => {
         process.env = originalEnv
         yield* cleanup(fiber)
       }), { timeout: 5000 })
+
     it.scoped(
       "ReadResource handler rejects malformed resource URIs with JSON-RPC errors",
       () =>

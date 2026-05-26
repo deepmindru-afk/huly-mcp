@@ -154,7 +154,7 @@ export const mapDomainErrorToMcp = (error: HulyDomainError): McpErrorResponseWit
 
 // --- Parse Error Mapping ---
 
-const formatParseError = (error: ParseResult.ParseError): string => {
+export const formatParseError = (error: ParseResult.ParseError): string => {
   const issues = ParseResult.ArrayFormatter.formatErrorSync(error)
   return issues.map(i => `${i.path.join(".")}: ${i.message}`).join("; ")
 }

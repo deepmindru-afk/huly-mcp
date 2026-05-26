@@ -16,6 +16,8 @@ import {
   VERSION_TOOL_NAME,
   versionToolDefinition
 } from "./huly-context-tool.js"
+import { registerResourceHandlers } from "./resources.js"
+import { createDefaultMcpSdkServer } from "./sdk-server.js"
 import { defaultToolOutputSchema } from "./tool-output-schema.js"
 import type { ToolRegistry } from "./tools/index.js"
 import { resolveAnnotations } from "./tools/index.js"
@@ -58,19 +60,6 @@ const deriveEditMode = (name: string, args: unknown): string | undefined => {
   return "title_only"
 }
 
-const createDefaultServer = (): Server =>
-  new Server(
-    {
-      name: "huly-mcp",
-      version: VERSION
-    },
-    {
-      capabilities: {
-        tools: {}
-      }
-    }
-  )
-
 const createDrainInflight = (getInflight: () => number): () => Promise<void> => () => {
   if (getInflight() <= 0) return Promise.resolve()
   return new Promise((resolve) => {
@@ -91,7 +80,7 @@ export const createMcpServer = (
   telemetry: TelemetryOperations,
   registry: ToolRegistry,
   getHulyContext: () => GetHulyContextResult,
-  createServer: () => Server = createDefaultServer
+  createServer: () => Server = createDefaultMcpSdkServer
 ): McpServerHandle => {
   let inflight = 0
   const drainInflight = createDrainInflight(() => inflight)
@@ -114,6 +103,15 @@ export const createMcpServer = (
           }]
         })
       ]
+    }
+  })
+
+  registerResourceHandlers(server, resolveClients, {
+    enter: () => {
+      inflight++
+    },
+    leave: () => {
+      inflight--
     }
   })
 

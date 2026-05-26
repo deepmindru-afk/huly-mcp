@@ -222,6 +222,17 @@ For a Smithery publish schema example, see [docs/SMITHERY_URL_PUBLISH.md](docs/S
 
 `get_huly_context` returns sanitized runtime/configuration context for the current MCP session without connecting to Huly. It reports package version, transport, auth mode, sanitized Huly URL origin/host/protocol, workspace, timeout, config sources, and toolset filtering. Tokens, passwords, email values, credential headers, URL paths, URL query strings, and URL credentials are never returned.
 
+## MCP Resources
+
+The server exposes read-only MCP Resources as JSON context for clients that support `resources/read`.
+
+| Template | Description |
+|----------|-------------|
+| `huly://projects/{project}` | Read full details for a Huly tracker project by project identifier, for example `huly://projects/HULY`. |
+| `huly://issues/{issue}` | Read full details for a Huly issue by full issue identifier, for example `huly://issues/HULY-123`. |
+
+`resources/list` intentionally returns an empty concrete list in v1. Use `resources/templates/list` to discover supported URI templates, then read a known project or issue URI.
+
 <!-- tools:start -->
 <!-- AUTO-GENERATED from src/mcp/tools/ descriptions. Do not edit manually. Run `pnpm update-readme` to regenerate. -->
 ## Available Tools

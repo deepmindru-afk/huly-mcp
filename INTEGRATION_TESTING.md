@@ -96,6 +96,21 @@ Expected: JSON with `"projects": [...]`
 
 **Note**: `MCP_AUTO_EXIT=true` makes the server exit when stdin closes (testing only).
 
+## Resource Read Smoke Tests
+
+MCP Resources are read-only JSON context. `resources/list` is intentionally empty in v1; discover templates with `resources/templates/list`.
+
+```bash
+printf '%s\n' \
+'{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2025-11-25","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"id":1}' \
+'{"jsonrpc":"2.0","method":"resources/templates/list","id":2}' \
+'{"jsonrpc":"2.0","method":"resources/list","id":3}' \
+'{"jsonrpc":"2.0","method":"resources/read","params":{"uri":"huly://projects/HULY"},"id":4}' \
+  | MCP_AUTO_EXIT=true node dist/index.cjs 2>/dev/null | grep -E '"id":[234]'
+```
+
+For HTTP header mode, send the same JSON-RPC methods to `/mcp` with `x-huly-url`, `x-huly-workspace`, and `x-huly-token` headers. Resource reads use the same request-scoped header config as tool calls.
+
 ## Full Integration Test Suite
 
 **Coverage**: 110+ tool calls across 20 domains. Self-cleaning: all created entities are deleted at the end of each section. Tools that would leak data (no delete counterpart) are skipped. Run time: ~3 minutes.
@@ -118,6 +133,7 @@ The full suite tests CRUD lifecycles with cleanup for all domains:
 
 | Section | Tools Tested | Notes |
 |---------|-------------|-------|
+| 1r. MCP Resources | resources/templates/list, resources/list, resources/read project, resources/read created issue | Read-only JSON resources over the same stdio or HTTP transport |
 | 1. Projects | list, get, list_statuses | create/update/delete skipped (pollutes workspace) |
 | 2. Issues | create, get, list, update, delete, sub-issues, move, relations (add/list/remove), labels (add/remove), comments (add/list/update/delete), activity, time tracking (log/report/detailed), preview_deletion | Full lifecycle with all issue-related operations |
 | 3. Components | create, list, get, update, delete, set_issue_component | CRUD + assignment |

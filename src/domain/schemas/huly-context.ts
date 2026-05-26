@@ -1,9 +1,11 @@
 import { JSONSchema, Schema } from "effect"
 
+const NonEmptyTrimmedString = Schema.NonEmptyTrimmedString
+
 const SanitizedUrlSchema = Schema.Struct({
   configured: Schema.Boolean,
   valid: Schema.optional(Schema.Boolean),
-  origin: Schema.optional(Schema.String.pipe(
+  origin: Schema.optional(NonEmptyTrimmedString.pipe(
     Schema.filter((value) => {
       try {
         const url = new URL(value)
@@ -13,13 +15,13 @@ const SanitizedUrlSchema = Schema.Struct({
       }
     }, { message: () => "Must be a sanitized http or https URL origin" })
   )),
-  host: Schema.optional(Schema.String),
+  host: Schema.optional(NonEmptyTrimmedString),
   protocol: Schema.optional(Schema.Literal("http:", "https:"))
 })
 
 const WorkspaceContextSchema = Schema.Struct({
   configured: Schema.Boolean,
-  value: Schema.optional(Schema.String)
+  value: Schema.optional(NonEmptyTrimmedString)
 })
 
 const ConnectionTimeoutContextSchema = Schema.Struct({
@@ -61,7 +63,7 @@ const HeaderConfigSourcesSchema = Schema.Struct({
   hulyWorkspace: Schema.Boolean,
   hulyToken: Schema.Boolean,
   hulyConnectionTimeout: Schema.Boolean,
-  unsupportedHulyHeaders: Schema.Array(Schema.String)
+  unsupportedHulyHeaders: Schema.Array(NonEmptyTrimmedString)
 })
 
 const ConfigSourcesSchema = Schema.Struct({
@@ -71,10 +73,10 @@ const ConfigSourcesSchema = Schema.Struct({
 
 const ToolsetsContextSchema = Schema.Struct({
   filteringActive: Schema.Boolean,
-  requestedCategories: Schema.Array(Schema.String),
-  enabledCategories: Schema.Array(Schema.String),
-  ignoredCategories: Schema.Array(Schema.String),
-  availableCategories: Schema.Array(Schema.String),
+  requestedCategories: Schema.Array(NonEmptyTrimmedString),
+  enabledCategories: Schema.Array(NonEmptyTrimmedString),
+  ignoredCategories: Schema.Array(NonEmptyTrimmedString),
+  availableCategories: Schema.Array(NonEmptyTrimmedString),
   visibleRegisteredToolCount: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
   totalRegisteredToolCount: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
   builtinTools: Schema.Array(Schema.Literal("get_version", "get_huly_context"))
@@ -83,12 +85,12 @@ const ToolsetsContextSchema = Schema.Struct({
 export const GetHulyContextResultSchema = Schema.Struct({
   package: Schema.Struct({
     name: Schema.Literal("@firfi/huly-mcp"),
-    version: Schema.String
+    version: NonEmptyTrimmedString
   }),
   transport: Schema.Struct({
     type: Schema.Literal("stdio", "http"),
     http: Schema.optional(Schema.Struct({
-      host: Schema.String,
+      host: NonEmptyTrimmedString,
       port: Schema.Number.pipe(Schema.int(), Schema.positive())
     }))
   }),

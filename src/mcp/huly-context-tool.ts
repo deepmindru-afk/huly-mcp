@@ -97,6 +97,11 @@ export const parseToolsets = (
 
 const builtinToolNames: ReadonlyArray<BuiltinToolName> = [VERSION_TOOL_NAME, GET_HULY_CONTEXT_TOOL_NAME]
 
+const nonEmptyOrDefault = (value: string | undefined, fallback: string): string => {
+  const trimmed = value?.trim()
+  return trimmed === undefined || trimmed === "" ? fallback : trimmed
+}
+
 export const buildHulyContext = (
   config: {
     readonly transport: "stdio" | "http"
@@ -109,14 +114,14 @@ export const buildHulyContext = (
 ): GetHulyContextResult => ({
   package: {
     name: NPM_PACKAGE_NAME,
-    version: VERSION
+    version: nonEmptyOrDefault(VERSION, "0.0.0-dev")
   },
   transport: {
     type: config.transport,
     ...(config.transport === "http"
       ? {
         http: {
-          host: config.httpHost ?? "127.0.0.1",
+          host: nonEmptyOrDefault(config.httpHost, "127.0.0.1"),
           port: config.httpPort ?? DEFAULT_HTTP_PORT
         }
       }

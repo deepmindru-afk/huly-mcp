@@ -1,7 +1,8 @@
 import { Server } from "@modelcontextprotocol/sdk/server/index.js"
 import { CallToolRequestSchema, ListToolsRequestSchema } from "@modelcontextprotocol/sdk/types.js"
+import { Schema } from "effect"
 
-import type { GetHulyContextResult } from "../domain/schemas/index.js"
+import { type GetHulyContextResult, GetHulyContextResultSchema } from "../domain/schemas/index.js"
 import type { HulyClient } from "../huly/client.js"
 import { HulyError } from "../huly/errors-base.js"
 import type { HulyStorageClient } from "../huly/storage.js"
@@ -59,6 +60,9 @@ const deriveEditMode = (name: string, args: unknown): string | undefined => {
   if ("content" in args) return "full_replace"
   return "title_only"
 }
+
+const validateHulyContextResult = (value: unknown): GetHulyContextResult =>
+  Schema.decodeUnknownSync(GetHulyContextResultSchema)(value)
 
 const createDrainInflight = (getInflight: () => number): () => Promise<void> => () => {
   if (getInflight() <= 0) return Promise.resolve()
@@ -156,7 +160,14 @@ export const createMcpServer = (
       if (name === GET_HULY_CONTEXT_TOOL_NAME) {
         if (!isEmptyArgumentsObject(args)) return returnError(createUnexpectedArgumentsError(name))
 
-        const contextResponse = createSuccessResponse(getHulyContext())
+        let context: GetHulyContextResult
+        try {
+          context = validateHulyContextResult(getHulyContext())
+        } catch {
+          return returnError(mapDomainErrorToMcp(new HulyError({ message: "Failed to build Huly context" })))
+        }
+
+        const contextResponse = createSuccessResponse(context)
         const durationMs = Date.now() - start // eslint-disable-line no-restricted-syntax -- non-Effect async handler
         telemetry.toolCalled({
           toolName: name,

@@ -95,7 +95,7 @@ const sanitizeUrl = (value: unknown, configured: boolean): SanitizedUrlContext =
 
 const sanitizeWorkspace = (value: unknown, configured: boolean): SanitizedWorkspaceContext => {
   if (!configured) return { configured: false }
-  return typeof value === "string" ? { configured: true, value } : { configured: true }
+  return typeof value === "string" && value.trim() !== "" ? { configured: true, value } : { configured: true }
 }
 
 const parsePositiveInteger = (value: string): number | undefined => {

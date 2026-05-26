@@ -646,6 +646,13 @@ describe("Config Module", () => {
         expect(context.configSources.env.lazyEnvs).toBe(true)
       }))
 
+    it.effect("does not return an empty configured workspace value", () =>
+      Effect.gen(function*() {
+        const context = sanitizeHulyRuntimeConfigFromEnv({ HULY_WORKSPACE: "" })
+
+        expect(context.huly.workspace).toEqual({ configured: true })
+      }))
+
     it.effect("sanitizes URL credentials, path, query, and hash", () =>
       Effect.gen(function*() {
         const context = sanitizeHulyRuntimeConfigFromEnv({

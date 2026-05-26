@@ -99,6 +99,35 @@ describe("GetHulyContextResultSchema", () => {
       ).toThrow()
     }))
 
+  it.effect("rejects empty diagnostic strings", () =>
+    Effect.gen(function*() {
+      for (
+        const context of [
+          { ...validContext, package: { ...validContext.package, version: "" } },
+          {
+            ...validContext,
+            transport: { ...validContext.transport, http: { ...validContext.transport.http, host: "" } }
+          },
+          {
+            ...validContext,
+            huly: {
+              ...validContext.huly,
+              workspace: { configured: true, value: "" }
+            }
+          },
+          {
+            ...validContext,
+            toolsets: {
+              ...validContext.toolsets,
+              requestedCategories: [""]
+            }
+          }
+        ]
+      ) {
+        expect(() => Schema.decodeUnknownSync(GetHulyContextResultSchema)(context)).toThrow()
+      }
+    }))
+
   it.effect("JSON schema exposes core top-level fields", () =>
     Effect.gen(function*() {
       expect(getHulyContextResultJsonSchema).toMatchObject({

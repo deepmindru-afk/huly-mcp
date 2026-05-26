@@ -169,6 +169,14 @@ describe("MCP resources", () => {
         title: "Huly Issue",
         description: "Read full details for a Huly issue by full issue identifier, for example huly://issues/HULY-123.",
         mimeType: HULY_RESOURCE_MIME_TYPE
+      },
+      {
+        uriTemplate: "huly://projects/{project}/issues/{issue}",
+        name: "huly-project-issue",
+        title: "Huly Project Issue",
+        description:
+          "Read full details for a Huly issue by project identifier and issue number, for example huly://projects/HULY/issues/123.",
+        mimeType: HULY_RESOURCE_MIME_TYPE
       }
     ])
     expect(listResourceTemplates()).toEqual({ resourceTemplates })

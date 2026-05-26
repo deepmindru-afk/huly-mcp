@@ -2183,6 +2183,11 @@ describe("McpServerService.layer operations", () => {
             name: "huly-issue",
             uriTemplate: "huly://issues/{issue}",
             mimeType: "application/json"
+          }),
+          expect.objectContaining({
+            name: "huly-project-issue",
+            uriTemplate: "huly://projects/{project}/issues/{issue}",
+            mimeType: "application/json"
           })
         ])
 

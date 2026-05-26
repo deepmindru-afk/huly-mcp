@@ -298,6 +298,32 @@ run_capture_to_var() {
   return 0
 }
 
+run_result_to_var() {
+  local output_var="$1" name="$2" payload="$3"
+  local result
+  result=$(call_tool "$payload")
+  if [ -z "$result" ]; then
+    echo "FAIL: $name (no response)" >&2
+    FAILED=$((FAILED + 1))
+    ERRORS="${ERRORS}\n  - ${name}: no response"
+    printf -v "$output_var" '%s' ""
+    return 1
+  fi
+  local rpc_error
+  rpc_error=$(echo "$result" | jq -r '.error.message // empty' 2>/dev/null)
+  if [ -n "$rpc_error" ]; then
+    echo "FAIL: $name => $rpc_error" >&2
+    FAILED=$((FAILED + 1))
+    ERRORS="${ERRORS}\n  - ${name}: ${rpc_error}"
+    printf -v "$output_var" '%s' ""
+    return 1
+  fi
+  echo "PASS: $name" >&2
+  PASSED=$((PASSED + 1))
+  printf -v "$output_var" '%s' "$(echo "$result" | jq -c '.result' 2>/dev/null)"
+  return 0
+}
+
 skip_test() {
   local name="$1"
   local reason="$2"
@@ -514,8 +540,12 @@ echo ""
 echo "=== 1r. MCP Resources ==="
 run_test "resources/templates/list" \
   '{"jsonrpc":"2.0","method":"resources/templates/list","id":2}'
-run_test "resources/list(projects)" \
-  '{"jsonrpc":"2.0","method":"resources/list","id":2}'
+RESOURCE_LIST_JSON=""
+if run_result_to_var RESOURCE_LIST_JSON "resources/list(projects)" \
+  '{"jsonrpc":"2.0","method":"resources/list","id":2}'; then
+  assert_json_field_equals "resources/list includes project($PROJECT)" "$RESOURCE_LIST_JSON" \
+    ".resources[]? | select(.uri == \"huly://projects/$PROJECT\") | .name" "$PROJECT"
+fi
 run_test "resources/read project($PROJECT)" \
   "{\"jsonrpc\":\"2.0\",\"method\":\"resources/read\",\"params\":{\"uri\":\"huly://projects/$PROJECT\"},\"id\":2}"
 echo ""

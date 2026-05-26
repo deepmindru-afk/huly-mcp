@@ -26,6 +26,7 @@ import {
   ProjectSchema,
   type ProjectSummary
 } from "../domain/schemas.js"
+import { IssueIdentifier, MAX_LIMIT, ProjectIdentifier } from "../domain/schemas/shared.js"
 import { HulyClient } from "../huly/client.js"
 import type { HulyDomainError } from "../huly/errors.js"
 import { getIssue } from "../huly/operations/issues.js"
@@ -35,7 +36,6 @@ import { formatParseError } from "./error-mapping.js"
 export const HULY_RESOURCE_MIME_TYPE = "application/json"
 
 const RESOURCE_NOT_FOUND = -32002
-const RESOURCE_LIST_LIMIT = 200
 
 const ProjectResourceEnvelopeSchema = Schema.Struct({
   type: Schema.Literal("huly.project"),
@@ -82,13 +82,13 @@ type HulyResource =
   | {
     readonly _tag: "project"
     readonly uri: string
-    readonly project: string
+    readonly project: ProjectIdentifier
   }
   | {
     readonly _tag: "issue"
     readonly uri: string
-    readonly project: string
-    readonly identifier: string
+    readonly project: ProjectIdentifier
+    readonly identifier: IssueIdentifier
   }
 
 type HulyResourceHost = "projects" | "issues"
@@ -148,25 +148,43 @@ const isProjectIssueSegments = (
 const splitFullIssueIdentifier = (
   uri: string,
   issue: string
-): { readonly project: string; readonly identifier: string } => {
+): { readonly project: ProjectIdentifier; readonly identifier: IssueIdentifier } => {
   const separatorIndex = issue.indexOf("-")
   if (separatorIndex <= 0 || separatorIndex === issue.length - 1) {
     throw invalidResourceUri(uri, "huly://issues/{issue} requires a full issue identifier with a project prefix.")
   }
   return {
-    project: issue.slice(0, separatorIndex),
-    identifier: issue
+    project: parseProjectIdentifier(uri, issue.slice(0, separatorIndex)),
+    identifier: parseIssueIdentifier(uri, issue)
+  }
+}
+
+const parseProjectIdentifier = (uri: string, value: string): ProjectIdentifier => {
+  try {
+    return Schema.decodeUnknownSync(ProjectIdentifier)(value)
+  } catch {
+    throw invalidResourceUri(uri, "Project identifier is invalid.")
+  }
+}
+
+const parseIssueIdentifier = (uri: string, value: string): IssueIdentifier => {
+  try {
+    return Schema.decodeUnknownSync(IssueIdentifier)(value)
+  } catch {
+    throw invalidResourceUri(uri, "Issue identifier is invalid.")
+  }
+}
+
+const parseResourceUrl = (uri: string): URL => {
+  try {
+    return new URL(uri)
+  } catch {
+    throw invalidResourceUri(uri, "Resource URI must be an absolute huly:// URI.")
   }
 }
 
 export const parseHulyResourceUri = (uri: string): HulyResource => {
-  let url: URL
-  try {
-    url = new URL(uri)
-  } catch {
-    throw invalidResourceUri(uri, "Resource URI must be an absolute huly:// URI.")
-  }
-
+  const url = parseResourceUrl(uri)
   if (url.protocol !== "huly:") {
     throw invalidResourceUri(uri, "Resource URI must use the huly:// scheme.")
   }
@@ -180,15 +198,15 @@ export const parseHulyResourceUri = (uri: string): HulyResource => {
         return {
           _tag: "project",
           uri,
-          project: segments[0]
+          project: parseProjectIdentifier(uri, segments[0])
         }
       }
       if (isProjectIssueSegments(segments)) {
         return {
           _tag: "issue",
           uri,
-          project: segments[0],
-          identifier: segments[2]
+          project: parseProjectIdentifier(uri, segments[0]),
+          identifier: parseIssueIdentifier(uri, segments[2])
         }
       }
       throw invalidResourceUri(uri, "Unsupported Huly project resource path.")
@@ -242,7 +260,7 @@ const mapListErrorToMcp = (error: HulyDomainError | ParseResult.ParseError): Mcp
 }
 
 export const listResources = (): Effect.Effect<ListResourcesResult, McpError, HulyClient> =>
-  parseListProjectsParams({ includeArchived: false, limit: RESOURCE_LIST_LIMIT }).pipe(
+  parseListProjectsParams({ includeArchived: false, limit: MAX_LIMIT }).pipe(
     Effect.flatMap(listProjects),
     Effect.map(result => ({
       resources: result.projects.map(projectSummaryResource)
@@ -375,6 +393,17 @@ interface InflightResourceGuard {
   readonly leave: () => void
 }
 
+const resolveResourceClientsOrThrow = async (
+  resolveClients: () => Promise<ResourceClientBundle>,
+  mapError: (error: unknown) => McpError
+): Promise<ResourceClientBundle> => {
+  try {
+    return await resolveClients()
+  } catch (e) {
+    throw mapError(e)
+  }
+}
+
 const throwResourceReadError = (uri: string, cause: Cause.Cause<McpError>): never => {
   const failures = Chunk.toArray(Cause.failures(cause))
   const failure = failures[0]
@@ -397,13 +426,7 @@ export const registerResourceHandlers = (
   server.setRequestHandler(ListResourcesRequestSchema, async () => {
     inflight?.enter()
     try {
-      let clients: ResourceClientBundle
-      try {
-        clients = await resolveClients()
-      } catch (e) {
-        throw createResourceListClientResolutionError(e)
-      }
-
+      const clients = await resolveResourceClientsOrThrow(resolveClients, createResourceListClientResolutionError)
       const resourceList = await Effect.runPromiseExit(
         listResources().pipe(
           Effect.provideService(HulyClient, clients.hulyClient)
@@ -420,13 +443,10 @@ export const registerResourceHandlers = (
     inflight?.enter()
     try {
       const { uri } = request.params
-      let clients: ResourceClientBundle
-      try {
-        clients = await resolveClients()
-      } catch (e) {
-        throw createResourceClientResolutionError(uri, e)
-      }
-
+      const clients = await resolveResourceClientsOrThrow(
+        resolveClients,
+        error => createResourceClientResolutionError(uri, error)
+      )
       const resourceRead = await Effect.runPromiseExit(
         readHulyResource(uri).pipe(
           Effect.provideService(HulyClient, clients.hulyClient)

@@ -2,7 +2,6 @@ import type { Ref, StatusCategory } from "@hcengineering/core"
 import { JSONSchema, ParseResult, Schema } from "effect"
 
 import { task } from "../../huly/huly-plugins.js"
-import { normalizeForComparison } from "../../utils/normalize.js"
 import { enumValuesDescription, IssueStatusId, NonEmptyString, ProjectTypeId, TaskTypeId } from "./shared.js"
 
 export const StatusCategoryBySdkKey = {
@@ -56,7 +55,7 @@ export type StatusCategoryValue = Schema.Schema.Type<typeof StatusCategoryValueS
 
 const KnownStatusCategoryValueLiteral = Schema.Literal(...StatusCategoryValues)
 const normalizedStatusCategoryLookup = new Map(
-  StatusCategoryValues.map((value) => [normalizeForComparison(value), value] as const)
+  StatusCategoryValues.map((value) => [value.toLowerCase(), value] as const)
 )
 
 export const KnownStatusCategoryValueSchema = Schema.transformOrFail(
@@ -65,7 +64,7 @@ export const KnownStatusCategoryValueSchema = Schema.transformOrFail(
   {
     strict: true,
     decode: (input, _options, ast) => {
-      const match = normalizedStatusCategoryLookup.get(normalizeForComparison(input))
+      const match = normalizedStatusCategoryLookup.get(input.toLowerCase())
       return match !== undefined
         ? ParseResult.succeed(match)
         : ParseResult.fail(

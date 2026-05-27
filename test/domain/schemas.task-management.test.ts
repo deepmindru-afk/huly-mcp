@@ -37,6 +37,17 @@ describe("task management schemas", () => {
       expect(result.category).toBe("Active")
     }))
 
+  it.effect("rejects category spelling variants beyond casing", () =>
+    Effect.gen(function*() {
+      const dashed = yield* Effect.either(parseCreateIssueStatusParams({ name: "QA", category: "to-do" }))
+      const underscored = yield* Effect.either(parseCreateIssueStatusParams({ name: "QA", category: "to_do" }))
+      const spaced = yield* Effect.either(parseCreateIssueStatusParams({ name: "QA", category: "to do" }))
+
+      expect(dashed._tag).toBe("Left")
+      expect(underscored._tag).toBe("Left")
+      expect(spaced._tag).toBe("Left")
+    }))
+
   it.effect("exposes the create_issue_status category enum in JSON schema", () =>
     Effect.gen(function*() {
       expect(JSON.stringify(createIssueStatusParamsJsonSchema)).toContain("UnStarted")

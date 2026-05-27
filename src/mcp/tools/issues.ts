@@ -59,6 +59,8 @@ import {
   ListIssueRelationsResultSchema,
   RemoveIssueRelationResultSchema
 } from "../../domain/schemas/relations.js"
+import { enumValuesDescription } from "../../domain/schemas/shared.js"
+import { StatusCategoryValues } from "../../domain/schemas/task-management.js"
 import {
   createComponent,
   deleteComponent,
@@ -97,7 +99,9 @@ export const issueTools: ReadonlyArray<RegisteredTool> = [
   {
     name: "list_issues",
     description:
-      "Query Huly issues with optional filters. Returns issues sorted by modification date (newest first). Supports filtering by project, status, assignee, component, and parentIssue (to list children of a specific issue). Supports searching by title substring (titleSearch) and description content (descriptionSearch).",
+      `Query Huly issues with optional filters. Returns issues sorted by modification date (newest first). Supports filtering by project, exact workflow status name (status), Huly workflow status category (statusCategory: ${
+        enumValuesDescription(StatusCategoryValues)
+      }), assignee, component, and parentIssue (to list children of a specific issue). Supports searching by title substring (titleSearch) and description content (descriptionSearch).`,
     category: CATEGORY,
     inputSchema: listIssuesParamsJsonSchema,
     handler: createToolHandler(

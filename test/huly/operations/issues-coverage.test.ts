@@ -387,7 +387,7 @@ describe("Issues Coverage - resolveStatusName", () => {
 
 describe("Issues Coverage - listIssues status filters", () => {
   // test-revizorro: approved
-  it.effect("open filter includes only non-terminal statuses", () =>
+  it.effect("active statusCategory includes only active statuses", () =>
     Effect.gen(function*() {
       const project = makeProject({ identifier: "TEST" })
       const statuses = [
@@ -419,7 +419,7 @@ describe("Issues Coverage - listIssues status filters", () => {
         captureIssueQuery: captureQuery
       })
 
-      yield* listIssues({ project: projectIdentifier("TEST"), status: statusName("open") }).pipe(
+      yield* listIssues({ project: projectIdentifier("TEST"), statusCategory: task.statusCategory.Active }).pipe(
         Effect.provide(testLayer)
       )
 
@@ -427,14 +427,14 @@ describe("Issues Coverage - listIssues status filters", () => {
     }))
 
   // test-revizorro: approved
-  it.effect("open filter with only open statuses sets $in", () =>
+  it.effect("todo statusCategory includes only todo statuses", () =>
     Effect.gen(function*() {
       const project = makeProject({ identifier: "TEST" })
       const statuses = [
         makeStatus({
           _id: "status-open" as Ref<Status>,
           name: "Open",
-          category: task.statusCategory.Active
+          category: task.statusCategory.ToDo
         })
       ]
       const issues = [
@@ -449,14 +449,14 @@ describe("Issues Coverage - listIssues status filters", () => {
         captureIssueQuery: captureQuery
       })
 
-      yield* listIssues({ project: projectIdentifier("TEST"), status: statusName("open") }).pipe(
+      yield* listIssues({ project: projectIdentifier("TEST"), statusCategory: task.statusCategory.ToDo }).pipe(
         Effect.provide(testLayer)
       )
 
       expect(captureQuery.query?.status).toEqual({ $in: ["status-open"] })
     }))
 
-  it.effect("category filter fails when status category metadata is unavailable", () =>
+  it.effect("statusCategory fails when status category metadata is unavailable", () =>
     Effect.gen(function*() {
       const project = makeProject({ identifier: "TEST" })
       const statuses = [
@@ -472,7 +472,10 @@ describe("Issues Coverage - listIssues status filters", () => {
         statuses
       })
 
-      const error = yield* listIssues({ project: projectIdentifier("TEST"), status: statusName("open") }).pipe(
+      const error = yield* listIssues({
+        project: projectIdentifier("TEST"),
+        statusCategory: task.statusCategory.Active
+      }).pipe(
         Effect.provide(testLayer),
         Effect.flip
       )
@@ -482,7 +485,7 @@ describe("Issues Coverage - listIssues status filters", () => {
     }))
 
   // test-revizorro: approved
-  it.effect("done filter includes only done statuses", () =>
+  it.effect("done statusCategory includes only done statuses", () =>
     Effect.gen(function*() {
       const project = makeProject({ identifier: "TEST" })
       const statuses = [
@@ -509,7 +512,7 @@ describe("Issues Coverage - listIssues status filters", () => {
         captureIssueQuery: captureQuery
       })
 
-      yield* listIssues({ project: projectIdentifier("TEST"), status: statusName("done") }).pipe(
+      yield* listIssues({ project: projectIdentifier("TEST"), statusCategory: task.statusCategory.Won }).pipe(
         Effect.provide(testLayer)
       )
 
@@ -519,7 +522,7 @@ describe("Issues Coverage - listIssues status filters", () => {
     }))
 
   // test-revizorro: approved
-  it.effect("done filter returns empty when no done statuses exist", () =>
+  it.effect("done statusCategory returns empty when no done statuses exist", () =>
     Effect.gen(function*() {
       const project = makeProject({ identifier: "TEST" })
       const statuses = [
@@ -536,15 +539,16 @@ describe("Issues Coverage - listIssues status filters", () => {
         statuses
       })
 
-      const result = yield* listIssues({ project: projectIdentifier("TEST"), status: statusName("done") }).pipe(
-        Effect.provide(testLayer)
-      )
+      const result = yield* listIssues({ project: projectIdentifier("TEST"), statusCategory: task.statusCategory.Won })
+        .pipe(
+          Effect.provide(testLayer)
+        )
 
       expect(result).toEqual([])
     }))
 
   // test-revizorro: approved
-  it.effect("canceled filter includes only canceled statuses", () =>
+  it.effect("canceled statusCategory includes only canceled statuses", () =>
     Effect.gen(function*() {
       const project = makeProject({ identifier: "TEST" })
       const statuses = [
@@ -571,7 +575,7 @@ describe("Issues Coverage - listIssues status filters", () => {
         captureIssueQuery: captureQuery
       })
 
-      yield* listIssues({ project: projectIdentifier("TEST"), status: statusName("canceled") }).pipe(
+      yield* listIssues({ project: projectIdentifier("TEST"), statusCategory: task.statusCategory.Lost }).pipe(
         Effect.provide(testLayer)
       )
 
@@ -581,7 +585,7 @@ describe("Issues Coverage - listIssues status filters", () => {
     }))
 
   // test-revizorro: approved
-  it.effect("canceled filter returns empty when no canceled statuses exist", () =>
+  it.effect("canceled statusCategory returns empty when no canceled statuses exist", () =>
     Effect.gen(function*() {
       const project = makeProject({ identifier: "TEST" })
       const statuses = [
@@ -598,9 +602,10 @@ describe("Issues Coverage - listIssues status filters", () => {
         statuses
       })
 
-      const result = yield* listIssues({ project: projectIdentifier("TEST"), status: statusName("canceled") }).pipe(
-        Effect.provide(testLayer)
-      )
+      const result = yield* listIssues({ project: projectIdentifier("TEST"), statusCategory: task.statusCategory.Lost })
+        .pipe(
+          Effect.provide(testLayer)
+        )
 
       expect(result).toEqual([])
     }))

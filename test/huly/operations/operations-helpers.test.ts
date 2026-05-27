@@ -662,13 +662,13 @@ describe("operations helpers", () => {
         expect(result.statuses).toHaveLength(3)
 
         const open = result.statuses.find(s => s.name === "Open")
-        expect(open?.category).toBe("active")
+        expect(open?.category).toBe(task.statusCategory.Active)
 
         const done = result.statuses.find(s => s.name === "Done")
-        expect(done?.category).toBe("done")
+        expect(done?.category).toBe(task.statusCategory.Won)
 
         const canceled = result.statuses.find(s => s.name === "Canceled")
-        expect(canceled?.category).toBe("canceled")
+        expect(canceled?.category).toBe(task.statusCategory.Lost)
       }))
 
     // test-revizorro: approved

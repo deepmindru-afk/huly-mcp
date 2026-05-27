@@ -180,15 +180,15 @@ describe("task management operations", () => {
       })
     }))
 
-  it.effect("gets project type details with business category names and mappings", () =>
+  it.effect("gets project type details with Huly status category refs", () =>
     Effect.gen(function*() {
       const result = yield* getProjectType({ projectType: ProjectTypeRefSchema.make("classic") }).pipe(
         Effect.provide(createLayer())
       )
 
       expect(result.statuses.map((status) => [status.name, status.category])).toEqual([
-        ["Todo", "todo"],
-        ["Done", "done"]
+        ["Todo", task.statusCategory.ToDo],
+        ["Done", task.statusCategory.Won]
       ])
       expect(result.taskTypeStatuses).toEqual([
         { taskTypeId, taskTypeName: "Issue", statusIds: [openStatusId, doneStatusId] },
@@ -278,13 +278,13 @@ describe("task management operations", () => {
   it.effect("creates an issue status and attaches it to all task types", () =>
     Effect.gen(function*() {
       const captures: Captures = { createDocs: [], updates: [], mixins: [] }
-      const result = yield* createIssueStatus({ name: "QA", category: "active" }).pipe(
+      const result = yield* createIssueStatus({ name: "QA", category: task.statusCategory.Active }).pipe(
         Effect.provide(createLayer({ captures }))
       )
 
       expect(result.created).toBe(true)
       expect(result.status.name).toBe("QA")
-      expect(result.status.category).toBe("active")
+      expect(result.status.category).toBe(task.statusCategory.Active)
       expect(result.affectedTaskTypeIds).toEqual([taskTypeId, subTaskTypeId])
       expect(captures.createDocs[0].classId).toBe(String(tracker.class.IssueStatus))
       expect(captures.updates.map((call) => call.classId)).toEqual([
@@ -307,7 +307,7 @@ describe("task management operations", () => {
         ]
       })
 
-      const result = yield* createIssueStatus({ name: "QA", category: "active" }).pipe(
+      const result = yield* createIssueStatus({ name: "QA", category: task.statusCategory.Active }).pipe(
         Effect.provide(createLayer({ projectTypes: [projectType], captures }))
       )
 
@@ -338,7 +338,7 @@ describe("task management operations", () => {
       })
       const issueTaskType = makeTaskType({ statuses: [openStatusId, doneStatusId, alternateDoneStatusId] })
 
-      const result = yield* createIssueStatus({ name: "QA", category: "active" }).pipe(
+      const result = yield* createIssueStatus({ name: "QA", category: task.statusCategory.Active }).pipe(
         Effect.provide(createLayer({
           projectTypes: [projectType],
           taskTypes: [
@@ -378,7 +378,7 @@ describe("task management operations", () => {
 
       const result = yield* createIssueStatus({
         name: "todo",
-        category: "todo",
+        category: task.statusCategory.ToDo,
         taskType: TaskTypeRefSchema.make("Issue")
       }).pipe(
         Effect.provide(createLayer({ taskTypes: [duplicatedTaskType], captures }))
@@ -419,13 +419,13 @@ describe("task management operations", () => {
   it.effect("creates an issue status when the broad recovery lookup fails", () =>
     Effect.gen(function*() {
       const captures: Captures = { createDocs: [], updates: [], mixins: [] }
-      const result = yield* createIssueStatus({ name: "QA", category: "active" }).pipe(
+      const result = yield* createIssueStatus({ name: "QA", category: task.statusCategory.Active }).pipe(
         Effect.provide(createLayer({ captures, failRecoverableStatusLookup: true }))
       )
 
       expect(result.created).toBe(true)
       expect(result.status.name).toBe("QA")
-      expect(result.status.category).toBe("active")
+      expect(result.status.category).toBe(task.statusCategory.Active)
       expect(captures.createDocs[0].classId).toBe(String(tracker.class.IssueStatus))
       expect(captures.updates.map((call) => call.classId)).toEqual([
         String(task.class.TaskType),
@@ -438,12 +438,14 @@ describe("task management operations", () => {
     Effect.gen(function*() {
       const captures: Captures = { createDocs: [], updates: [], mixins: [] }
       const result = yield* Effect.either(
-        createIssueStatus({ name: "Todo", category: "active" }).pipe(Effect.provide(createLayer({ captures })))
+        createIssueStatus({ name: "Todo", category: task.statusCategory.Active }).pipe(
+          Effect.provide(createLayer({ captures }))
+        )
       )
 
       expect(result._tag).toBe("Left")
       if (result._tag === "Left") {
-        expect(result.left.message).toContain("already exists with category 'todo'")
+        expect(result.left.message).toContain(`already exists with category '${task.statusCategory.ToDo}'`)
       }
       expect(captures.createDocs).toEqual([])
       expect(captures.updates).toEqual([])
@@ -453,7 +455,7 @@ describe("task management operations", () => {
     Effect.gen(function*() {
       const captures: Captures = { createDocs: [], updates: [], mixins: [] }
       const statusId = "status-qa" as Ref<Status>
-      const result = yield* createIssueStatus({ name: "QA", category: "active" }).pipe(
+      const result = yield* createIssueStatus({ name: "QA", category: task.statusCategory.Active }).pipe(
         Effect.provide(createLayer({
           statuses: [
             makeStatus(),
@@ -479,7 +481,7 @@ describe("task management operations", () => {
       const captures: Captures = { createDocs: [], updates: [], mixins: [] }
       const result = yield* createIssueStatus({
         name: "todo",
-        category: "todo",
+        category: task.statusCategory.ToDo,
         taskType: TaskTypeRefSchema.make("Issue")
       }).pipe(
         Effect.provide(createLayer({ captures }))

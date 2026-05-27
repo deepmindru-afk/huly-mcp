@@ -202,7 +202,10 @@ export const Email = Schema.NonEmptyString.pipe(
 )
 export type Email = Schema.Schema.Type<typeof Email>
 
-export const StatusName = NonEmptyString.pipe(Schema.brand("StatusName"))
+export const StatusName = NonEmptyString.annotations({
+  description:
+    "Exact workflow status display name from the target project. Status names are workspace data, not a fixed enum; call list_statuses or get_project_type to discover valid values."
+}).pipe(Schema.brand("StatusName"))
 export type StatusName = Schema.Schema.Type<typeof StatusName>
 
 export const PersonName = NonEmptyString.pipe(Schema.brand("PersonName"))

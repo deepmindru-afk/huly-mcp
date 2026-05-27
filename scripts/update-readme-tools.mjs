@@ -1,49 +1,203 @@
 #!/usr/bin/env node
 
-import { readdirSync, readFileSync, writeFileSync } from "node:fs"
-import { join } from "node:path"
+import { createRequire } from "node:module"
+import { readFileSync, readdirSync, writeFileSync } from "node:fs"
+import { dirname, join, normalize, resolve } from "node:path"
+import ts from "typescript"
 
-const parseToolsFromFile = (filePath) => {
-  const content = readFileSync(filePath, "utf-8")
-  const tools = []
+const require = createRequire(import.meta.url)
+const hulyTaskPlugin = require("@hcengineering/task").default
 
-  const categoryMatch = content.match(/const CATEGORY = "([^"]+)" as const/)
-  if (!categoryMatch) return tools
+const sourceCache = new Map()
+const bindingCache = new Map()
+const moduleBindingsCache = new Map()
 
-  const category = categoryMatch[1]
-  const toolPattern = /\{\s*name:\s*"([^"]+)"[\s\S]*?description:[\s\S]*?"([^"]+)"[\s\S]*?category:\s*CATEGORY/g
+const sourcePath = (filePath) => normalize(resolve(filePath))
 
-  let match
-  while ((match = toolPattern.exec(content)) !== null) {
-    tools.push({
-      name: match[1],
-      description: match[2],
-      category
-    })
+const sourceFor = (filePath) => {
+  const resolved = sourcePath(filePath)
+  const cached = sourceCache.get(resolved)
+  if (cached !== undefined) return cached
+
+  const source = ts.createSourceFile(
+    resolved,
+    readFileSync(resolved, "utf-8"),
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.TS
+  )
+  sourceCache.set(resolved, source)
+  return source
+}
+
+const resolveModulePath = (fromFile, specifier) => {
+  if (!specifier.startsWith(".")) return specifier
+
+  const basePath = resolve(dirname(fromFile), specifier)
+  if (basePath.endsWith(".js")) {
+    const tsPath = `${basePath.slice(0, -3)}.ts`
+    return sourcePath(tsPath)
+  }
+  return sourcePath(`${basePath}.ts`)
+}
+
+const propertyNameText = (name) => {
+  if (ts.isIdentifier(name) || ts.isStringLiteral(name) || ts.isNumericLiteral(name)) return name.text
+  return undefined
+}
+
+const moduleBindingsFor = (filePath) => {
+  const resolved = sourcePath(filePath)
+  const cached = moduleBindingsCache.get(resolved)
+  if (cached !== undefined) return cached
+
+  const source = sourceFor(resolved)
+  const bindings = new Map()
+
+  for (const statement of source.statements) {
+    if (ts.isImportDeclaration(statement) && ts.isStringLiteral(statement.moduleSpecifier)) {
+      const modulePath = resolveModulePath(resolved, statement.moduleSpecifier.text)
+      const namedBindings = statement.importClause?.namedBindings
+      if (namedBindings !== undefined && ts.isNamedImports(namedBindings)) {
+        for (const element of namedBindings.elements) {
+          bindings.set(element.name.text, {
+            kind: "import",
+            importedName: element.propertyName?.text ?? element.name.text,
+            modulePath
+          })
+        }
+      }
+    }
+
+    if (ts.isVariableStatement(statement)) {
+      for (const declaration of statement.declarationList.declarations) {
+        if (ts.isIdentifier(declaration.name) && declaration.initializer !== undefined) {
+          bindings.set(declaration.name.text, { kind: "local", initializer: declaration.initializer })
+        }
+      }
+    }
+
+    if (ts.isExportDeclaration(statement) && statement.exportClause !== undefined && ts.isNamedExports(statement.exportClause)) {
+      const modulePath = statement.moduleSpecifier !== undefined && ts.isStringLiteral(statement.moduleSpecifier)
+        ? resolveModulePath(resolved, statement.moduleSpecifier.text)
+        : resolved
+      for (const element of statement.exportClause.elements) {
+        bindings.set(element.name.text, {
+          kind: "reExport",
+          exportedName: element.propertyName?.text ?? element.name.text,
+          modulePath
+        })
+      }
+    }
   }
 
+  moduleBindingsCache.set(resolved, bindings)
+  return bindings
+}
+
+const bindingValue = (filePath, name) => {
+  const resolved = sourcePath(filePath)
+  const cacheKey = `${resolved}:${name}`
+  if (bindingCache.has(cacheKey)) return bindingCache.get(cacheKey)
+
+  const binding = moduleBindingsFor(resolved).get(name)
+  if (binding === undefined) return undefined
+
+  let value
+  switch (binding.kind) {
+    case "local":
+      value = expressionValue(binding.initializer, resolved)
+      break
+    case "import":
+      if (binding.modulePath === "../../huly/huly-plugins.js" || binding.modulePath.endsWith("/src/huly/huly-plugins.ts")) {
+        value = binding.importedName === "task" ? hulyTaskPlugin : undefined
+      } else {
+        value = bindingValue(binding.modulePath, binding.importedName)
+      }
+      break
+    case "reExport":
+      value = bindingValue(binding.modulePath, binding.exportedName)
+      break
+  }
+
+  bindingCache.set(cacheKey, value)
+  return value
+}
+
+const expressionValue = (node, filePath) => {
+  if (ts.isStringLiteral(node) || ts.isNoSubstitutionTemplateLiteral(node)) return node.text
+  if (ts.isNumericLiteral(node)) return Number(node.text)
+  if (ts.isIdentifier(node)) return bindingValue(filePath, node.text)
+  if (ts.isAsExpression(node) || ts.isSatisfiesExpression(node) || ts.isParenthesizedExpression(node)) {
+    return expressionValue(node.expression, filePath)
+  }
+  if (ts.isArrayLiteralExpression(node)) {
+    return node.elements.map((element) => expressionValue(element, filePath))
+  }
+  if (ts.isObjectLiteralExpression(node)) {
+    const value = {}
+    for (const property of node.properties) {
+      if (ts.isPropertyAssignment(property)) {
+        const key = propertyNameText(property.name)
+        if (key !== undefined) value[key] = expressionValue(property.initializer, filePath)
+      }
+    }
+    return value
+  }
+  if (ts.isPropertyAccessExpression(node)) {
+    const target = expressionValue(node.expression, filePath)
+    return target?.[node.name.text]
+  }
+  if (ts.isTemplateExpression(node)) {
+    return node.templateSpans.reduce(
+      (output, span) => `${output}${String(expressionValue(span.expression, filePath))}${span.literal.text}`,
+      node.head.text
+    )
+  }
+  if (ts.isCallExpression(node) && ts.isIdentifier(node.expression)) {
+    if (node.expression.text === "enumValuesDescription" && node.arguments.length === 1) {
+      const values = expressionValue(node.arguments[0], filePath)
+      return Array.isArray(values) ? values.join(", ") : undefined
+    }
+  }
+
+  return undefined
+}
+
+const objectPropertyValue = (object, propertyName, filePath) => {
+  const property = object.properties.find((p) =>
+    ts.isPropertyAssignment(p) && propertyNameText(p.name) === propertyName
+  )
+  return property !== undefined && ts.isPropertyAssignment(property)
+    ? expressionValue(property.initializer, filePath)
+    : undefined
+}
+
+const parseToolsFromFile = (filePath) => {
+  const source = sourceFor(filePath)
+  const tools = []
+
+  const visit = (node) => {
+    if (ts.isObjectLiteralExpression(node)) {
+      const name = objectPropertyValue(node, "name", filePath)
+      const description = objectPropertyValue(node, "description", filePath)
+      const category = objectPropertyValue(node, "category", filePath)
+
+      if (typeof name === "string" && typeof description === "string" && typeof category === "string") {
+        tools.push({ name, description, category })
+      }
+    }
+
+    ts.forEachChild(node, visit)
+  }
+
+  visit(source)
   return tools
 }
 
 const parseResourceTemplatesFromFile = (filePath) => {
-  const content = readFileSync(filePath, "utf-8")
-  const mimeTypeMatch = content.match(/export const HULY_RESOURCE_MIME_TYPE = "([^"]+)"/)
-  const mimeType = mimeTypeMatch?.[1] ?? ""
-  const templates = []
-  const templatePattern =
-    /\{\s*uriTemplate:\s*"([^"]+)"[\s\S]*?name:\s*"([^"]+)"[\s\S]*?description:\s*"([^"]+)"[\s\S]*?mimeType:\s*HULY_RESOURCE_MIME_TYPE/g
-
-  let match
-  while ((match = templatePattern.exec(content)) !== null) {
-    templates.push({
-      uriTemplate: match[1],
-      name: match[2],
-      description: match[3],
-      mimeType
-    })
-  }
-
-  return templates
+  const templates = bindingValue(filePath, "resourceTemplates")
+  return Array.isArray(templates) ? templates : []
 }
 
 const toolsDir = join(process.cwd(), "src/mcp/tools")
@@ -52,6 +206,32 @@ const toolFiles = readdirSync(toolsDir)
 
 const allTools = toolFiles.flatMap((file) => parseToolsFromFile(join(toolsDir, file)))
 const resourceTemplates = parseResourceTemplatesFromFile(join(process.cwd(), "src/mcp/resources.ts"))
+
+if (allTools.length === 0) {
+  throw new Error("README tool generation found no tools")
+}
+
+if (resourceTemplates.length === 0) {
+  throw new Error("README resource generation found no resource templates")
+}
+
+for (const tool of allTools) {
+  if (tool.description === tool.name) {
+    throw new Error(`README tool generation produced a suspicious self-description for ${tool.name}`)
+  }
+}
+
+for (const tool of allTools) {
+  if (tool.description.includes("${")) {
+    throw new Error(`README tool generation left an unevaluated template expression in ${tool.name}`)
+  }
+}
+
+for (const resource of resourceTemplates) {
+  if (typeof resource.uriTemplate !== "string" || typeof resource.name !== "string") {
+    throw new Error("README resource generation produced an invalid resource template")
+  }
+}
 
 const categoryOrder = [
   "projects",

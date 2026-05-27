@@ -22,6 +22,9 @@ HTTP_SERVER_STDOUT=""
 HTTP_SERVER_STDERR=""
 HTTP_CURL_CONFIG=""
 GENERIC_ASSOCIATION_CLEANUP_IDS=""
+TM_TASK_TYPE_NAME=""
+TM_STATUS_NAME=""
+WORKFLOW_CLEANED=false
 
 if [ -z "$HULY_URL" ]; then
   echo "ERROR: HULY_URL not set. Run: set -a && source .env.local && set +a"
@@ -102,9 +105,33 @@ cleanup_generic_associations() {
 
 cleanup_all() {
   cleanup_generic_associations
+  cleanup_workflow_artifacts || true
   cleanup_http_transport
 }
 trap cleanup_all EXIT
+
+cleanup_workflow_artifacts() {
+  if [ "$WORKFLOW_CLEANED" = "true" ]; then
+    return 0
+  fi
+  if [ -n "$TM_TASK_TYPE_NAME" ] || [ -n "$TM_STATUS_NAME" ]; then
+    echo "=== cleanup: task-management workflow artifacts ===" >&2
+    cleanup_args=("--delete-test-issues")
+    if [ -n "$TM_TASK_TYPE_NAME" ]; then
+      cleanup_args+=("--task-type-name" "$TM_TASK_TYPE_NAME")
+    fi
+    if [ -n "$TM_STATUS_NAME" ]; then
+      cleanup_args+=("--status-name" "$TM_STATUS_NAME")
+    fi
+    if pnpm exec tsx scripts/cleanup-workflow-artifacts.ts "${cleanup_args[@]}" >&2; then
+      WORKFLOW_CLEANED=true
+      return 0
+    fi
+    return 1
+  fi
+  WORKFLOW_CLEANED=true
+  return 0
+}
 
 write_http_header_config() {
   HTTP_CURL_CONFIG="$(mktemp)"
@@ -551,7 +578,7 @@ run_test "resources/read project($PROJECT)" \
 echo ""
 
 ##############################
-# 1a. TASK MANAGEMENT (controlled workspace pollution)
+# 1a. TASK MANAGEMENT (workflow mutations with cleanup)
 ##############################
 echo "=== 1a. Task Management ==="
 run_test "list_project_types" \
@@ -723,6 +750,10 @@ if [ $? -eq 0 ]; then
 
     run_test "update_issue($ISSUE_ID taskType=$TM_TASK_TYPE_NAME)" \
       "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"update_issue\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$ISSUE_ID\",\"taskType\":$TM_TASK_TYPE_NAME_JSON,\"status\":$TM_TASK_TYPE_STATUS_NAME_JSON}},\"id\":2}"
+    if [ -n "$TASK_TYPED_ISSUE_ID" ]; then
+      run_test "delete_issue(task_typed:$TASK_TYPED_ISSUE_ID)" \
+        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_issue\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$TASK_TYPED_ISSUE_ID\"}},\"id\":2}"
+    fi
   else
     skip_test "create_issue(taskType)" "task-management setup did not verify disposable task type/status"
     skip_test "update_issue(taskType)" "task-management setup did not verify disposable task type/status"
@@ -1994,6 +2025,12 @@ else
   skip_test "list_user_statuses(filtered)" "no user status rows found in workspace"
 fi
 echo ""
+
+if ! cleanup_workflow_artifacts; then
+  echo "FAIL: task-management workflow artifact cleanup failed"
+  FAILED=$((FAILED + 1))
+  ERRORS="${ERRORS}\n  - task-management workflow artifact cleanup failed"
+fi
 
 ##############################
 # SUMMARY

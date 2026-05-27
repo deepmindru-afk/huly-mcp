@@ -1,15 +1,34 @@
+import type { Ref, StatusCategory } from "@hcengineering/core"
 import { JSONSchema, Schema } from "effect"
 
+import { task } from "../../huly/huly-plugins.js"
 import { enumValuesDescription, IssueStatusId, NonEmptyString, ProjectTypeId, TaskTypeId } from "./shared.js"
 
-const StatusCategoryValues = ["backlog", "todo", "active", "done", "canceled"] as const
+export const StatusCategoryBySdkKey = {
+  UnStarted: task.statusCategory.UnStarted,
+  ToDo: task.statusCategory.ToDo,
+  Active: task.statusCategory.Active,
+  Won: task.statusCategory.Won,
+  Lost: task.statusCategory.Lost
+} satisfies Record<keyof typeof task.statusCategory, Ref<StatusCategory>>
+
+export const StatusCategoryValues = [
+  StatusCategoryBySdkKey.UnStarted,
+  StatusCategoryBySdkKey.ToDo,
+  StatusCategoryBySdkKey.Active,
+  StatusCategoryBySdkKey.Won,
+  StatusCategoryBySdkKey.Lost
+] as const
 const UnknownStatusCategoryValue = "unknown"
 
 export const StatusCategoryValueSchema = Schema.Literal(...StatusCategoryValues, UnknownStatusCategoryValue)
 export type StatusCategoryValue = Schema.Schema.Type<typeof StatusCategoryValueSchema>
 
-export const CreateStatusCategoryValueSchema = Schema.Literal(...StatusCategoryValues)
-export type CreateStatusCategoryValue = Schema.Schema.Type<typeof CreateStatusCategoryValueSchema>
+export const KnownStatusCategoryValueSchema = Schema.Literal(...StatusCategoryValues)
+export type KnownStatusCategoryValue = Schema.Schema.Type<typeof KnownStatusCategoryValueSchema>
+
+export const CreateStatusCategoryValueSchema = KnownStatusCategoryValueSchema
+export type CreateStatusCategoryValue = KnownStatusCategoryValue
 
 export const TaskTypeKindSchema = Schema.Literal("task", "subtask", "both")
 export type TaskTypeKind = Schema.Schema.Type<typeof TaskTypeKindSchema>
@@ -109,7 +128,7 @@ export const CreateIssueStatusParamsSchema = Schema.Struct({
   })),
   name: NonEmptyString.annotations({ description: "Display name for the workflow status to add." }),
   category: CreateStatusCategoryValueSchema.annotations({
-    description: `Business category for the status: ${enumValuesDescription(StatusCategoryValues)}.`
+    description: `Huly workflow status category ref: ${enumValuesDescription(StatusCategoryValues)}.`
   }),
   taskType: Schema.optional(TaskTypeRefSchema.annotations({
     description:

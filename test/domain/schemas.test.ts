@@ -49,6 +49,7 @@ import {
   parseUpdateUserProfileParams,
   startProcessParamsJsonSchema,
   startTimerParamsJsonSchema,
+  StatusCategoryBySdkKey,
   stopTimerParamsJsonSchema,
   updateCardParamsJsonSchema,
   updateGuestSettingsParamsJsonSchema,
@@ -371,13 +372,40 @@ describe("Domain Schemas", () => {
         const result = yield* parseListIssuesParams({
           project: "HULY",
           status: "Open",
+          statusCategory: undefined,
           assignee: "john@example.com",
           limit: 50
         })
         expect(result.project).toBe("HULY")
         expect(result.status).toBe("Open")
+        expect(result.statusCategory).toBeUndefined()
         expect(result.assignee).toBe("john@example.com")
         expect(result.limit).toBe(50)
+      }))
+
+    it.effect("parses statusCategory as a Huly workflow category", () =>
+      Effect.gen(function*() {
+        const result = yield* parseListIssuesParams({
+          project: "HULY",
+          statusCategory: StatusCategoryBySdkKey.Active
+        })
+        expect(result.statusCategory).toBe(StatusCategoryBySdkKey.Active)
+      }))
+
+    it.effect("rejects invented statusCategory values", () =>
+      Effect.gen(function*() {
+        const error = yield* Effect.flip(
+          parseListIssuesParams({ project: "HULY", statusCategory: "open" })
+        )
+        expect(error._tag).toBe("ParseError")
+      }))
+
+    it.effect("rejects status and statusCategory together", () =>
+      Effect.gen(function*() {
+        const error = yield* Effect.flip(
+          parseListIssuesParams({ project: "HULY", status: "Open", statusCategory: StatusCategoryBySdkKey.Active })
+        )
+        expect(error._tag).toBe("ParseError")
       }))
 
     // test-revizorro: approved

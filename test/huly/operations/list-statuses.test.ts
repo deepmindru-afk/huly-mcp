@@ -105,11 +105,11 @@ describe("listStatuses", () => {
       expect(todo?.isDefault).toBe(true)
 
       const done = result.statuses.find(s => s.name === "Done")
-      expect(done?.category).toBe("done")
+      expect(done?.category).toBe(task.statusCategory.Won)
       expect(done?.isDefault).toBe(false)
 
       const cancelled = result.statuses.find(s => s.name === "Cancelled")
-      expect(cancelled?.category).toBe("canceled")
+      expect(cancelled?.category).toBe(task.statusCategory.Lost)
       expect(cancelled?.isDefault).toBe(false)
     }))
 

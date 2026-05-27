@@ -31,6 +31,7 @@ import {
   ListTaskTypesResultSchema,
   ProjectTypeDetailSchema,
   ProjectTypeId,
+  StatusCategoryBySdkKey,
   TaskTypeId
 } from "../../domain/schemas.js"
 import { normalizeForComparison } from "../../utils/normalize.js"
@@ -44,11 +45,11 @@ import { toRef } from "./sdk-boundary.js"
 type TaskManagementError = HulyClientError | HulyConnectionError | HulyError
 
 const STATUS_CATEGORY_BY_SDK_KEY = {
-  UnStarted: { value: "backlog", ref: task.statusCategory.UnStarted, name: "Backlog" },
-  ToDo: { value: "todo", ref: task.statusCategory.ToDo, name: "Todo" },
-  Active: { value: "active", ref: task.statusCategory.Active, name: "Active" },
-  Won: { value: "done", ref: task.statusCategory.Won, name: "Done" },
-  Lost: { value: "canceled", ref: task.statusCategory.Lost, name: "Canceled" }
+  UnStarted: { value: StatusCategoryBySdkKey.UnStarted, ref: task.statusCategory.UnStarted, name: "UnStarted" },
+  ToDo: { value: StatusCategoryBySdkKey.ToDo, ref: task.statusCategory.ToDo, name: "ToDo" },
+  Active: { value: StatusCategoryBySdkKey.Active, ref: task.statusCategory.Active, name: "Active" },
+  Won: { value: StatusCategoryBySdkKey.Won, ref: task.statusCategory.Won, name: "Won" },
+  Lost: { value: StatusCategoryBySdkKey.Lost, ref: task.statusCategory.Lost, name: "Lost" }
 } satisfies Record<
   keyof typeof task.statusCategory,
   { readonly value: CreateStatusCategoryValue; readonly ref: Ref<StatusCategory>; readonly name: string }
@@ -63,11 +64,11 @@ const exactStatusCategoryMapping = <T extends true>(value: T): T => value
 exactStatusCategoryMapping<ExactStatusCategoryMapping>(true)
 
 const CATEGORY_TO_REF: Readonly<Record<CreateStatusCategoryValue, Ref<StatusCategory>>> = {
-  backlog: STATUS_CATEGORY_BY_SDK_KEY.UnStarted.ref,
-  todo: STATUS_CATEGORY_BY_SDK_KEY.ToDo.ref,
-  active: STATUS_CATEGORY_BY_SDK_KEY.Active.ref,
-  done: STATUS_CATEGORY_BY_SDK_KEY.Won.ref,
-  canceled: STATUS_CATEGORY_BY_SDK_KEY.Lost.ref
+  [StatusCategoryBySdkKey.UnStarted]: STATUS_CATEGORY_BY_SDK_KEY.UnStarted.ref,
+  [StatusCategoryBySdkKey.ToDo]: STATUS_CATEGORY_BY_SDK_KEY.ToDo.ref,
+  [StatusCategoryBySdkKey.Active]: STATUS_CATEGORY_BY_SDK_KEY.Active.ref,
+  [StatusCategoryBySdkKey.Won]: STATUS_CATEGORY_BY_SDK_KEY.Won.ref,
+  [StatusCategoryBySdkKey.Lost]: STATUS_CATEGORY_BY_SDK_KEY.Lost.ref
 }
 
 const REF_TO_CATEGORY = new Map<Ref<StatusCategory>, StatusCategoryValue>(

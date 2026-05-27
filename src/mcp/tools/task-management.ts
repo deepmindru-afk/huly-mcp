@@ -8,8 +8,10 @@ import {
   parseCreateTaskTypeParams,
   parseGetProjectTypeParams,
   parseListProjectTypesParams,
-  parseListTaskTypesParams
+  parseListTaskTypesParams,
+  StatusCategoryValues
 } from "../../domain/schemas.js"
+import { enumValuesDescription } from "../../domain/schemas/shared.js"
 import {
   createIssueStatus,
   createTaskType,
@@ -58,7 +60,9 @@ export const taskManagementTools: ReadonlyArray<RegisteredTool> = [
   {
     name: "create_issue_status",
     description:
-      "Add a Huly issue workflow status idempotently by normalized name within a project type and task type scope. Accepts category as backlog, todo, active, done, or canceled; taskType may be ID or display name, and omission applies the status to every task type in the project type.",
+      `Add a Huly issue workflow status idempotently by normalized name within a project type and task type scope. Accepts category as a Huly workflow status category ref: ${
+        enumValuesDescription(StatusCategoryValues)
+      }; taskType may be ID or display name, and omission applies the status to every task type in the project type.`,
     category: CATEGORY,
     inputSchema: createIssueStatusParamsJsonSchema,
     annotations: { idempotentHint: true },

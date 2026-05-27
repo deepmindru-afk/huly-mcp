@@ -633,10 +633,9 @@ describe("listIssues", () => {
       }))
 
     // test-revizorro: approved
-    it.effect("reserved word 'open' filters by category (not done/canceled)", () =>
+    it.effect("status 'open' resolves an exact status name, not a category alias", () =>
       Effect.gen(function*() {
         const project = makeProject()
-        // Statuses with proper categories: Active (open), Won (done), Lost (canceled)
         const statuses = [
           makeStatus({
             _id: "status-open" as Ref<Status>,
@@ -669,7 +668,7 @@ describe("listIssues", () => {
           Effect.provide(testLayer)
         )
 
-        expect(captureQuery.query?.status).toEqual({ $in: ["status-open"] })
+        expect(captureQuery.query?.status).toBe("status-open")
       }))
   })
 

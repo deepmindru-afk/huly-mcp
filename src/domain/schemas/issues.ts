@@ -20,7 +20,14 @@ import {
   Timestamp,
   withAtLeastOneRequired
 } from "./shared.js"
-import { TaskTypeRefSchema } from "./task-management.js"
+import {
+  type KnownStatusCategoryValue,
+  KnownStatusCategoryValueSchema,
+  StatusCategoryValues,
+  TaskTypeRefSchema
+} from "./task-management.js"
+
+export type IssueStatusCategoryFilter = KnownStatusCategoryValue
 
 export const IssuePriorityValues = ["urgent", "high", "medium", "low", "no-priority"] as const
 
@@ -127,7 +134,12 @@ const ListIssuesParamsBase = Schema.Struct({
     description: "Project identifier (e.g., 'HULY')"
   }),
   status: Schema.optional(StatusName.annotations({
-    description: "Filter by status name"
+    description: "Filter by exact workflow status name. Does not accept category aliases."
+  })),
+  statusCategory: Schema.optional(KnownStatusCategoryValueSchema.annotations({
+    description: `Filter by Huly workflow status category: ${
+      enumValuesDescription(StatusCategoryValues)
+    }. Use status for exact project-specific status names.`
   })),
   assignee: Schema.optional(PersonRefInput.annotations({
     description: "Filter by assignee email or display name"
@@ -171,6 +183,9 @@ export const ListIssuesParamsSchema = ListIssuesParamsBase.pipe(
   Schema.filter((params) => {
     if (params.titleSearch !== undefined && params.titleRegex !== undefined) {
       return "Cannot provide both 'titleSearch' and 'titleRegex'. Use one or the other."
+    }
+    if (params.status !== undefined && params.statusCategory !== undefined) {
+      return "Cannot provide both 'status' and 'statusCategory'. Use status for exact workflow status names or statusCategory for Huly workflow categories."
     }
     if (params.assignee !== undefined && params.hasAssignee !== undefined) {
       return "Cannot provide both 'assignee' and 'hasAssignee'. Use one or the other."

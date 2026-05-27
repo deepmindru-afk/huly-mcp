@@ -7,7 +7,7 @@ import { Effect } from "effect"
 import type { IssuePriority as IssuePriorityStr } from "../../domain/schemas/issues.js"
 import type { NonNegativeNumber } from "../../domain/schemas/shared.js"
 import { PositiveNumber } from "../../domain/schemas/shared.js"
-import type { StatusCategoryValue } from "../../domain/schemas/task-management.js"
+import { StatusCategoryBySdkKey, type StatusCategoryValue } from "../../domain/schemas/task-management.js"
 import { normalizeForComparison } from "../../utils/normalize.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import { InvalidStatusError, IssueNotFoundError, ProjectNotFoundError } from "../errors.js"
@@ -55,15 +55,15 @@ const statusCategoryValueFromRef = (
 ): StatusCategoryValue => {
   switch (category) {
     case task.statusCategory.UnStarted:
-      return "backlog"
+      return StatusCategoryBySdkKey.UnStarted
     case task.statusCategory.ToDo:
-      return "todo"
+      return StatusCategoryBySdkKey.ToDo
     case task.statusCategory.Active:
-      return "active"
+      return StatusCategoryBySdkKey.Active
     case task.statusCategory.Won:
-      return "done"
+      return StatusCategoryBySdkKey.Won
     case task.statusCategory.Lost:
-      return "canceled"
+      return StatusCategoryBySdkKey.Lost
     default:
       return "unknown"
   }
@@ -161,7 +161,7 @@ export const findProjectWithStatuses = (
         // This allows operations to work even with malformed workspace data
         yield* Effect.logWarning(
           `Status query failed for project ${projectIdentifier}, using fallback. `
-            + `Category-based filtering (open/done/canceled) is unavailable until Huly returns status metadata. `
+            + `statusCategory filtering is unavailable until Huly returns status metadata. `
             + `Error: ${statusDocsResult.left.message}`
         )
         return statusRefs.map(workflowStatusFromRef)

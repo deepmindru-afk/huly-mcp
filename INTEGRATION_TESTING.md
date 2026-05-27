@@ -135,6 +135,7 @@ The full suite tests CRUD lifecycles with cleanup for all domains:
 |---------|-------------|-------|
 | 1r. MCP Resources | resources/templates/list, resources/list, resources/read project, resources/read created issue | Read-only JSON resources over the same stdio or HTTP transport |
 | 1. Projects | list, get, list_statuses | create/update/delete skipped (pollutes workspace) |
+| 1a. Task Management | list_project_types, get_project_type, list_task_types, create_task_type, create_issue_status | Creates a disposable task type/status and removes matching workflow refs/docs on exit |
 | 2. Issues | create, get, list, update, delete, sub-issues, move, relations (add/list/remove), labels (add/remove), comments (add/list/update/delete), activity, time tracking (log/report/detailed), preview_deletion | Full lifecycle with all issue-related operations |
 | 3. Components | create, list, get, update, delete, set_issue_component | CRUD + assignment |
 | 4. Milestones | create, list, get, update, delete, set_issue_milestone | CRUD + assignment |

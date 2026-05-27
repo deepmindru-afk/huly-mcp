@@ -39,7 +39,7 @@
     "sync-registry-metadata": "node scripts/sync-registry-metadata.mjs",
     "prepack": "pnpm build && pnpm verify-version",
     "prepublishOnly": "pnpm check-all && pnpm verify-version",
-    "update-readme": "node scripts/update-readme-tools.mjs"
+    "update-readme": "tsx scripts/update-readme-tools.mjs"
   },
   "bin": {
     "huly-mcp": "./dist/index.cjs",

@@ -108,7 +108,7 @@ export const GenericObjectLocatorSchema = Schema.Union(
 ).annotations({
   title: "GenericObjectLocator",
   description:
-    "Explicit locator for a Huly document endpoint. Use raw for known _id/class pairs, issue for tracker issues, document for Huly documents, or card for Huly cards. Card title lookup requires cardSpace; card ID lookup does not."
+    "Explicit locator for a Huly document endpoint. Use raw for known _id/class pairs, issue for tracker issues, document for Huly documents, or card for Huly cards."
 })
 export type GenericObjectLocator = Schema.Schema.Type<typeof GenericObjectLocatorSchema>
 

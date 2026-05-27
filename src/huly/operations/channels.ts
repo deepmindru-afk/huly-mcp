@@ -255,7 +255,7 @@ export const getChannel = (
         const accountUuidToName = yield* buildAccountUuidToNameMap(client, channel.members)
         return channel.members
           .map((m) => accountUuidToName.get(m))
-          .filter((n): n is PersonName => n !== undefined)
+          .filter((n) => n !== undefined)
       })
       : undefined
 
@@ -489,7 +489,7 @@ export const listDirectMessages = (
     const summaries: Array<DirectMessageSummary> = dms.map((dm) => {
       const participants = dm.members
         .map((m) => accountUuidToName.get(m))
-        .filter((n): n is PersonName => n !== undefined)
+        .filter((n) => n !== undefined)
 
       const participantIds = dm.members.map((m) => AccountUuid.make(m))
 

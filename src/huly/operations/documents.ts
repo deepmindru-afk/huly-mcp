@@ -40,7 +40,12 @@ import type {
   UpdateTeamspaceResult
 } from "../../domain/schemas/documents.js"
 import { UPDATE_TEAMSPACE_FIELDS } from "../../domain/schemas/documents.js"
-import { DocumentId, TeamspaceId } from "../../domain/schemas/shared.js"
+import {
+  DocumentId,
+  type DocumentIdentifier,
+  TeamspaceId,
+  type TeamspaceIdentifier
+} from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import { DocumentNotFoundError, type NoUpdateFieldsError, TeamspaceNotFoundError } from "../errors.js"
 import { buildDocumentUrlFromConfig } from "../url-builders.js"
@@ -102,7 +107,7 @@ type DeleteDocumentError =
  * By default only finds non-archived teamspaces. Pass includeArchived to find any.
  */
 const findTeamspace = (
-  identifier: string,
+  identifier: TeamspaceIdentifier,
   opts?: { includeArchived?: boolean }
 ): Effect.Effect<
   { client: HulyClient["Type"]; teamspace: HulyTeamspace },
@@ -137,7 +142,10 @@ const findTeamspace = (
  * Find a teamspace and document.
  */
 export const findTeamspaceAndDocument = (
-  params: { teamspace: string; document: string }
+  params: {
+    readonly teamspace: TeamspaceIdentifier
+    readonly document: DocumentIdentifier
+  }
 ): Effect.Effect<
   { client: HulyClient["Type"]; teamspace: HulyTeamspace; doc: HulyDocument },
   TeamspaceNotFoundError | DocumentNotFoundError | HulyClientError,

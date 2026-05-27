@@ -1,3 +1,5 @@
+import { getHulyContextResultJsonSchema } from "../domain/schemas/index.js"
+
 interface McpOutputSchema {
   readonly type: "object"
   readonly properties?: Record<string, unknown>
@@ -22,11 +24,19 @@ export const versionToolOutputSchema: McpOutputSchema = {
     result: {
       type: "object",
       properties: {
-        current: { type: "string" },
-        latest: { type: "string" }
+        current: { type: "string", minLength: 1 },
+        latest: { type: "string", minLength: 1 }
       },
       required: ["current", "latest"]
     }
+  },
+  required: ["result"]
+}
+
+export const hulyContextToolOutputSchema: McpOutputSchema = {
+  type: "object",
+  properties: {
+    result: getHulyContextResultJsonSchema
   },
   required: ["result"]
 }

@@ -182,6 +182,22 @@ Configure with `MCP_HTTP_PORT` and `MCP_HTTP_HOST`:
 MCP_TRANSPORT=http MCP_HTTP_PORT=8080 MCP_HTTP_HOST=0.0.0.0 npx -y @firfi/huly-mcp@latest
 ```
 
+For hosted or tunneled HTTP deployments, you can require an MCP endpoint bearer token:
+
+```bash
+MCP_TRANSPORT=http \
+MCP_AUTH_TOKEN="$(openssl rand -hex 32)" \
+npx -y @firfi/huly-mcp@latest
+```
+
+HTTP clients must then send:
+
+```http
+Authorization: Bearer <MCP_AUTH_TOKEN>
+```
+
+`MCP_AUTH_TOKEN` protects only the MCP HTTP `/mcp` endpoint. It is unrelated to `HULY_TOKEN`, does not authenticate to Huly, and does not replace `HULY_EMAIL` / `HULY_PASSWORD` / `HULY_TOKEN`. Huly credentials are still required through process env vars or, for hosted URL deployments, the supported `x-huly-*` headers. Stdio deployments do not use `MCP_AUTH_TOKEN`.
+
 ### Hosted HTTP Header Configuration
 
 For hosted URL deployments, keep the server process configured with `MCP_TRANSPORT=http`. A hosting layer can forward per-session Huly credentials as request headers, so one hosted server can serve different Huly workspaces without process-wide `HULY_*` env vars.
@@ -212,9 +228,38 @@ For a Smithery publish schema example, see [docs/SMITHERY_URL_PUBLISH.md](docs/S
 | `MCP_TRANSPORT` | No | Transport type: `stdio` (default) or `http` |
 | `MCP_HTTP_PORT` | No | HTTP server port (falls back to `PORT`, then 3000) |
 | `MCP_HTTP_HOST` | No | HTTP server host (default: 127.0.0.1) |
+| `MCP_AUTH_TOKEN` | No | Optional bearer token required by HTTP clients for `/mcp`. This protects the MCP endpoint only; it is not a Huly API token. |
 | `TOOLSETS` | No | Comma-separated tool categories to expose. If unset, all tools are exposed. Example: `issues,projects,search` |
 
 *Auth: Provide either `HULY_EMAIL` + `HULY_PASSWORD` or `HULY_TOKEN`.
+
+## Built-in Diagnostic Tools
+
+`get_version` returns the current server version and latest npm version.
+
+`get_huly_context` returns sanitized runtime/configuration context for the current MCP session without connecting to Huly. It reports package version, transport, auth mode, sanitized Huly URL origin/host/protocol, workspace, timeout, config sources, and toolset filtering. Tokens, passwords, email values, credential headers, URL paths, URL query strings, and URL credentials are never returned.
+
+## MCP Resources
+
+The server exposes read-only MCP Resources as JSON context for clients that support `resources/read`.
+
+<!-- resources:start -->
+<!-- AUTO-GENERATED from src/mcp/resources.ts resourceTemplates. Do not edit manually. Run `pnpm update-readme` to regenerate. -->
+| Template | Name | Description | MIME Type |
+|----------|------|-------------|-----------|
+| `huly://projects/{project}` | `huly-project` | Read full details for a Huly tracker project by project identifier, for example huly://projects/HULY. | `application/json` |
+| `huly://issues/{issue}` | `huly-issue` | Read full details for a Huly issue by full issue identifier, for example huly://issues/HULY-123. | `application/json` |
+| `huly://projects/{project}/issues/{issue}` | `huly-project-issue` | Read full details for a Huly issue by project identifier and issue number, for example huly://projects/HULY/issues/123. | `application/json` |
+<!-- resources:end -->
+
+`resources/list` returns concrete active project resources. Issue resources are template-based: use `resources/templates/list` to discover supported issue URI templates, then read a known issue URI.
+
+Resource roadmap:
+
+- Return resource links from list/search tool results for direct `resources/read` follow-up.
+- Add document resources when document reads have a stable URI shape and context-friendly payload.
+- Consider scoped/paginated issue listing only when filters prevent very large `resources/list` responses.
+- Consider resource `subscribe` and `listChanged` support after stateful sessions and a Huly change source are available.
 
 <!-- tools:start -->
 <!-- AUTO-GENERATED from src/mcp/tools/ descriptions. Do not edit manually. Run `pnpm update-readme` to regenerate. -->

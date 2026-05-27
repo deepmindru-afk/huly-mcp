@@ -25,11 +25,33 @@ const parseToolsFromFile = (filePath) => {
   return tools
 }
 
+const parseResourceTemplatesFromFile = (filePath) => {
+  const content = readFileSync(filePath, "utf-8")
+  const mimeTypeMatch = content.match(/export const HULY_RESOURCE_MIME_TYPE = "([^"]+)"/)
+  const mimeType = mimeTypeMatch?.[1] ?? ""
+  const templates = []
+  const templatePattern =
+    /\{\s*uriTemplate:\s*"([^"]+)"[\s\S]*?name:\s*"([^"]+)"[\s\S]*?description:\s*"([^"]+)"[\s\S]*?mimeType:\s*HULY_RESOURCE_MIME_TYPE/g
+
+  let match
+  while ((match = templatePattern.exec(content)) !== null) {
+    templates.push({
+      uriTemplate: match[1],
+      name: match[2],
+      description: match[3],
+      mimeType
+    })
+  }
+
+  return templates
+}
+
 const toolsDir = join(process.cwd(), "src/mcp/tools")
 const toolFiles = readdirSync(toolsDir)
   .filter((file) => file.endsWith(".ts") && file !== "index.ts" && file !== "registry.ts")
 
 const allTools = toolFiles.flatMap((file) => parseToolsFromFile(join(toolsDir, file)))
+const resourceTemplates = parseResourceTemplatesFromFile(join(process.cwd(), "src/mcp/resources.ts"))
 
 const categoryOrder = [
   "projects",
@@ -74,6 +96,9 @@ const appendCategory = (output, categoryName, tools) => {
   return `${nextOutput}\n`
 }
 
+const escapeTableCell = (value) =>
+  value.replace(/\|/g, "\\|").replace(/\n/g, " ")
+
 const generateToolsSection = () => {
   const categories = [
     ...categoryOrder.filter((category) => toolsByCategory.has(category)),
@@ -96,28 +121,56 @@ const generateToolsSection = () => {
   return output
 }
 
-const readmePath = join(process.cwd(), "README.md")
-const content = readFileSync(readmePath, "utf-8")
+const generateResourcesSection = () => {
+  let output =
+    "<!-- AUTO-GENERATED from src/mcp/resources.ts resourceTemplates. Do not edit manually. Run `pnpm update-readme` to regenerate. -->\n"
+  output += "| Template | Name | Description | MIME Type |\n"
+  output += "|----------|------|-------------|-----------|\n"
 
-const startMarker = "<!-- tools:start -->"
-const endMarker = "<!-- tools:end -->"
+  for (const resource of resourceTemplates) {
+    output +=
+      `| \`${resource.uriTemplate}\` | \`${resource.name}\` | ${escapeTableCell(resource.description)} | \`${resource.mimeType}\` |\n`
+  }
 
-const startIdx = content.indexOf(startMarker)
-const endIdx = content.indexOf(endMarker)
-
-if (startIdx === -1 || endIdx === -1) {
-  console.error("Error: Could not find tools markers in README.md")
-  console.error("Please add the following markers where you want the tools section:")
-  console.error("<!-- tools:start -->")
-  console.error("<!-- tools:end -->")
-  process.exit(1)
+  return output
 }
+
+const replaceGeneratedSection = (content, startMarker, endMarker, generated) => {
+  const startIdx = content.indexOf(startMarker)
+  const endIdx = content.indexOf(endMarker)
+
+  if (startIdx === -1 || endIdx === -1) {
+    console.error(`Error: Could not find ${startMarker} / ${endMarker} markers in README.md`)
+    console.error("Please add the following markers where you want the generated section:")
+    console.error(startMarker)
+    console.error(endMarker)
+    process.exit(1)
+  }
+
+  const before = content.substring(0, startIdx + startMarker.length)
+  const after = content.substring(endIdx)
+  return `${before}\n${generated}${after}`
+}
+
+const readmePath = join(process.cwd(), "README.md")
+let content = readFileSync(readmePath, "utf-8")
 
 const autoGenComment =
   "<!-- AUTO-GENERATED from src/mcp/tools/ descriptions. Do not edit manually. Run `pnpm update-readme` to regenerate. -->"
-const before = content.substring(0, startIdx + startMarker.length)
-const after = content.substring(endIdx)
-const newContent = `${before}\n${autoGenComment}\n${generateToolsSection()}${after}`
+content = replaceGeneratedSection(
+  content,
+  "<!-- resources:start -->",
+  "<!-- resources:end -->",
+  generateResourcesSection()
+)
+content = replaceGeneratedSection(
+  content,
+  "<!-- tools:start -->",
+  "<!-- tools:end -->",
+  `${autoGenComment}\n${generateToolsSection()}`
+)
 
-writeFileSync(readmePath, newContent, "utf-8")
-console.log(`✅ README.md updated with ${allTools.length} tools in ${toolsByCategory.size} categories`)
+writeFileSync(readmePath, content, "utf-8")
+console.log(
+  `✅ README.md updated with ${allTools.length} tools in ${toolsByCategory.size} categories and ${resourceTemplates.length} resource templates`
+)

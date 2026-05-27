@@ -9,10 +9,16 @@ import "./polyfills.js"
 
 import { NodeRuntime } from "@effect/platform-node"
 import type { ConfigError } from "effect"
-import { Config, Context, Effect, Exit, Layer, Option, Scope } from "effect"
+import { Config, Context, Effect, Exit, Layer, Option, Redacted, Scope } from "effect"
 import type { Request } from "express"
 
-import { type ConfigValidationError, hulyConfigProviderFromHeaders, HulyConfigService } from "./config/config.js"
+import {
+  type ConfigValidationError,
+  hulyConfigProviderFromHeaders,
+  HulyConfigService,
+  sanitizeHulyRuntimeConfigFromEnv,
+  sanitizeHulyRuntimeConfigFromHeaders
+} from "./config/config.js"
 import { HulyClient, type HulyClientError } from "./huly/client.js"
 import { HulyStorageClient, type StorageClientError } from "./huly/storage.js"
 import { WorkspaceClient, type WorkspaceClientError } from "./huly/workspace-client.js"
@@ -48,6 +54,8 @@ export const getHttpPort = Config.all({
 const getHttpHost = Config.string("MCP_HTTP_HOST").pipe(
   Config.withDefault("127.0.0.1")
 )
+
+export const getMcpAuthToken = Config.redacted("MCP_AUTH_TOKEN").pipe(Config.option)
 
 const getAutoExit = Config.boolean("MCP_AUTO_EXIT").pipe(
   Config.withDefault(false)
@@ -199,6 +207,7 @@ const buildAppLayer = (
   transport: McpTransportType,
   httpPort: number,
   httpHost: string,
+  mcpAuthToken: string | undefined,
   autoExit: boolean,
   authMethod: "token" | "password",
   resolveClients: () => Promise<ClientBundle>,
@@ -208,15 +217,20 @@ const buildAppLayer = (
   never,
   never
 > => {
-  const mcpServerLayer = McpServerService.layer({
+  const mcpServerConfig = {
     transport,
     httpPort,
     httpHost,
+    ...(mcpAuthToken === undefined ? {} : { mcpAuthToken }),
     autoExit,
     authMethod,
     resolveClients,
-    resolveClientsForHttpRequest
-  }).pipe(Layer.provide(TelemetryService.layer))
+    resolveClientsForHttpRequest,
+    getRuntimeConfigContext: () => sanitizeHulyRuntimeConfigFromEnv(process.env),
+    getRuntimeConfigContextForHttpRequest: (req: Request) =>
+      sanitizeHulyRuntimeConfigFromHeaders(req.headers, process.env)
+  }
+  const mcpServerLayer = McpServerService.layer(mcpServerConfig).pipe(Layer.provide(TelemetryService.layer))
 
   return Layer.merge(mcpServerLayer, HttpServerFactoryService.defaultLayer)
 }
@@ -225,6 +239,9 @@ export const main: Effect.Effect<void, AppError> = Effect.gen(function*() {
   const transport = yield* getTransportType
   const httpPort = yield* getHttpPort
   const httpHost = yield* getHttpHost
+  const mcpAuthToken = transport === "http"
+    ? Option.map(yield* getMcpAuthToken, Redacted.value).pipe(Option.getOrUndefined)
+    : undefined
   const autoExit = yield* getAutoExit
   const lazyEnvs = yield* getLazyEnvs
   const authMethod: "token" | "password" = process.env["HULY_TOKEN"] ? "token" : "password"
@@ -248,6 +265,7 @@ export const main: Effect.Effect<void, AppError> = Effect.gen(function*() {
     transport,
     httpPort,
     httpHost,
+    mcpAuthToken,
     autoExit,
     authMethod,
     resolveClients,

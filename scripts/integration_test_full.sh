@@ -203,6 +203,14 @@ run_test() {
     ERRORS="${ERRORS}\n  - ${name}: no response"
     return 1
   fi
+  local rpc_error
+  rpc_error=$(echo "$result" | jq -r '.error.message // empty' 2>/dev/null)
+  if [ -n "$rpc_error" ]; then
+    echo "FAIL: $name => $rpc_error"
+    FAILED=$((FAILED + 1))
+    ERRORS="${ERRORS}\n  - ${name}: ${rpc_error}"
+    return 1
+  fi
   local is_error
   is_error=$(echo "$result" | jq -r '.result.isError // false' 2>/dev/null)
   if [ "$is_error" = "true" ]; then
@@ -227,6 +235,14 @@ run_capture() {
     echo "FAIL: $name (no response)" >&2
     FAILED=$((FAILED + 1))
     ERRORS="${ERRORS}\n  - ${name}: no response"
+    return 1
+  fi
+  local rpc_error
+  rpc_error=$(echo "$result" | jq -r '.error.message // empty' 2>/dev/null)
+  if [ -n "$rpc_error" ]; then
+    echo "FAIL: $name => $rpc_error" >&2
+    FAILED=$((FAILED + 1))
+    ERRORS="${ERRORS}\n  - ${name}: ${rpc_error}"
     return 1
   fi
   local is_error
@@ -256,6 +272,15 @@ run_capture_to_var() {
     printf -v "$output_var" '%s' ""
     return 1
   fi
+  local rpc_error
+  rpc_error=$(echo "$result" | jq -r '.error.message // empty' 2>/dev/null)
+  if [ -n "$rpc_error" ]; then
+    echo "FAIL: $name => $rpc_error" >&2
+    FAILED=$((FAILED + 1))
+    ERRORS="${ERRORS}\n  - ${name}: ${rpc_error}"
+    printf -v "$output_var" '%s' ""
+    return 1
+  fi
   local is_error
   is_error=$(echo "$result" | jq -r '.result.isError // false' 2>/dev/null)
   if [ "$is_error" = "true" ]; then
@@ -270,6 +295,32 @@ run_capture_to_var() {
   echo "PASS: $name" >&2
   PASSED=$((PASSED + 1))
   printf -v "$output_var" '%s' "$(echo "$result" | jq -r '.result.content[0].text' 2>/dev/null)"
+  return 0
+}
+
+run_result_to_var() {
+  local output_var="$1" name="$2" payload="$3"
+  local result
+  result=$(call_tool "$payload")
+  if [ -z "$result" ]; then
+    echo "FAIL: $name (no response)" >&2
+    FAILED=$((FAILED + 1))
+    ERRORS="${ERRORS}\n  - ${name}: no response"
+    printf -v "$output_var" '%s' ""
+    return 1
+  fi
+  local rpc_error
+  rpc_error=$(echo "$result" | jq -r '.error.message // empty' 2>/dev/null)
+  if [ -n "$rpc_error" ]; then
+    echo "FAIL: $name => $rpc_error" >&2
+    FAILED=$((FAILED + 1))
+    ERRORS="${ERRORS}\n  - ${name}: ${rpc_error}"
+    printf -v "$output_var" '%s' ""
+    return 1
+  fi
+  echo "PASS: $name" >&2
+  PASSED=$((PASSED + 1))
+  printf -v "$output_var" '%s' "$(echo "$result" | jq -c '.result' 2>/dev/null)"
   return 0
 }
 
@@ -484,6 +535,22 @@ skip_test "delete_project" "would pollute workspace"
 echo ""
 
 ##############################
+# 1r. MCP RESOURCES
+##############################
+echo "=== 1r. MCP Resources ==="
+run_test "resources/templates/list" \
+  '{"jsonrpc":"2.0","method":"resources/templates/list","id":2}'
+RESOURCE_LIST_JSON=""
+if run_result_to_var RESOURCE_LIST_JSON "resources/list(projects)" \
+  '{"jsonrpc":"2.0","method":"resources/list","id":2}'; then
+  assert_json_field_equals "resources/list includes project($PROJECT)" "$RESOURCE_LIST_JSON" \
+    ".resources[]? | select(.uri == \"huly://projects/$PROJECT\") | .name" "$PROJECT"
+fi
+run_test "resources/read project($PROJECT)" \
+  "{\"jsonrpc\":\"2.0\",\"method\":\"resources/read\",\"params\":{\"uri\":\"huly://projects/$PROJECT\"},\"id\":2}"
+echo ""
+
+##############################
 # 1a. TASK MANAGEMENT (controlled workspace pollution)
 ##############################
 echo "=== 1a. Task Management ==="
@@ -633,6 +700,9 @@ if [ $? -eq 0 ]; then
   if [ $? -eq 0 ] && [ -n "$ISSUE_OBJ_ID" ]; then
     assert_json_field_equals "get_issue returns issueId" "$GET_ISSUE_TEXT" ".issueId" "$ISSUE_OBJ_ID"
   fi
+
+  run_test "resources/read issue($ISSUE_ID)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"resources/read\",\"params\":{\"uri\":\"huly://issues/$ISSUE_ID\"},\"id\":2}"
 
   run_capture_to_var LIST_ISSUES_TEXT "list_issues" \
     "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_issues\",\"arguments\":{\"project\":\"$PROJECT\",\"titleSearch\":\"IntTest Issue\",\"limit\":10}},\"id\":2}"

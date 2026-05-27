@@ -1,5 +1,11 @@
 # @firfi/huly-mcp
 
+## 0.17.1
+
+### Patch Changes
+
+- Restore npm executable metadata so `npx @firfi/huly-mcp@latest` resolves the server binary.
+
 ## 0.17.0
 
 ### Minor Changes

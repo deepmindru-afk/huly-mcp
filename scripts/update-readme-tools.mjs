@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 import { createRequire } from "node:module"
-import { readFileSync, readdirSync, writeFileSync } from "node:fs"
+import { existsSync, readFileSync, readdirSync, writeFileSync } from "node:fs"
 import { dirname, join, normalize, resolve } from "node:path"
 import ts from "typescript"
 
@@ -36,9 +36,12 @@ const resolveModulePath = (fromFile, specifier) => {
   const basePath = resolve(dirname(fromFile), specifier)
   if (basePath.endsWith(".js")) {
     const tsPath = `${basePath.slice(0, -3)}.ts`
-    return sourcePath(tsPath)
+    if (existsSync(tsPath)) return sourcePath(tsPath)
+    return sourcePath(join(basePath.slice(0, -3), "index.ts"))
   }
-  return sourcePath(`${basePath}.ts`)
+  const tsPath = `${basePath}.ts`
+  if (existsSync(tsPath)) return sourcePath(tsPath)
+  return sourcePath(join(basePath, "index.ts"))
 }
 
 const propertyNameText = (name) => {
@@ -53,6 +56,7 @@ const moduleBindingsFor = (filePath) => {
 
   const source = sourceFor(resolved)
   const bindings = new Map()
+  const exportStars = []
 
   for (const statement of source.statements) {
     if (ts.isImportDeclaration(statement) && ts.isStringLiteral(statement.moduleSpecifier)) {
@@ -77,18 +81,27 @@ const moduleBindingsFor = (filePath) => {
       }
     }
 
-    if (ts.isExportDeclaration(statement) && statement.exportClause !== undefined && ts.isNamedExports(statement.exportClause)) {
+    if (ts.isExportDeclaration(statement)) {
       const modulePath = statement.moduleSpecifier !== undefined && ts.isStringLiteral(statement.moduleSpecifier)
         ? resolveModulePath(resolved, statement.moduleSpecifier.text)
         : resolved
-      for (const element of statement.exportClause.elements) {
-        bindings.set(element.name.text, {
-          kind: "reExport",
-          exportedName: element.propertyName?.text ?? element.name.text,
-          modulePath
-        })
+
+      if (statement.exportClause !== undefined && ts.isNamedExports(statement.exportClause)) {
+        for (const element of statement.exportClause.elements) {
+          bindings.set(element.name.text, {
+            kind: "reExport",
+            exportedName: element.propertyName?.text ?? element.name.text,
+            modulePath
+          })
+        }
+      } else if (statement.exportClause === undefined && statement.moduleSpecifier !== undefined) {
+        exportStars.push(modulePath)
       }
     }
+  }
+
+  if (exportStars.length > 0) {
+    bindings.set("__exportStars", { kind: "exportStars", modulePaths: exportStars })
   }
 
   moduleBindingsCache.set(resolved, bindings)
@@ -101,7 +114,16 @@ const bindingValue = (filePath, name) => {
   if (bindingCache.has(cacheKey)) return bindingCache.get(cacheKey)
 
   const binding = moduleBindingsFor(resolved).get(name)
-  if (binding === undefined) return undefined
+  if (binding === undefined) {
+    const exportStars = moduleBindingsFor(resolved).get("__exportStars")
+    if (exportStars?.kind === "exportStars") {
+      for (const modulePath of exportStars.modulePaths) {
+        const value = bindingValue(modulePath, name)
+        if (value !== undefined) return value
+      }
+    }
+    return undefined
+  }
 
   let value
   switch (binding.kind) {

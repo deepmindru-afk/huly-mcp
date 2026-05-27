@@ -568,7 +568,7 @@ Resource roadmap:
 | `get_project_type` | Inspect one Huly tracker project type in a single call. Accepts projectType as ID or display name; when omitted, uses the unambiguous Classic tracker type. Returns task types, statuses, categories, and task-type-to-status mappings. |
 | `list_task_types` | List Huly issue/task types. Optionally filter by projectType ID or display name. Returns task type identity, parent project type, kind, issue class, and available status count. |
 | `create_task_type` | Add a Huly issue/task type to a project type idempotently by normalized name. Copies required workflow configuration from an existing template task type unless templateTaskType is supplied. Returns created, IDs, affected task type IDs, and a workspace-level workflow warning. |
-| `create_issue_status` | Add a Huly issue workflow status idempotently by normalized name within a project type and task type scope. Accepts category as a Huly workflow status category ref: undefined; taskType may be ID or display name, and omission applies the status to every task type in the project type. |
+| `create_issue_status` | Add a Huly issue workflow status idempotently by normalized name within a project type and task type scope. Accepts category as a Huly workflow status category ref: task:statusCategory:UnStarted, task:statusCategory:ToDo, task:statusCategory:Active, task:statusCategory:Won, task:statusCategory:Lost; taskType may be ID or display name, and omission applies the status to every task type in the project type. |
 
 ### Test-Management
 

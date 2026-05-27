@@ -386,7 +386,7 @@ describe("Domain Schemas", () => {
       Effect.gen(function*() {
         const result = yield* parseListIssuesParams({
           project: "HULY",
-          statusCategory: "Active"
+          statusCategory: "active"
         })
         expect(result.statusCategory).toBe("Active")
       }))

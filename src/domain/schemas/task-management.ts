@@ -1,7 +1,8 @@
 import type { Ref, StatusCategory } from "@hcengineering/core"
-import { JSONSchema, Schema } from "effect"
+import { JSONSchema, ParseResult, Schema } from "effect"
 
 import { task } from "../../huly/huly-plugins.js"
+import { normalizeForComparison } from "../../utils/normalize.js"
 import { enumValuesDescription, IssueStatusId, NonEmptyString, ProjectTypeId, TaskTypeId } from "./shared.js"
 
 export const StatusCategoryBySdkKey = {
@@ -53,7 +54,31 @@ const UnknownStatusCategoryValue = "unknown"
 export const StatusCategoryValueSchema = Schema.Literal(...StatusCategoryValues, UnknownStatusCategoryValue)
 export type StatusCategoryValue = Schema.Schema.Type<typeof StatusCategoryValueSchema>
 
-export const KnownStatusCategoryValueSchema = Schema.Literal(...StatusCategoryValues)
+const KnownStatusCategoryValueLiteral = Schema.Literal(...StatusCategoryValues)
+const normalizedStatusCategoryLookup = new Map(
+  StatusCategoryValues.map((value) => [normalizeForComparison(value), value] as const)
+)
+
+export const KnownStatusCategoryValueSchema = Schema.transformOrFail(
+  Schema.String,
+  KnownStatusCategoryValueLiteral,
+  {
+    strict: true,
+    decode: (input, _options, ast) => {
+      const match = normalizedStatusCategoryLookup.get(normalizeForComparison(input))
+      return match !== undefined
+        ? ParseResult.succeed(match)
+        : ParseResult.fail(
+          new ParseResult.Type(ast, input, `Expected one of: ${enumValuesDescription(StatusCategoryValues)}`)
+        )
+    },
+    encode: ParseResult.succeed
+  }
+).annotations({
+  title: "KnownStatusCategoryValue",
+  description: `Huly SDK task.statusCategory key: ${enumValuesDescription(StatusCategoryValues)}`,
+  jsonSchema: { type: "string", enum: [...StatusCategoryValues] }
+})
 export type KnownStatusCategoryValue = Schema.Schema.Type<typeof KnownStatusCategoryValueSchema>
 
 export const CreateStatusCategoryValueSchema = KnownStatusCategoryValueSchema

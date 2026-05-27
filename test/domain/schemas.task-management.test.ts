@@ -30,6 +30,13 @@ describe("task management schemas", () => {
       expect(result._tag).toBe("Left")
     }))
 
+  it.effect("normalizes create_issue_status category casing", () =>
+    Effect.gen(function*() {
+      const result = yield* parseCreateIssueStatusParams({ name: "QA", category: "active" })
+
+      expect(result.category).toBe("Active")
+    }))
+
   it.effect("exposes the create_issue_status category enum in JSON schema", () =>
     Effect.gen(function*() {
       expect(JSON.stringify(createIssueStatusParamsJsonSchema)).toContain("UnStarted")

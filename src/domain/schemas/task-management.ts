@@ -12,13 +12,42 @@ export const StatusCategoryBySdkKey = {
   Lost: task.statusCategory.Lost
 } satisfies Record<keyof typeof task.statusCategory, Ref<StatusCategory>>
 
-export const StatusCategoryValues = [
-  StatusCategoryBySdkKey.UnStarted,
-  StatusCategoryBySdkKey.ToDo,
-  StatusCategoryBySdkKey.Active,
-  StatusCategoryBySdkKey.Won,
-  StatusCategoryBySdkKey.Lost
-] as const
+export const StatusCategoryKeys = [
+  "UnStarted",
+  "ToDo",
+  "Active",
+  "Won",
+  "Lost"
+] as const satisfies ReadonlyArray<keyof typeof task.statusCategory>
+
+type StatusCategoryKey = typeof StatusCategoryKeys[number]
+type ExactStatusCategoryKeys = [keyof typeof task.statusCategory] extends [StatusCategoryKey]
+  ? [StatusCategoryKey] extends [keyof typeof task.statusCategory] ? true : never
+  : never
+
+const exactStatusCategoryKeys = <T extends true>(value: T): T => value
+exactStatusCategoryKeys<ExactStatusCategoryKeys>(true)
+
+export const StatusCategoryEntries = [
+  { key: "UnStarted", ref: StatusCategoryBySdkKey.UnStarted },
+  { key: "ToDo", ref: StatusCategoryBySdkKey.ToDo },
+  { key: "Active", ref: StatusCategoryBySdkKey.Active },
+  { key: "Won", ref: StatusCategoryBySdkKey.Won },
+  { key: "Lost", ref: StatusCategoryBySdkKey.Lost }
+] as const satisfies ReadonlyArray<{
+  readonly key: keyof typeof task.statusCategory
+  readonly ref: Ref<StatusCategory>
+}>
+
+type StatusCategoryEntryKey = typeof StatusCategoryEntries[number]["key"]
+type ExactStatusCategoryEntries = [keyof typeof task.statusCategory] extends [StatusCategoryEntryKey]
+  ? [StatusCategoryEntryKey] extends [keyof typeof task.statusCategory] ? true : never
+  : never
+
+const exactStatusCategoryEntries = <T extends true>(value: T): T => value
+exactStatusCategoryEntries<ExactStatusCategoryEntries>(true)
+
+export const StatusCategoryValues = StatusCategoryKeys
 const UnknownStatusCategoryValue = "unknown"
 
 export const StatusCategoryValueSchema = Schema.Literal(...StatusCategoryValues, UnknownStatusCategoryValue)
@@ -128,7 +157,7 @@ export const CreateIssueStatusParamsSchema = Schema.Struct({
   })),
   name: NonEmptyString.annotations({ description: "Display name for the workflow status to add." }),
   category: CreateStatusCategoryValueSchema.annotations({
-    description: `Huly workflow status category ref: ${enumValuesDescription(StatusCategoryValues)}.`
+    description: `Huly SDK task.statusCategory key: ${enumValuesDescription(StatusCategoryValues)}.`
   }),
   taskType: Schema.optional(TaskTypeRefSchema.annotations({
     description:

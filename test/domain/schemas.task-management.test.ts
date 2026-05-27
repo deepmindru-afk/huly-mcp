@@ -6,8 +6,7 @@ import {
   createIssueStatusParamsJsonSchema,
   parseCreateIssueStatusParams,
   parseCreateTaskTypeParams,
-  parseGetProjectTypeParams,
-  StatusCategoryBySdkKey
+  parseGetProjectTypeParams
 } from "../../src/domain/schemas.js"
 
 describe("task management schemas", () => {
@@ -33,8 +32,8 @@ describe("task management schemas", () => {
 
   it.effect("exposes the create_issue_status category enum in JSON schema", () =>
     Effect.gen(function*() {
-      expect(JSON.stringify(createIssueStatusParamsJsonSchema)).toContain(StatusCategoryBySdkKey.UnStarted)
-      expect(JSON.stringify(createIssueStatusParamsJsonSchema)).toContain(StatusCategoryBySdkKey.Lost)
+      expect(JSON.stringify(createIssueStatusParamsJsonSchema)).toContain("UnStarted")
+      expect(JSON.stringify(createIssueStatusParamsJsonSchema)).toContain("Lost")
       expect(JSON.stringify(createIssueStatusParamsJsonSchema)).not.toContain("unknown")
     }))
 })

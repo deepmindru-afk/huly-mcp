@@ -7,7 +7,7 @@ import { Effect } from "effect"
 import type { IssuePriority as IssuePriorityStr } from "../../domain/schemas/issues.js"
 import type { NonNegativeNumber } from "../../domain/schemas/shared.js"
 import { PositiveNumber } from "../../domain/schemas/shared.js"
-import { StatusCategoryBySdkKey, type StatusCategoryValue } from "../../domain/schemas/task-management.js"
+import { StatusCategoryEntries, type StatusCategoryValue } from "../../domain/schemas/task-management.js"
 import { normalizeForComparison } from "../../utils/normalize.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import { InvalidStatusError, IssueNotFoundError, ProjectNotFoundError } from "../errors.js"
@@ -52,22 +52,10 @@ export type WorkflowStatus = {
 
 const statusCategoryValueFromRef = (
   category: Ref<StatusCategory> | undefined
-): StatusCategoryValue => {
-  switch (category) {
-    case task.statusCategory.UnStarted:
-      return StatusCategoryBySdkKey.UnStarted
-    case task.statusCategory.ToDo:
-      return StatusCategoryBySdkKey.ToDo
-    case task.statusCategory.Active:
-      return StatusCategoryBySdkKey.Active
-    case task.statusCategory.Won:
-      return StatusCategoryBySdkKey.Won
-    case task.statusCategory.Lost:
-      return StatusCategoryBySdkKey.Lost
-    default:
-      return "unknown"
-  }
-}
+): StatusCategoryValue =>
+  category === undefined
+    ? "unknown"
+    : StatusCategoryEntries.find((entry) => entry.ref === category)?.key ?? "unknown"
 
 const workflowStatusFromDoc = (doc: Status): WorkflowStatus => {
   return {

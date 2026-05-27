@@ -49,7 +49,6 @@ import {
   parseUpdateUserProfileParams,
   startProcessParamsJsonSchema,
   startTimerParamsJsonSchema,
-  StatusCategoryBySdkKey,
   stopTimerParamsJsonSchema,
   updateCardParamsJsonSchema,
   updateGuestSettingsParamsJsonSchema,
@@ -387,9 +386,9 @@ describe("Domain Schemas", () => {
       Effect.gen(function*() {
         const result = yield* parseListIssuesParams({
           project: "HULY",
-          statusCategory: StatusCategoryBySdkKey.Active
+          statusCategory: "Active"
         })
-        expect(result.statusCategory).toBe(StatusCategoryBySdkKey.Active)
+        expect(result.statusCategory).toBe("Active")
       }))
 
     it.effect("rejects invented statusCategory values", () =>
@@ -403,7 +402,7 @@ describe("Domain Schemas", () => {
     it.effect("rejects status and statusCategory together", () =>
       Effect.gen(function*() {
         const error = yield* Effect.flip(
-          parseListIssuesParams({ project: "HULY", status: "Open", statusCategory: StatusCategoryBySdkKey.Active })
+          parseListIssuesParams({ project: "HULY", status: "Open", statusCategory: "Active" })
         )
         expect(error._tag).toBe("ParseError")
       }))

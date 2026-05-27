@@ -419,7 +419,7 @@ describe("Issues Coverage - listIssues status filters", () => {
         captureIssueQuery: captureQuery
       })
 
-      yield* listIssues({ project: projectIdentifier("TEST"), statusCategory: task.statusCategory.Active }).pipe(
+      yield* listIssues({ project: projectIdentifier("TEST"), statusCategory: "Active" }).pipe(
         Effect.provide(testLayer)
       )
 
@@ -449,7 +449,7 @@ describe("Issues Coverage - listIssues status filters", () => {
         captureIssueQuery: captureQuery
       })
 
-      yield* listIssues({ project: projectIdentifier("TEST"), statusCategory: task.statusCategory.ToDo }).pipe(
+      yield* listIssues({ project: projectIdentifier("TEST"), statusCategory: "ToDo" }).pipe(
         Effect.provide(testLayer)
       )
 
@@ -474,7 +474,7 @@ describe("Issues Coverage - listIssues status filters", () => {
 
       const error = yield* listIssues({
         project: projectIdentifier("TEST"),
-        statusCategory: task.statusCategory.Active
+        statusCategory: "Active"
       }).pipe(
         Effect.provide(testLayer),
         Effect.flip
@@ -512,7 +512,7 @@ describe("Issues Coverage - listIssues status filters", () => {
         captureIssueQuery: captureQuery
       })
 
-      yield* listIssues({ project: projectIdentifier("TEST"), statusCategory: task.statusCategory.Won }).pipe(
+      yield* listIssues({ project: projectIdentifier("TEST"), statusCategory: "Won" }).pipe(
         Effect.provide(testLayer)
       )
 
@@ -539,7 +539,7 @@ describe("Issues Coverage - listIssues status filters", () => {
         statuses
       })
 
-      const result = yield* listIssues({ project: projectIdentifier("TEST"), statusCategory: task.statusCategory.Won })
+      const result = yield* listIssues({ project: projectIdentifier("TEST"), statusCategory: "Won" })
         .pipe(
           Effect.provide(testLayer)
         )
@@ -575,7 +575,7 @@ describe("Issues Coverage - listIssues status filters", () => {
         captureIssueQuery: captureQuery
       })
 
-      yield* listIssues({ project: projectIdentifier("TEST"), statusCategory: task.statusCategory.Lost }).pipe(
+      yield* listIssues({ project: projectIdentifier("TEST"), statusCategory: "Lost" }).pipe(
         Effect.provide(testLayer)
       )
 
@@ -602,7 +602,7 @@ describe("Issues Coverage - listIssues status filters", () => {
         statuses
       })
 
-      const result = yield* listIssues({ project: projectIdentifier("TEST"), statusCategory: task.statusCategory.Lost })
+      const result = yield* listIssues({ project: projectIdentifier("TEST"), statusCategory: "Lost" })
         .pipe(
           Effect.provide(testLayer)
         )

@@ -137,7 +137,7 @@ const ListIssuesParamsBase = Schema.Struct({
     description: "Filter by exact workflow status name. Does not accept category aliases."
   })),
   statusCategory: Schema.optional(KnownStatusCategoryValueSchema.annotations({
-    description: `Filter by Huly workflow status category: ${
+    description: `Filter by Huly SDK task.statusCategory key: ${
       enumValuesDescription(StatusCategoryValues)
     }. Use status for exact project-specific status names.`
   })),

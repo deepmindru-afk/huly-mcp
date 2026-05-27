@@ -161,6 +161,8 @@ export {
   type ProjectTypeSummary,
   ProjectTypeSummarySchema,
   StatusCategoryBySdkKey,
+  StatusCategoryEntries,
+  StatusCategoryKeys,
   type StatusCategorySummary,
   StatusCategorySummarySchema,
   type StatusCategoryValue,

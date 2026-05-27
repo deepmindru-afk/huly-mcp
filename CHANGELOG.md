@@ -1,5 +1,13 @@
 # @firfi/huly-mcp
 
+## 0.18.0
+
+### Minor Changes
+
+- Add card endpoint locators for generic association relations.
+
+  Card locators now work with `list_relations`, `create_relation`, and `delete_relation`, including global card ID resolution, card-space-scoped title lookup, typed endpoint validation, and integration coverage.
+
 ## 0.17.2
 
 ### Patch Changes

@@ -1,5 +1,13 @@
 # @firfi/huly-mcp
 
+## 0.18.1
+
+### Patch Changes
+
+- Fix markdown conversion for Huly documents containing inline-comment marks.
+
+  Document markdown output now preserves the commented text while omitting Huly's inline-comment metadata until upstream markdown serialization supports that mark directly.
+
 ## 0.18.0
 
 ### Minor Changes

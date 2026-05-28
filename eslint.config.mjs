@@ -119,6 +119,14 @@ export default [
         selector: "TSAsExpression:not([typeAnnotation.typeName.name='const'])",
         message: "Type assertion (as T) is banned. Use Effect Schema decode, satisfies, or restructure code to avoid the cast. If truly unavoidable at an SDK boundary, add eslint-disable with justification."
       }],
+      "no-restricted-imports": ["error", {
+        paths: [{
+          name: "@hcengineering/text",
+          importNames: ["traverseAllMarks"],
+          message:
+            "Use traverseAllMarks from src/huly/operations/markup-traversal.ts so visitor arguments are readonly in application code."
+        }]
+      }],
 
       // Code quality
       "object-shorthand": "error",

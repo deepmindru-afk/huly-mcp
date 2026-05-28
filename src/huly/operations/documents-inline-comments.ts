@@ -10,8 +10,8 @@
 import type { ChatMessage, ThreadMessage as HulyThreadMessage } from "@hcengineering/chunter"
 import type { PersonId } from "@hcengineering/core"
 import { SortingOrder } from "@hcengineering/core"
-import type { MarkupMark, MarkupNode } from "@hcengineering/text"
-import { markupToJSON, traverseAllMarks } from "@hcengineering/text"
+import type { MarkupNode } from "@hcengineering/text"
+import { markupToJSON } from "@hcengineering/text"
 import { Effect } from "effect"
 
 import type { ListInlineCommentsParams } from "../../domain/schemas.js"
@@ -26,10 +26,10 @@ import type { DocumentNotFoundError, TeamspaceNotFoundError } from "../errors.js
 import { chunter } from "../huly-plugins.js"
 import { buildSocialIdToPersonNameMap } from "./channels.js"
 import { findTeamspaceAndDocument } from "./documents.js"
+import { isInlineCommentMark } from "./inline-comment-mark.js"
+import { traverseAllMarks } from "./markup-traversal.js"
 import { optionalMarkupToMarkdown } from "./markup.js"
 import { toRef } from "./sdk-boundary.js"
-
-const INLINE_COMMENT_MARK_TYPE = "inline-comment"
 
 interface ExtractedComment {
   readonly threadId: string
@@ -43,9 +43,8 @@ interface ExtractedComment {
 export const extractInlineComments = (root: MarkupNode): ReadonlyArray<ExtractedComment> => {
   const threadMap = new Map<string, Array<string>>()
 
-  traverseAllMarks(root, (textNode: MarkupNode, mark: MarkupMark) => {
-    if (String(mark.type) !== INLINE_COMMENT_MARK_TYPE) return
-    // MarkupMark.attrs is Record<string, any> | undefined per SDK types
+  traverseAllMarks(root, (textNode, mark) => {
+    if (!isInlineCommentMark(mark)) return
     const threadId = mark.attrs?.thread
     if (typeof threadId !== "string" || threadId === "") return
 

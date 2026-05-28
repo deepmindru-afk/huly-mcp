@@ -11,7 +11,7 @@ import type { ChatMessage, ThreadMessage as HulyThreadMessage } from "@hcenginee
 import type { PersonId } from "@hcengineering/core"
 import { SortingOrder } from "@hcengineering/core"
 import type { MarkupNode } from "@hcengineering/text"
-import { markupToJSON, traverseAllMarks } from "@hcengineering/text"
+import { markupToJSON } from "@hcengineering/text"
 import { Effect } from "effect"
 
 import type { ListInlineCommentsParams } from "../../domain/schemas.js"
@@ -27,32 +27,13 @@ import { chunter } from "../huly-plugins.js"
 import { buildSocialIdToPersonNameMap } from "./channels.js"
 import { findTeamspaceAndDocument } from "./documents.js"
 import { isInlineCommentMark } from "./inline-comment-mark.js"
+import { traverseAllMarks } from "./markup-traversal.js"
 import { optionalMarkupToMarkdown } from "./markup.js"
 import { toRef } from "./sdk-boundary.js"
 
 interface ExtractedComment {
   readonly threadId: string
   readonly textFragments: Array<string>
-}
-
-type ReadonlyMarkupMark = {
-  readonly type: unknown
-  readonly attrs?: Readonly<Record<string, unknown>>
-}
-
-type ReadonlyMarkupNode = Readonly<Omit<MarkupNode, "attrs" | "content" | "marks">> & {
-  readonly attrs?: Readonly<Record<string, unknown>>
-  readonly content?: ReadonlyArray<ReadonlyMarkupNode>
-  readonly marks?: ReadonlyArray<ReadonlyMarkupMark>
-}
-
-const traverseReadonlyMarks = (
-  root: MarkupNode,
-  visit: (node: ReadonlyMarkupNode, mark: ReadonlyMarkupMark) => void
-): void => {
-  traverseAllMarks(root, (node, mark) => {
-    visit(node, mark)
-  })
 }
 
 /**
@@ -62,7 +43,7 @@ const traverseReadonlyMarks = (
 export const extractInlineComments = (root: MarkupNode): ReadonlyArray<ExtractedComment> => {
   const threadMap = new Map<string, Array<string>>()
 
-  traverseReadonlyMarks(root, (textNode, mark) => {
+  traverseAllMarks(root, (textNode, mark) => {
     if (!isInlineCommentMark(mark)) return
     const threadId = mark.attrs?.thread
     if (typeof threadId !== "string" || threadId === "") return

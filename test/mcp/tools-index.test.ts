@@ -141,6 +141,24 @@ describe("createFilteredRegistry", () => {
         expect(tool.category).toBe("user-statuses")
       }
     }))
+
+  it.effect("registers saved-document tools under documents with compatible input schemas", () =>
+    Effect.gen(function*() {
+      const filtered = createFilteredRegistry(new Set(["documents"]))
+      const savedDocumentTools = filtered.definitions.filter((tool) =>
+        ["save_document", "unsave_document", "list_saved_documents"].includes(tool.name)
+      )
+
+      expect(savedDocumentTools.map((tool) => tool.name).sort()).toEqual([
+        "list_saved_documents",
+        "save_document",
+        "unsave_document"
+      ])
+      for (const tool of savedDocumentTools) {
+        expect(tool.category).toBe("documents")
+        expect(tool.inputSchema).toMatchObject({ type: "object" })
+      }
+    }))
 })
 
 describe("handleToolCall", () => {

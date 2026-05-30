@@ -141,7 +141,7 @@ The full suite tests CRUD lifecycles with cleanup for all domains:
 | 4. Milestones | create, list, get, update, delete, set_issue_milestone | CRUD + assignment |
 | 5. Templates | create, list, get, update, delete, add_template_child, remove_template_child, create_issue_from_template | Full lifecycle including children |
 | 6. Labels & Tags | create/list/update/delete tag_category, create/list/update/delete label | Full CRUD for both |
-| 7. Documents | list_teamspaces, create/list/get/update/delete document, list_inline_comments | Full CRUD + inline comments |
+| 7. Documents | list_teamspaces, create/list/get/update/delete document, save/unsave/list saved documents, list_inline_comments | Full CRUD + inline comments + saved-document idempotency |
 | 8. Teamspaces | create, get, update, delete | Full CRUD |
 | 9. Channels | list, get, messages, DMs, DM messages (list/send/update/delete), create channel, send_message, thread replies (add/list/update/delete), reactions (add/list/remove), save/unsave, update/delete channel | Channel messaging in temp channel (deleted at end); DM message test cleans up its own message and requires `HULY_TEST_DM_ID` or at least one existing DM |
 | 10. Contacts | list_persons, list_employees, list_organizations, get_user_profile, create/update/delete person | CRUD (create_organization skipped — no delete tool) |

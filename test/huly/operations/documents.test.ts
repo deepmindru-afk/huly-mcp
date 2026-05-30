@@ -1,6 +1,10 @@
 import { describe, it } from "@effect/vitest"
 import { type Doc, type MarkupBlobRef, type PersonId, type Ref, type Space, toFindResult } from "@hcengineering/core"
-import type { Document as HulyDocument, Teamspace as HulyTeamspace } from "@hcengineering/document"
+import type {
+  Document as HulyDocument,
+  SavedDocument as HulySavedDocument,
+  Teamspace as HulyTeamspace
+} from "@hcengineering/document"
 import { Effect } from "effect"
 import { expect } from "vitest"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
@@ -11,6 +15,7 @@ import type {
   DocumentTextNotFoundError,
   TeamspaceNotFoundError
 } from "../../../src/huly/errors.js"
+import { listSavedDocuments, saveDocument, unsaveDocument } from "../../../src/huly/operations/documents-saved.js"
 import {
   createDocument,
   createTeamspace,
@@ -63,11 +68,25 @@ const makeDocument = (overrides?: Partial<HulyDocument>): HulyDocument => {
   return result
 }
 
+// eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- mock builder
+const makeSavedDocument = (overrides?: Partial<HulySavedDocument>): HulySavedDocument => ({
+  _id: "saved-1" as Ref<HulySavedDocument>,
+  _class: documentPlugin.class.SavedDocument,
+  space: "workspace" as Ref<Space>,
+  attachedTo: "doc-1" as Ref<HulyDocument>,
+  modifiedBy: "user-1" as PersonId,
+  modifiedOn: 0,
+  createdBy: "user-1" as PersonId,
+  createdOn: 0,
+  ...overrides
+} as HulySavedDocument)
+
 // --- Test Helpers ---
 
 interface MockConfig {
   teamspaces?: Array<HulyTeamspace>
   documents?: Array<HulyDocument>
+  savedDocuments?: Array<HulySavedDocument>
   markupContent?: Record<string, string>
   captureDocumentQuery?: { query?: Record<string, unknown>; options?: Record<string, unknown> }
   captureCreateDoc?: { attributes?: Record<string, unknown>; id?: string }
@@ -80,6 +99,7 @@ interface MockConfig {
 const createTestLayerWithMocks = (config: MockConfig) => {
   const teamspaces = config.teamspaces ?? []
   const documents = config.documents ?? []
+  const savedDocuments = config.savedDocuments ?? []
 
   const findAllImpl: HulyClientOperations["findAll"] = ((_class: unknown, query: unknown, options: unknown) => {
     if (_class === documentPlugin.class.Teamspace) {
@@ -109,6 +129,18 @@ const createTestLayerWithMocks = (config: MockConfig) => {
       }
       return Effect.succeed(toFindResult(filtered as Array<Doc>))
     }
+    if (_class === documentPlugin.class.SavedDocument) {
+      const opts = options as { limit?: number; sort?: Record<string, number> } | undefined
+      let filtered = [...savedDocuments]
+      if (opts?.sort?.modifiedOn !== undefined) {
+        const direction = opts.sort.modifiedOn
+        filtered = filtered.sort((a, b) => direction * (a.modifiedOn - b.modifiedOn))
+      }
+      if (opts?.limit !== undefined) {
+        filtered = filtered.slice(0, opts.limit)
+      }
+      return Effect.succeed(toFindResult(filtered as Array<Doc>))
+    }
     return Effect.succeed(toFindResult([]))
   }) as HulyClientOperations["findAll"]
 
@@ -129,8 +161,14 @@ const createTestLayerWithMocks = (config: MockConfig) => {
       const found = documents.find(d =>
         (q.space && q.title && d.space === q.space && d.title === q.title)
         || (q.space && q._id && d.space === q.space && d._id === q._id)
+        || (!q.space && q._id && d._id === q._id)
         || (q.space && !q.title && !q._id && d.space === q.space)
       )
+      return Effect.succeed(found)
+    }
+    if (_class === documentPlugin.class.SavedDocument) {
+      const q = query as Record<string, unknown>
+      const found = savedDocuments.find(saved => saved.attachedTo === q.attachedTo)
       return Effect.succeed(found)
     }
     return Effect.succeed(undefined)
@@ -356,6 +394,229 @@ describe("listDocuments", () => {
         expect(captureQuery.options?.limit).toBe(200)
       }))
   })
+})
+
+describe("saved documents", () => {
+  it.effect("saveDocument creates a saved preference for an existing document", () =>
+    Effect.gen(function*() {
+      const teamspace = makeTeamspace({ _id: "ts-1" as Ref<HulyTeamspace>, name: "My Docs" })
+      const doc = makeDocument({
+        _id: "doc-1" as Ref<HulyDocument>,
+        title: "Design Notes",
+        space: "ts-1" as Ref<HulyTeamspace>
+      })
+      const captureCreateDoc: MockConfig["captureCreateDoc"] = {}
+
+      const testLayer = createTestLayerWithMocks({
+        teamspaces: [teamspace],
+        documents: [doc],
+        captureCreateDoc
+      })
+
+      const result = yield* saveDocument({
+        teamspace: teamspaceIdentifier("My Docs"),
+        document: documentIdentifier("Design Notes")
+      }).pipe(Effect.provide(testLayer))
+
+      expect(result.documentId).toBe("doc-1")
+      expect(result.created).toBe(true)
+      expect(result.savedId).toBeDefined()
+      expect(captureCreateDoc.attributes?.attachedTo).toBe("doc-1")
+    }))
+
+  it.effect("saveDocument returns an existing saved preference without creating a duplicate", () =>
+    Effect.gen(function*() {
+      const teamspace = makeTeamspace({ _id: "ts-1" as Ref<HulyTeamspace>, name: "My Docs" })
+      const doc = makeDocument({
+        _id: "doc-1" as Ref<HulyDocument>,
+        title: "Design Notes",
+        space: "ts-1" as Ref<HulyTeamspace>
+      })
+      const saved = makeSavedDocument({
+        _id: "saved-existing" as Ref<HulySavedDocument>,
+        attachedTo: "doc-1" as Ref<HulyDocument>
+      })
+      const captureCreateDoc: MockConfig["captureCreateDoc"] = {}
+
+      const testLayer = createTestLayerWithMocks({
+        teamspaces: [teamspace],
+        documents: [doc],
+        savedDocuments: [saved],
+        captureCreateDoc
+      })
+
+      const result = yield* saveDocument({
+        teamspace: teamspaceIdentifier("My Docs"),
+        document: documentIdentifier("doc-1")
+      }).pipe(Effect.provide(testLayer))
+
+      expect(result).toEqual({
+        savedId: "saved-existing",
+        documentId: "doc-1",
+        created: false
+      })
+      expect(captureCreateDoc.attributes).toBeUndefined()
+    }))
+
+  it.effect("saveDocument returns existing teamspace/document not-found errors", () =>
+    Effect.gen(function*() {
+      const teamspace = makeTeamspace({ _id: "ts-1" as Ref<HulyTeamspace>, name: "My Docs" })
+      const testLayerWithoutTeamspace = createTestLayerWithMocks({ teamspaces: [], documents: [] })
+      const testLayerWithoutDocument = createTestLayerWithMocks({ teamspaces: [teamspace], documents: [] })
+
+      const teamspaceError = yield* Effect.flip(
+        saveDocument({
+          teamspace: teamspaceIdentifier("Missing"),
+          document: documentIdentifier("Design Notes")
+        }).pipe(Effect.provide(testLayerWithoutTeamspace))
+      )
+      const documentError = yield* Effect.flip(
+        saveDocument({
+          teamspace: teamspaceIdentifier("My Docs"),
+          document: documentIdentifier("Missing")
+        }).pipe(Effect.provide(testLayerWithoutDocument))
+      )
+
+      expect(teamspaceError._tag).toBe("TeamspaceNotFoundError")
+      expect(documentError._tag).toBe("DocumentNotFoundError")
+    }))
+
+  it.effect("unsaveDocument removes an existing saved preference", () =>
+    Effect.gen(function*() {
+      const teamspace = makeTeamspace({ _id: "ts-1" as Ref<HulyTeamspace>, name: "My Docs" })
+      const doc = makeDocument({
+        _id: "doc-1" as Ref<HulyDocument>,
+        title: "Design Notes",
+        space: "ts-1" as Ref<HulyTeamspace>
+      })
+      const saved = makeSavedDocument({
+        _id: "saved-1" as Ref<HulySavedDocument>,
+        attachedTo: "doc-1" as Ref<HulyDocument>
+      })
+      const captureRemoveDoc: MockConfig["captureRemoveDoc"] = {}
+
+      const testLayer = createTestLayerWithMocks({
+        teamspaces: [teamspace],
+        documents: [doc],
+        savedDocuments: [saved],
+        captureRemoveDoc
+      })
+
+      const result = yield* unsaveDocument({
+        teamspace: teamspaceIdentifier("My Docs"),
+        document: documentIdentifier("Design Notes")
+      }).pipe(Effect.provide(testLayer))
+
+      expect(result).toEqual({
+        documentId: "doc-1",
+        removed: true
+      })
+      expect(captureRemoveDoc.id).toBe("saved-1")
+    }))
+
+  it.effect("unsaveDocument returns removed=false when no saved preference exists", () =>
+    Effect.gen(function*() {
+      const teamspace = makeTeamspace({ _id: "ts-1" as Ref<HulyTeamspace>, name: "My Docs" })
+      const doc = makeDocument({
+        _id: "doc-1" as Ref<HulyDocument>,
+        title: "Design Notes",
+        space: "ts-1" as Ref<HulyTeamspace>
+      })
+      const captureRemoveDoc: MockConfig["captureRemoveDoc"] = {}
+
+      const testLayer = createTestLayerWithMocks({
+        teamspaces: [teamspace],
+        documents: [doc],
+        captureRemoveDoc
+      })
+
+      const result = yield* unsaveDocument({
+        teamspace: teamspaceIdentifier("My Docs"),
+        document: documentIdentifier("Design Notes")
+      }).pipe(Effect.provide(testLayer))
+
+      expect(result).toEqual({
+        documentId: "doc-1",
+        removed: false
+      })
+      expect(captureRemoveDoc.id).toBeUndefined()
+    }))
+
+  it.effect("listSavedDocuments returns hydrated document summaries with URL and teamspace", () =>
+    Effect.gen(function*() {
+      const teamspace = makeTeamspace({ _id: "ts-1" as Ref<HulyTeamspace>, name: "My Docs" })
+      const doc = makeDocument({
+        _id: "doc-1" as Ref<HulyDocument>,
+        title: "Design Notes",
+        space: "ts-1" as Ref<HulyTeamspace>,
+        modifiedOn: 1234
+      })
+      const saved = makeSavedDocument({
+        _id: "saved-1" as Ref<HulySavedDocument>,
+        attachedTo: "doc-1" as Ref<HulyDocument>
+      })
+
+      const testLayer = createTestLayerWithMocks({
+        teamspaces: [teamspace],
+        documents: [doc],
+        savedDocuments: [saved]
+      })
+
+      const result = yield* listSavedDocuments({}).pipe(Effect.provide(testLayer))
+
+      expect(result.total).toBe(1)
+      expect(result.documents[0]).toMatchObject({
+        savedId: "saved-1",
+        documentId: "doc-1",
+        title: "Design Notes",
+        teamspace: "My Docs",
+        modifiedOn: 1234
+      })
+      expect(result.documents[0]?.url).toContain("doc-1")
+    }))
+
+  it.effect("listSavedDocuments respects limit and skips stale saved refs", () =>
+    Effect.gen(function*() {
+      const teamspace = makeTeamspace({ _id: "ts-1" as Ref<HulyTeamspace>, name: "My Docs" })
+      const visibleDoc = makeDocument({
+        _id: "doc-visible" as Ref<HulyDocument>,
+        title: "Visible",
+        space: "ts-1" as Ref<HulyTeamspace>
+      })
+      const skippedDoc = makeDocument({
+        _id: "doc-skipped-by-limit" as Ref<HulyDocument>,
+        title: "Skipped",
+        space: "ts-1" as Ref<HulyTeamspace>
+      })
+      const saved = [
+        makeSavedDocument({
+          _id: "saved-stale" as Ref<HulySavedDocument>,
+          attachedTo: "doc-missing" as Ref<HulyDocument>,
+          modifiedOn: 300
+        }),
+        makeSavedDocument({
+          _id: "saved-visible" as Ref<HulySavedDocument>,
+          attachedTo: "doc-visible" as Ref<HulyDocument>,
+          modifiedOn: 200
+        }),
+        makeSavedDocument({
+          _id: "saved-skipped-by-limit" as Ref<HulySavedDocument>,
+          attachedTo: "doc-skipped-by-limit" as Ref<HulyDocument>,
+          modifiedOn: 100
+        })
+      ]
+
+      const testLayer = createTestLayerWithMocks({
+        teamspaces: [teamspace],
+        documents: [visibleDoc, skippedDoc],
+        savedDocuments: saved
+      })
+
+      const result = yield* listSavedDocuments({ limit: 2 }).pipe(Effect.provide(testLayer))
+
+      expect(result.total).toBe(1)
+      expect(result.documents.map((doc) => doc.documentId)).toEqual(["doc-visible"])
+    }))
 })
 
 describe("getDocument", () => {

@@ -1,6 +1,6 @@
 # SDK Coverage Backlog
 
-> Status: unvalidated backlog candidates. These are not accepted implementation scope until each item has a small PRD or issue with an integration-test strategy.
+> Status: archived validation notes from the initial SDK audit. Do not maintain this file as an active backlog; use `plans/huly-sdk-gap-matrix.md` plus `plans/sdk-parity-ledger.json` for current SDK coverage tracking.
 
 These candidate gaps came from a local comparison of current MCP tools, installed Huly SDK/plugin types, and `.reference/huly-examples/platform-api`. They are not yet validated against live Huly behavior, user demand, permissions, or SDK write semantics.
 

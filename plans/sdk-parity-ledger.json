@@ -346,9 +346,10 @@
       "package": "@hcengineering/document",
       "status": "covered",
       "matrixLocation": "Document preferences and history",
-      "rationale": "Current document tools cover non-controlled document teamspaces and document CRUD/content operations.",
+      "rationale": "Current document tools cover non-controlled document teamspaces, document CRUD/content operations, and saved-document preferences.",
       "exports": [
         "Document",
+        "SavedDocument",
         "Teamspace"
       ]
     },
@@ -356,10 +357,19 @@
       "package": "@hcengineering/document",
       "status": "gap",
       "matrixLocation": "Document preferences and history",
-      "rationale": "Saved documents and document snapshots/history are represented in the matrix but not yet first-class MCP tools.",
+      "rationale": "Document snapshots/history are represented in the matrix but not yet first-class MCP tools.",
       "exports": [
-        "DocumentSnapshot",
-        "SavedDocument"
+        "DocumentSnapshot"
+      ]
+    },
+    {
+      "package": "@hcengineering/preference",
+      "status": "gap",
+      "matrixLocation": "Preference model",
+      "rationale": "Generic user preference discovery/update remains a matrix gap; saved-document tools use the base Preference class only as a compatibility fallback for Huly models that do not yet define document:class:SavedDocument.",
+      "exports": [
+        "Preference",
+        "SpacePreference"
       ]
     },
     {

@@ -17,6 +17,7 @@ import {
   listDocumentsParamsJsonSchema,
   listIssuesParamsJsonSchema,
   listProjectsParamsJsonSchema,
+  listSavedDocumentsParamsJsonSchema,
   listTeamspacesParamsJsonSchema,
   logTimeParamsJsonSchema,
   parseAddLabelParams,
@@ -33,13 +34,16 @@ import {
   parseListDocumentsParams,
   parseListIssuesParams,
   parseListProjectsParams,
+  parseListSavedDocumentsParams,
   parseListTeamspacesParams,
   parseListTimeSpendReportsParams,
   parseLogTimeParams,
   parseProject,
+  parseSaveDocumentParams,
   parseStartProcessParams,
   parseStartTimerParams,
   parseStopTimerParams,
+  parseUnsaveDocumentParams,
   parseUpdateCardParams,
   parseUpdateGuestSettingsParams,
   parseUpdateIssueParams,
@@ -47,9 +51,11 @@ import {
   parseUpdateTestResultParams,
   parseUpdateTestRunParams,
   parseUpdateUserProfileParams,
+  saveDocumentParamsJsonSchema,
   startProcessParamsJsonSchema,
   startTimerParamsJsonSchema,
   stopTimerParamsJsonSchema,
+  unsaveDocumentParamsJsonSchema,
   updateCardParamsJsonSchema,
   updateGuestSettingsParamsJsonSchema,
   updateIssueParamsJsonSchema,
@@ -767,6 +773,49 @@ describe("Domain Schemas", () => {
       }))
   })
 
+  describe("Saved document parameter schemas", () => {
+    it.effect("parses save_document params", () =>
+      Effect.gen(function*() {
+        const result = yield* parseSaveDocumentParams({
+          teamspace: "My Docs",
+          document: "Getting Started"
+        })
+
+        expect(result).toEqual({
+          teamspace: "My Docs",
+          document: "Getting Started"
+        })
+      }))
+
+    it.effect("parses unsave_document params", () =>
+      Effect.gen(function*() {
+        const result = yield* parseUnsaveDocumentParams({
+          teamspace: "My Docs",
+          document: "doc-1"
+        })
+
+        expect(result).toEqual({
+          teamspace: "My Docs",
+          document: "doc-1"
+        })
+      }))
+
+    it.effect("parses list_saved_documents params", () =>
+      Effect.gen(function*() {
+        const result = yield* parseListSavedDocumentsParams({ limit: 25 })
+        expect(result).toEqual({ limit: 25 })
+      }))
+
+    it.effect("rejects invalid saved-document params", () =>
+      Effect.gen(function*() {
+        const missingDocument = yield* Effect.flip(parseSaveDocumentParams({ teamspace: "My Docs" }))
+        const oversizedLimit = yield* Effect.flip(parseListSavedDocumentsParams({ limit: 201 }))
+
+        expect(missingDocument._tag).toBe("ParseError")
+        expect(oversizedLimit._tag).toBe("ParseError")
+      }))
+  })
+
   describe("GetDocumentParamsSchema", () => {
     it.effect("parses valid params", () =>
       Effect.gen(function*() {
@@ -983,6 +1032,18 @@ describe("Domain Schemas", () => {
         expect(schema.type).toBe("object")
         expect(schema.required).toContain("teamspace")
         expect(schema.required).toContain("document")
+      }))
+
+    it.effect("generates JSON Schema for saved-document tools", () =>
+      Effect.gen(function*() {
+        const saveSchema = expectJsonSchemaObject(saveDocumentParamsJsonSchema)
+        const unsaveSchema = expectJsonSchemaObject(unsaveDocumentParamsJsonSchema)
+        const listSchema = expectJsonSchemaObject(listSavedDocumentsParamsJsonSchema)
+
+        expect(saveSchema.required).toEqual(["teamspace", "document"])
+        expect(unsaveSchema.required).toEqual(["teamspace", "document"])
+        expect(listSchema.type).toBe("object")
+        expect(listSchema.properties).toHaveProperty("limit")
       }))
 
     it.effect("generates JSON Schema for CreateDocumentParams", () =>

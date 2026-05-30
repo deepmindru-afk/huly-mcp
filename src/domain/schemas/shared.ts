@@ -103,6 +103,9 @@ export type ReactionId = Schema.Schema.Type<typeof ReactionId>
 export const SavedMessageId = HulyRef("SavedMessageId")
 export type SavedMessageId = Schema.Schema.Type<typeof SavedMessageId>
 
+export const SavedDocumentId = HulyRef("SavedDocumentId")
+export type SavedDocumentId = Schema.Schema.Type<typeof SavedDocumentId>
+
 export const MentionId = HulyRef("MentionId")
 export type MentionId = Schema.Schema.Type<typeof MentionId>
 

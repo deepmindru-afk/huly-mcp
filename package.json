@@ -60,6 +60,7 @@
   "author": "dearlordylord",
   "license": "MIT",
   "dependencies": {
+    "@hcengineering/preference": "0.7.0",
     "ws": "^8.18.0"
   },
   "lint-staged": {

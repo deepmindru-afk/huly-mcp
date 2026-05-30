@@ -2,7 +2,7 @@
 
 Scope: features that are represented in the local Huly SDK/dev reference tree or installed `@hcengineering/*` packages, but are not exposed by this MCP server as first-class LLM-facing tools.
 
-Relationship to `plans/sdk-coverage-backlog.md`: this gap matrix is the canonical broad inventory. The SDK coverage backlog is an older, narrower implementation-candidate list with validation notes. When a backlog item remains relevant, it should also appear here.
+Relationship to `plans/sdk-coverage-backlog.md`: this gap matrix is the canonical broad inventory. The SDK coverage backlog is historical validation notes from the initial audit; do not maintain it as a second active backlog.
 
 Audit guard: `plans/sdk-parity-ledger.json` classifies every installed `@hcengineering/*` plugin class or model-like export and every `.reference/platform/models/*` area discovered by `scripts/audit-sdk-parity.mjs` as `covered`, `gap`, `ignored`, or `not-mcp-facing`. `pnpm verify-sdk-parity` fails when a newly installed SDK model export or reference model area is not classified here.
 
@@ -62,7 +62,7 @@ Current high-level MCP categories:
 | View / saved filtered views | `.reference/platform/models/view/src/index.ts`: `FilteredView`, `Viewlet`, actions, view preferences | No saved-view tools; list tools accept ad hoc filters | Saved filtered views, user view preferences, viewlet descriptors, reusable filters/sorts/groups |
 | Workbench tabs/widgets/apps | `.reference/platform/models/workbench/src/index.ts`: `Application`, `ApplicationNavModel`, `HiddenApplication`, `Widget`, `WidgetPreference`, `WorkbenchTab` | No workbench UI state tools | List/hide apps, tabs, widgets, widget prefs. Mostly UI state, lower MCP priority |
 | Preference model | `.reference/platform/models/preference`; many modules store preferences | No generic preference tools | User preferences discovery/update for modules with preference-backed settings |
-| Document preferences and history | Installed `@hcengineering/document`; `node_modules/@hcengineering/document/types/types.d.ts` exposes `SavedDocument extends Preference` and `DocumentSnapshot`, and `types/plugin.d.ts` registers both as document plugin classes | Document tools cover teamspaces, document CRUD, content edit, inline comments, relations, and deletion; no saved-document or snapshot/history tools | Save/unsave/list saved documents with idempotent preference handling; list/read document snapshots/history before considering restore semantics |
+| Document preferences and history | Installed `@hcengineering/document`; `node_modules/@hcengineering/document/types/types.d.ts` exposes `SavedDocument extends Preference` and `DocumentSnapshot`, and `types/plugin.d.ts` registers both as document plugin classes | Document tools cover teamspaces, document CRUD, content edit, inline comments, relations, deletion, and saved documents | List/read document snapshots/history before considering restore semantics |
 
 ## Installed SDK Packages With Partial MCP Coverage
 
@@ -75,28 +75,13 @@ Current high-level MCP categories:
 | `@hcengineering/chunter` | Partial | Group DMs, channel membership, join/leave, pin/star/archive semantics, message attachments/translation |
 | `@hcengineering/contact` | Partial | Person channels/social identities, employee invite/kick/reinvite, merge contacts, contact statuses |
 | `@hcengineering/core` | Partial | Classes/enums/attributes, generic spaces, permissions, roles, collaborators, sequences |
-| `@hcengineering/document` | Partial | Saved documents, snapshots/history, backlinks, notes, structured action items/tables, PDF/export, advanced document relationships |
+| `@hcengineering/document` | Partial | Snapshots/history, backlinks, notes, structured action items/tables, PDF/export, advanced document relationships |
 | `@hcengineering/notification` | Partial | Mark unread, unarchive, hide/unhide/mute contexts, notification type settings, collaborators |
+| `@hcengineering/preference` | Partial internal use | Generic preference discovery/update remains a gap; saved documents use the base Preference class only as a compatibility fallback when `document:class:SavedDocument` is absent in older Huly models |
 | `@hcengineering/tags` | SDK-level covered; module wrappers partial | Module-specific wrappers for tag-backed concepts such as recruiting skills, board labels, controlled-doc labels, and contact tags |
 | `@hcengineering/task` | Partial | Generic task/project abstractions beyond tracker, reusable task workflows |
 | `@hcengineering/time` | Partial | ToDo/action item lifecycle, personal planner, visibility, schedule reports |
 | `@hcengineering/tracker` | Strong but partial | GitHub pull-request task type/sync details, PDF export, saved views, some workflow automation behavior |
-
-## SDK Coverage Backlog Reconciliation
-
-These items from `plans/sdk-coverage-backlog.md` are represented in this matrix:
-
-| Backlog item | Matrix location |
-|---|---|
-| Direct Message Writes | Chat channel membership/options |
-| Saved Documents | Document preferences and history; `@hcengineering/document` package row |
-| Document Snapshots And History | Document preferences and history; Controlled Documents / TraceX documents |
-| Calendar Management | Calendar schedules and integrations |
-| Richer Attachment And Media Classes | Attachments gaps |
-| Social Identity And Contact Channel Inspection | Contact channels and identities |
-| Card Preferences, Roles, Sections, And View Defaults | `@hcengineering/card` package row |
-| Project And Task Descriptor Management | `@hcengineering/task` package row |
-| Constrained Raw Read-Only SDK Inspection | Generic SDK object discovery in Highest-Value Additions |
 
 ## Highest-Value Additions For LLM Agents
 

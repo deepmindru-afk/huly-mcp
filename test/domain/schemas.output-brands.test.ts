@@ -9,11 +9,15 @@ import {
   CreateWorkspaceResultSchema,
   ListMentionsResultSchema,
   ListReactionsResultSchema,
+  ListSavedDocumentsResultSchema,
   ListSavedMessagesResultSchema,
   LogTimeResultSchema,
+  SavedDocumentWireSchema,
+  SaveDocumentResultSchema,
   SaveMessageResultSchema,
   StopTimerResultSchema,
   TimeSpendReportWireSchema,
+  UnsaveDocumentResultSchema,
   WorkSlotWireSchema,
   WorkspaceInfoSchema,
   WorkspaceMemberSchema
@@ -160,5 +164,76 @@ describe("branded output schemas", () => {
       expect(encodedAdded).toEqual(addReactionPayload)
       expect(savedResult.savedId).toBe("saved-2")
       expect(encodedSavedResult).toEqual(saveMessagePayload)
+    }))
+
+  it.effect("keeps document saved-output payloads JSON-compatible while validating branded IDs", () =>
+    Effect.gen(function*() {
+      const savedDocumentPayload = {
+        savedId: "saved-doc-1",
+        documentId: "doc-1",
+        title: "Design Notes",
+        teamspace: "My Docs",
+        url: "https://huly.example/workbench/docs/doc-1",
+        modifiedOn: 1700000000000
+      }
+      const savedDocument = yield* Schema.decodeUnknown(SavedDocumentWireSchema)(savedDocumentPayload)
+      const encodedSavedDocument = yield* Schema.encodeUnknown(SavedDocumentWireSchema)(savedDocument)
+      const saveResultPayload = {
+        savedId: "saved-doc-2",
+        documentId: "doc-2",
+        created: true
+      }
+      const saveResult = yield* Schema.decodeUnknown(SaveDocumentResultSchema)(saveResultPayload)
+      const encodedSaveResult = yield* Schema.encodeUnknown(SaveDocumentResultSchema)(saveResult)
+      const unsaveResultPayload = {
+        documentId: "doc-2",
+        removed: false
+      }
+      const unsaveResult = yield* Schema.decodeUnknown(UnsaveDocumentResultSchema)(unsaveResultPayload)
+      const encodedUnsaveResult = yield* Schema.encodeUnknown(UnsaveDocumentResultSchema)(unsaveResult)
+      const listPayload = {
+        documents: [savedDocumentPayload],
+        total: 1
+      }
+      const listResult = yield* Schema.decodeUnknown(ListSavedDocumentsResultSchema)(listPayload)
+      const encodedListResult = yield* Schema.encodeUnknown(ListSavedDocumentsResultSchema)(listResult)
+
+      expect(savedDocument.savedId).toBe("saved-doc-1")
+      expect(savedDocument.documentId).toBe("doc-1")
+      expect(encodedSavedDocument).toEqual(savedDocumentPayload)
+      expect(saveResult.savedId).toBe("saved-doc-2")
+      expect(encodedSaveResult).toEqual(saveResultPayload)
+      expect(unsaveResult.documentId).toBe("doc-2")
+      expect(encodedUnsaveResult).toEqual(unsaveResultPayload)
+      expect(listResult.documents[0]?.documentId).toBe("doc-1")
+      expect(encodedListResult).toEqual(listPayload)
+    }))
+
+  it.effect("rejects blank saved-document titles and teamspace names", () =>
+    Effect.gen(function*() {
+      const blankTitle = yield* Effect.flip(
+        Schema.decodeUnknown(SavedDocumentWireSchema)({
+          savedId: "saved-doc-1",
+          documentId: "doc-1",
+          title: "  ",
+          teamspace: "My Docs",
+          url: "https://huly.example/workbench/docs/doc-1"
+        })
+      )
+      const blankTeamspace = yield* Effect.flip(
+        Schema.decodeUnknown(ListSavedDocumentsResultSchema)({
+          documents: [{
+            savedId: "saved-doc-1",
+            documentId: "doc-1",
+            title: "Design Notes",
+            teamspace: "  ",
+            url: "https://huly.example/workbench/docs/doc-1"
+          }],
+          total: 1
+        })
+      )
+
+      expect(blankTitle._tag).toBe("ParseError")
+      expect(blankTeamspace._tag).toBe("ParseError")
     }))
 })

@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@hcengineering/preference':
+        specifier: 0.7.0
+        version: 0.7.0
       ws:
         specifier: ^8.18.0
         version: 8.19.0

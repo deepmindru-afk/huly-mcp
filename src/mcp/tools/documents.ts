@@ -8,6 +8,8 @@ import {
   getTeamspaceParamsJsonSchema,
   listDocumentsParamsJsonSchema,
   listInlineCommentsParamsJsonSchema,
+  listSavedDocumentsParamsJsonSchema,
+  ListSavedDocumentsResultSchema,
   listTeamspacesParamsJsonSchema,
   parseCreateDocumentParams,
   parseCreateTeamspaceParams,
@@ -18,10 +20,18 @@ import {
   parseGetTeamspaceParams,
   parseListDocumentsParams,
   parseListInlineCommentsParams,
+  parseListSavedDocumentsParams,
   parseListTeamspacesParams,
+  parseSaveDocumentParams,
+  parseUnsaveDocumentParams,
   parseUpdateTeamspaceParams,
+  saveDocumentParamsJsonSchema,
+  SaveDocumentResultSchema,
+  unsaveDocumentParamsJsonSchema,
+  UnsaveDocumentResultSchema,
   updateTeamspaceParamsJsonSchema
 } from "../../domain/schemas.js"
+import { listSavedDocuments, saveDocument, unsaveDocument } from "../../huly/operations/documents-saved.js"
 import {
   createDocument,
   createTeamspace,
@@ -35,7 +45,7 @@ import {
   listTeamspaces,
   updateTeamspace
 } from "../../huly/operations/documents.js"
-import { createToolHandler, type RegisteredTool } from "./registry.js"
+import { createEncodedToolHandler, createToolHandler, type RegisteredTool } from "./registry.js"
 
 const CATEGORY = "documents" as const
 
@@ -121,6 +131,45 @@ export const documentTools: ReadonlyArray<RegisteredTool> = [
       "get_document",
       parseGetDocumentParams,
       getDocument
+    )
+  },
+  {
+    name: "save_document",
+    description:
+      "Save/bookmark a Huly document for the current user. Resolves document by title or ID inside the teamspace. Idempotent: if the document is already saved, returns the existing saved record with created=false.",
+    category: CATEGORY,
+    inputSchema: saveDocumentParamsJsonSchema,
+    handler: createEncodedToolHandler(
+      "save_document",
+      parseSaveDocumentParams,
+      saveDocument,
+      SaveDocumentResultSchema
+    )
+  },
+  {
+    name: "unsave_document",
+    description:
+      "Remove a Huly document from the current user's saved/bookmarked documents. Resolves document by title or ID inside the teamspace. Idempotent: returns removed=false when the document is not saved.",
+    category: CATEGORY,
+    inputSchema: unsaveDocumentParamsJsonSchema,
+    handler: createEncodedToolHandler(
+      "unsave_document",
+      parseUnsaveDocumentParams,
+      unsaveDocument,
+      UnsaveDocumentResultSchema
+    )
+  },
+  {
+    name: "list_saved_documents",
+    description:
+      "List the current user's saved/bookmarked Huly documents. Hydrates each visible document with title, teamspace, URL, and modifiedOn. Stale or inaccessible saved references are skipped, and total is the visible returned count.",
+    category: CATEGORY,
+    inputSchema: listSavedDocumentsParamsJsonSchema,
+    handler: createEncodedToolHandler(
+      "list_saved_documents",
+      parseListSavedDocumentsParams,
+      listSavedDocuments,
+      ListSavedDocumentsResultSchema
     )
   },
   {

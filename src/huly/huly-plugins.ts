@@ -18,6 +18,8 @@ export const documentPlugin = require("@hcengineering/document")
   .default as typeof import("@hcengineering/document").default
 export const notification = require("@hcengineering/notification")
   .default as typeof import("@hcengineering/notification").default
+export const preference = require("@hcengineering/preference")
+  .default as typeof import("@hcengineering/preference").default
 export const tags = require("@hcengineering/tags").default as typeof import("@hcengineering/tags").default
 export const task = require("@hcengineering/task").default as typeof import("@hcengineering/task").default
 export const time = require("@hcengineering/time").default as typeof import("@hcengineering/time").default

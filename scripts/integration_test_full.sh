@@ -1066,6 +1066,39 @@ if [ -n "$TS_NAME" ]; then
       fi
     fi
 
+    if run_capture_to_var SAVE_DOC_TEXT "save_document($DOC_ID)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"save_document\",\"arguments\":{\"teamspace\":\"$TS_NAME\",\"document\":\"$DOC_ID\"}},\"id\":2}"; then
+      assert_json_field_nonempty "save_document($DOC_ID) returns savedId" "$SAVE_DOC_TEXT" '.savedId'
+      assert_json_field_equals "save_document($DOC_ID) created=true" "$SAVE_DOC_TEXT" '.created' 'true'
+
+      if run_capture_to_var SAVE_DOC_2_TEXT "save_document($DOC_ID) idempotent" \
+        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"save_document\",\"arguments\":{\"teamspace\":\"$TS_NAME\",\"document\":\"$DOC_ID\"}},\"id\":2}"; then
+        assert_json_field_equals "save_document($DOC_ID) second call created=false" "$SAVE_DOC_2_TEXT" '.created' 'false'
+      fi
+
+      if run_capture_to_var SAVED_DOCS_TEXT "list_saved_documents includes $DOC_ID" \
+        '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_saved_documents","arguments":{"limit":50}},"id":2}'; then
+        if printf '%s\n' "$SAVED_DOCS_TEXT" | jq -e --arg doc_id "$DOC_ID" 'any(.documents[]?; .documentId == $doc_id and (.url // "") != "")' >/dev/null 2>&1; then
+          echo "PASS: list_saved_documents returns saved document $DOC_ID"
+          PASSED=$((PASSED + 1))
+        else
+          echo "FAIL: list_saved_documents missing saved document $DOC_ID"
+          FAILED=$((FAILED + 1))
+          ERRORS="${ERRORS}\n  - list_saved_documents missing ${DOC_ID}"
+        fi
+      fi
+
+      if run_capture_to_var UNSAVE_DOC_TEXT "unsave_document($DOC_ID)" \
+        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"unsave_document\",\"arguments\":{\"teamspace\":\"$TS_NAME\",\"document\":\"$DOC_ID\"}},\"id\":2}"; then
+        assert_json_field_equals "unsave_document($DOC_ID) removed=true" "$UNSAVE_DOC_TEXT" '.removed' 'true'
+      fi
+
+      if run_capture_to_var UNSAVE_DOC_2_TEXT "unsave_document($DOC_ID) idempotent" \
+        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"unsave_document\",\"arguments\":{\"teamspace\":\"$TS_NAME\",\"document\":\"$DOC_ID\"}},\"id\":2}"; then
+        assert_json_field_equals "unsave_document($DOC_ID) second call removed=false" "$UNSAVE_DOC_2_TEXT" '.removed' 'false'
+      fi
+    fi
+
     run_test "list_inline_comments($DOC_ID)" \
       "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_inline_comments\",\"arguments\":{\"teamspace\":\"$TS_NAME\",\"document\":\"$DOC_ID\"}},\"id\":2}"
     run_test "delete_document($DOC_ID)" \

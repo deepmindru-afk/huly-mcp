@@ -20,6 +20,8 @@ import type {
 import { CustomFieldId, ObjectClassName } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import { CustomFieldNotFoundError, CustomFieldObjectNotFoundError } from "../errors-custom-fields.js"
+import { hulyCustomFieldTypeNameFromClass } from "../huly-attribute-types.js"
+import { hulyModelLabelTail } from "../huly-labels.js"
 import { core } from "../huly-plugins.js"
 import { clampLimit } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
@@ -61,14 +63,6 @@ interface DecodedCustomFieldDocument {
 // eslint-disable-next-line no-restricted-syntax -- SDK boundary cast for class document queries
 const classRef = core.class.Class as Ref<Class<Doc>>
 
-const extractLabel = (label: unknown): string => {
-  if (typeof label === "string") {
-    const parts = label.split(":")
-    return parts.length > 0 ? parts[parts.length - 1] : label
-  }
-  return String(label ?? "")
-}
-
 const decodeSdkRecord = (value: unknown): JsonMap => {
   // Huly SDK documents expose dynamic metadata fields not represented in the generated TS types.
   // This cast is contained here so feature logic does not operate on raw unknown values directly.
@@ -78,24 +72,30 @@ const decodeSdkRecord = (value: unknown): JsonMap => {
 
 const decodeTypeDescriptor = (value: unknown): TypeDescriptor => {
   const record = decodeSdkRecord(value)
-  const _class = String(record._class ?? "")
+  const typeName = hulyCustomFieldTypeNameFromClass(record._class)
 
-  if (_class.includes("TypeString")) return { typeName: "string", typeDetails: {} }
-  if (_class.includes("TypeNumber")) return { typeName: "number", typeDetails: {} }
-  if (_class.includes("TypeBoolean")) return { typeName: "boolean", typeDetails: {} }
-  if (_class.includes("EnumOf")) return { typeName: "enum", typeDetails: { ...record, enumRef: record.of } }
-  if (_class.includes("ArrOf")) return { typeName: "array", typeDetails: { ...record, of: record.of } }
-  if (_class.includes("RefTo")) return { typeName: "ref", typeDetails: { ...record, to: record.to } }
-  if (_class.includes("TypeDate")) return { typeName: "date", typeDetails: {} }
-  if (_class.includes("TypeMarkup")) return { typeName: "markup", typeDetails: {} }
-
-  return { typeName: "unknown", typeDetails: record }
+  switch (typeName) {
+    case "string":
+    case "number":
+    case "boolean":
+    case "date":
+    case "markup":
+      return { typeName, typeDetails: {} }
+    case "enum":
+      return { typeName, typeDetails: { ...record, enumRef: record.of } }
+    case "array":
+      return { typeName, typeDetails: { ...record, of: record.of } }
+    case "ref":
+      return { typeName, typeDetails: { ...record, to: record.to } }
+    case "unknown":
+      return { typeName, typeDetails: record }
+  }
 }
 
 const decodeCustomFieldAttribute = (attr: AnyAttribute): DecodedCustomFieldAttribute => ({
   id: CustomFieldId.make(String(attr._id)),
   name: attr.name,
-  label: extractLabel(attr.label),
+  label: hulyModelLabelTail(attr.label),
   ownerClassId: ObjectClassName.make(String(attr.attributeOf)),
   typeDescriptor: decodeTypeDescriptor(attr.type)
 })
@@ -104,7 +104,7 @@ const decodeClassInfo = (value: Doc): DecodedClassInfo => {
   const record = decodeSdkRecord(value)
   const kind = typeof record.kind === "number" ? record.kind : ClassifierKind.CLASS
   return {
-    label: extractLabel(record.label),
+    label: hulyModelLabelTail(record.label),
     kind
   }
 }

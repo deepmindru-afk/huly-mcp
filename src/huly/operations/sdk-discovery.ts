@@ -1,6 +1,6 @@
 import type { AnyAttribute, Class, Enum as HulyEnum, Obj, Ref } from "@hcengineering/core"
 import { SortingOrder } from "@hcengineering/core"
-import { Effect, Either, Option } from "effect"
+import { Array as Arr, Effect, Either, Option } from "effect"
 
 import type {
   GetHulyClassParams,
@@ -75,16 +75,12 @@ const batchResolveClassLabels = (
 
 const countAttributesByClass = (
   attributes: ReadonlyArray<AnyAttribute>
-): Map<ObjectClassName, number> =>
-  new Map(
-    [...new Set(attributes.map((attr) => ObjectClassName.make(String(attr.attributeOf))))]
-      .map((ownerClassId) =>
-        [
-          ownerClassId,
-          attributes.filter((attr) => String(attr.attributeOf) === ownerClassId).length
-        ] as const
-      )
+): Map<ObjectClassName, number> => {
+  const grouped = Arr.groupBy(attributes, (attr) => String(attr.attributeOf))
+  return new Map(
+    Object.entries(grouped).map(([ownerClassId, group]) => [ObjectClassName.make(ownerClassId), group.length] as const)
   )
+}
 
 const fetchClasses = (
   client: HulyClient["Type"],
@@ -183,17 +179,23 @@ export const listHulyClasses = (
     const client = yield* HulyClient
     const limit = clampLimit(params.limit ?? SDK_DISCOVERY_DEFAULT_LIMIT)
     const query = Option.fromNullable(params.query)
-    const [classes, attributes] = yield* Effect.all([
-      fetchClasses(client, params),
-      client.findAll<AnyAttribute>(core.class.Attribute, hulyQuery<AnyAttribute>({}))
-    ])
+    const classes = yield* fetchClasses(client, params)
 
-    const attributeCounts = countAttributesByClass(attributes)
-    const summaries = classes
-      .map((cls) => toClassSummary(cls, attributeCounts.get(ObjectClassName.make(String(cls._id))) ?? 0))
+    const matched = classes
+      .map((cls) => toClassSummary(cls))
       .filter((summary) => params.kind === undefined || summary.kind === params.kind)
       .filter((summary) => includesQuery(classSearchText(summary), query))
       .slice(0, limit)
+
+    // Count attributes only for the classes that survive filtering and the limit, rather than
+    // loading the entire attribute model on every call.
+    const attributeCounts = countAttributesByClass(
+      yield* attributesForClasses(client, matched.map((summary) => summary.classId))
+    )
+    const summaries = matched.map((summary) => ({
+      ...summary,
+      attributesCount: attributeCounts.get(summary.classId) ?? 0
+    }))
 
     return { classes: summaries, total: summaries.length }
   })

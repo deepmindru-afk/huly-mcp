@@ -366,6 +366,34 @@ describe("sdk discovery operations", () => {
       expect(encoded.total).toBe(1)
     }))
 
+  it.effect("does not coerce malformed SDK attribute label and type target values", () =>
+    Effect.gen(function*() {
+      const classes = [makeClassDoc({ _id: tracker.class.Issue, label: "tracker:class:Issue" })]
+      const attributes = [
+        makeAttribute({
+          _id: "attr:malformed",
+          name: 123,
+          label: { value: "tracker:field:Malformed" },
+          type: { _class: core.class.RefTo, to: { _id: contact.class.Person } }
+        })
+      ]
+
+      const result = yield* listHulyAttributes({ class: ObjectClassName.make(tracker.class.Issue) }).pipe(
+        Effect.provide(createTestLayer({ classes, attributes }))
+      )
+      const encoded = yield* Schema.encodeUnknown(ListHulyAttributesResultSchema)(result)
+
+      expect(encoded.attributes).toEqual([
+        expect.objectContaining({
+          attributeId: "attr:malformed",
+          name: "attr:malformed",
+          label: "attr:malformed",
+          type: expect.objectContaining({ kind: "unknown" })
+        })
+      ])
+      expect(encoded.attributes[0]?.type).not.toHaveProperty("refTo")
+    }))
+
   it.effect("lists enums and supports query filtering", () =>
     Effect.gen(function*() {
       const result = yield* listHulyEnums({ query: HulyModelSearch.make("high") }).pipe(

@@ -1,6 +1,6 @@
 import type { AnyAttribute, Class, Doc, Ref } from "@hcengineering/core"
 import { ClassifierKind, SortingOrder } from "@hcengineering/core"
-import { Effect } from "effect"
+import { Effect, Either } from "effect"
 
 import type {
   ArrayCustomFieldTypeDetails,
@@ -21,7 +21,7 @@ import { CustomFieldId, ObjectClassName } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import { CustomFieldNotFoundError, CustomFieldObjectNotFoundError } from "../errors-custom-fields.js"
 import { hulyCustomFieldTypeNameFromClass } from "../huly-attribute-types.js"
-import { hulyModelLabelTail } from "../huly-labels.js"
+import { decodeHulyModelLabelTail } from "../huly-labels.js"
 import { core } from "../huly-plugins.js"
 import { clampLimit } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
@@ -70,6 +70,9 @@ const decodeSdkRecord = (value: unknown): JsonMap => {
   return value as JsonMap
 }
 
+const modelLabelOrDefault = (value: unknown, fallback: string): string =>
+  Either.getOrElse(decodeHulyModelLabelTail(value), () => fallback)
+
 const decodeTypeDescriptor = (value: unknown): TypeDescriptor => {
   const record = decodeSdkRecord(value)
   const typeName = hulyCustomFieldTypeNameFromClass(record._class)
@@ -95,7 +98,7 @@ const decodeTypeDescriptor = (value: unknown): TypeDescriptor => {
 const decodeCustomFieldAttribute = (attr: AnyAttribute): DecodedCustomFieldAttribute => ({
   id: CustomFieldId.make(String(attr._id)),
   name: attr.name,
-  label: hulyModelLabelTail(attr.label),
+  label: modelLabelOrDefault(attr.label, attr.name),
   ownerClassId: ObjectClassName.make(String(attr.attributeOf)),
   typeDescriptor: decodeTypeDescriptor(attr.type)
 })
@@ -104,7 +107,7 @@ const decodeClassInfo = (value: Doc): DecodedClassInfo => {
   const record = decodeSdkRecord(value)
   const kind = typeof record.kind === "number" ? record.kind : ClassifierKind.CLASS
   return {
-    label: hulyModelLabelTail(record.label),
+    label: modelLabelOrDefault(record.label, String(value._id)),
     kind
   }
 }

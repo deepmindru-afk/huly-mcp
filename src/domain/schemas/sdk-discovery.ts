@@ -63,9 +63,10 @@ const HulyAttributeTypeBaseFields = {
   classId: Schema.optional(ObjectClassName.annotations({
     description: "Raw Huly type class ID, such as core:class:RefTo or core:class:TypeString"
   })),
-  raw: TypeDetailsSchema.annotations({
-    description: "Decoded raw Huly type descriptor for fields this server does not model explicitly"
-  })
+  raw: Schema.optional(TypeDetailsSchema.annotations({
+    description:
+      "Decoded raw Huly type descriptor, present only when the type family could not be determined (kind: unknown)"
+  }))
 } as const
 
 const HulyScalarAttributeTypeSchema = Schema.Struct({

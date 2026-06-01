@@ -49,4 +49,9 @@ describe("huly attribute type mapping", () => {
     expect(hulyAttributeTypeKindFromClass("custom:class:TypeStringish")).toBe("unknown")
     expect(hulyCustomFieldTypeNameFromClass("custom:class:EnumOfSomething")).toBe("unknown")
   })
+
+  it("does not coerce non-string type class IDs", () => {
+    expect(hulyAttributeTypeKindFromClass({ _class: core.class.TypeString })).toBe("unknown")
+    expect(hulyCustomFieldTypeNameFromClass(123)).toBe("unknown")
+  })
 })

@@ -39,18 +39,25 @@ const decodeSdkRecord = (value: unknown): JsonMap => {
 const labelOrDefault = (value: unknown, fallback: NonEmptyString): NonEmptyString =>
   Either.getOrElse(decodeHulyModelLabelTail(value), () => fallback)
 
-const nonEmptyLabelOption = (value: unknown): Option.Option<NonEmptyString> => {
-  const decoded = decodeHulyModelLabelTail(value)
-  return Either.isRight(decoded) ? Option.some(decoded.right) : Option.none()
-}
+const nonEmptyLabelOption = (value: unknown): Option.Option<NonEmptyString> =>
+  Either.getRight(decodeHulyModelLabelTail(value))
+
+// Attribute names and enum values are verbatim identifiers/user data, NOT namespaced IntlString
+// model labels, so they must not be run through the ":"-splitting label-tail decoder.
+const decodeVerbatim = Schema.decodeUnknownEither(NonEmptyString)
+
+const verbatimOrDefault = (value: unknown, fallback: NonEmptyString): NonEmptyString =>
+  Either.getOrElse(decodeVerbatim(value), () => fallback)
 
 const classNameOption = (value: unknown): Option.Option<ObjectClassName> => {
-  const normalized = String(value ?? "").trim()
+  if (typeof value !== "string") return Option.none()
+  const normalized = value.trim()
   return normalized === "" ? Option.none() : Option.some(ObjectClassName.make(normalized))
 }
 
 const enumIdOption = (value: unknown): Option.Option<HulyEnumId> => {
-  const normalized = String(value ?? "").trim()
+  if (typeof value !== "string") return Option.none()
+  const normalized = value.trim()
   return normalized === "" ? Option.none() : Option.some(HulyEnumId.make(normalized))
 }
 
@@ -125,26 +132,28 @@ const decodeAttributeType = (value: unknown): HulyAttributeType => {
   const record = decodeSdkRecord(value)
   const rawClass = String(record._class ?? "")
   const rawKind = hulyAttributeTypeKindFromClass(rawClass)
-  const classId = classNameOption(rawClass)
-  const refTo = classNameOption(record.to)
-  const enumId = enumIdOption(record.of)
-  const collectionOf = classNameOption(record.of)
-  const arrayOf = decodeSdkRecord(record.of)
-  const base = { ...typeClassIdField(classId), raw: record }
+  const base = { ...typeClassIdField(classNameOption(rawClass)) }
+  // `raw` is only emitted when the type family could not be determined, to keep modeled
+  // attributes compact for the LLM consumer instead of carrying the full descriptor every time.
+  const unknownType = { kind: "unknown" as const, ...base, raw: record }
 
   switch (rawKind) {
-    case "ref":
-      return Option.isSome(refTo) ? { kind: rawKind, ...base, refTo: refTo.value } : { kind: "unknown", ...base }
-    case "enum":
-      return Option.isSome(enumId) ? { kind: rawKind, ...base, enumId: enumId.value } : { kind: "unknown", ...base }
-    case "collection":
-      return Option.isSome(collectionOf)
-        ? { kind: rawKind, ...base, collectionOf: collectionOf.value }
-        : { kind: "unknown", ...base }
+    case "ref": {
+      const refTo = classNameOption(record.to)
+      return Option.isSome(refTo) ? { kind: rawKind, ...base, refTo: refTo.value } : unknownType
+    }
+    case "enum": {
+      const enumId = enumIdOption(record.of)
+      return Option.isSome(enumId) ? { kind: rawKind, ...base, enumId: enumId.value } : unknownType
+    }
+    case "collection": {
+      const collectionOf = classNameOption(record.of)
+      return Option.isSome(collectionOf) ? { kind: rawKind, ...base, collectionOf: collectionOf.value } : unknownType
+    }
     case "array":
-      return "of" in record ? { kind: rawKind, ...base, arrayOf } : { kind: "unknown", ...base }
+      return "of" in record ? { kind: rawKind, ...base, arrayOf: decodeSdkRecord(record.of) } : unknownType
     default:
-      return { kind: rawKind, ...base }
+      return rawKind === "unknown" ? unknownType : { kind: rawKind, ...base }
   }
 }
 
@@ -172,8 +181,8 @@ export const toAttributeSummary = (
   const record = decodeSdkRecord(attr)
   return {
     attributeId,
-    name: labelOrDefault(attr.name, NonEmptyString.make(String(attr._id))),
-    label: labelOrDefault(attr.label, labelOrDefault(attr.name, NonEmptyString.make(String(attr._id)))),
+    name: verbatimOrDefault(attr.name, NonEmptyString.make(String(attr._id))),
+    label: labelOrDefault(attr.label, verbatimOrDefault(attr.name, NonEmptyString.make(String(attr._id)))),
     ownerClassId,
     ownerClassLabel: ownerLabel,
     type: decodeAttributeType(attr.type),
@@ -187,8 +196,11 @@ export const toAttributeSummary = (
 
 export const toEnumSummary = (doc: HulyEnum): HulyEnumSummary => ({
   enumId: HulyEnumId.make(String(doc._id)),
-  name: labelOrDefault(doc.name, NonEmptyString.make(String(doc._id))),
-  values: doc.enumValues.map((value) => labelOrDefault(value, NonEmptyString.make(String(value))))
+  name: verbatimOrDefault(doc.name, NonEmptyString.make(String(doc._id))),
+  values: doc.enumValues.flatMap((value) => {
+    const decoded = decodeVerbatim(value)
+    return Either.isRight(decoded) ? [decoded.right] : []
+  })
 })
 
 export const enumSearchText = (summary: HulyEnumSummary): string =>

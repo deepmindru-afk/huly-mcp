@@ -14,10 +14,13 @@ describe("Huly label helpers", () => {
     }))
   })
 
-  it("preserves non-namespaced and non-string fallback labels", () => {
+  it("preserves non-namespaced string labels", () => {
     expect(hulyModelLabelTail("Plain Label")).toBe("Plain Label")
-    expect(hulyModelLabelTail(undefined)).toBe("")
-    expect(hulyModelLabelTail(123)).toBe("123")
+  })
+
+  it("rejects non-string labels instead of coercing them", () => {
     expect(decodeHulyModelLabelTail(undefined)._tag).toBe("Left")
+    expect(decodeHulyModelLabelTail(123)._tag).toBe("Left")
+    expect(decodeHulyModelLabelTail({ label: "Issue" })._tag).toBe("Left")
   })
 })

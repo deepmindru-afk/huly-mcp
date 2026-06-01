@@ -42,7 +42,7 @@ const customFieldTypeByAttributeTypeKind = {
 } as const satisfies Record<HulyAttributeTypeKind, CustomFieldTypeName>
 
 export const hulyAttributeTypeKindFromClass = (classId: unknown): HulyAttributeTypeKind =>
-  attributeTypeKindByClass.get(String(classId)) ?? "unknown"
+  typeof classId === "string" ? attributeTypeKindByClass.get(classId) ?? "unknown" : "unknown"
 
 export const hulyCustomFieldTypeNameFromClass = (classId: unknown): CustomFieldTypeName =>
   customFieldTypeByAttributeTypeKind[hulyAttributeTypeKindFromClass(classId)]

@@ -15,17 +15,20 @@ export const SDK_DISCOVERY_DEFAULT_LIMIT = 100
 
 const KnownClassifierKindValues = ["class", "interface", "mixin"] as const
 const ClassifierKindValues = [...KnownClassifierKindValues, "unknown"] as const
-const AttributeTypeKindValues = [
+const NormalizedScalarAttributeTypeKindValues = [
   "string",
   "number",
   "boolean",
   "date",
   "markup",
+  "unknown"
+] as const
+const NormalizedAttributeTypeKindValues = [
+  ...NormalizedScalarAttributeTypeKindValues,
   "ref",
   "enum",
   "array",
-  "collection",
-  "unknown"
+  "collection"
 ] as const
 
 type HulyKnownClassifierKindLiteral = typeof KnownClassifierKindValues[number]
@@ -46,8 +49,11 @@ export const HulySdkClassifierKindSchema = Schema.transformLiterals(...HulySdkCl
 })
 export type HulySdkClassifierKind = Schema.Schema.Type<typeof HulySdkClassifierKindSchema>
 
-export const HulyAttributeTypeKindSchema = Schema.Literal(...AttributeTypeKindValues).annotations({
-  description: `Best-effort Huly attribute type family: ${enumValuesDescription(AttributeTypeKindValues)}`
+export const HulyAttributeTypeKindSchema = Schema.Literal(...NormalizedAttributeTypeKindValues).annotations({
+  description:
+    `Normalized MCP attribute type family derived from Huly type descriptor classes, not Huly SDK enum values: ${
+      enumValuesDescription(NormalizedAttributeTypeKindValues)
+    }`
 })
 export type HulyAttributeTypeKind = Schema.Schema.Type<typeof HulyAttributeTypeKindSchema>
 
@@ -70,7 +76,7 @@ const HulyAttributeTypeBaseFields = {
 } as const
 
 const HulyScalarAttributeTypeSchema = Schema.Struct({
-  kind: Schema.Literal("string", "number", "boolean", "date", "markup", "unknown"),
+  kind: Schema.Literal(...NormalizedScalarAttributeTypeKindValues),
   ...HulyAttributeTypeBaseFields
 })
 
@@ -98,22 +104,53 @@ const HulyCollectionAttributeTypeSchema = Schema.Struct({
   })
 })
 
+// An array element is itself a decoded attribute type, so the schema is recursive: an element may be a
+// scalar, ref, enum, collection, or (rarely) another array. Encoded and decoded forms differ because
+// branded identifiers (classId, refTo, ...) erase to plain strings when encoded, so both type
+// parameters are supplied explicitly.
+interface HulyArrayAttributeType {
+  readonly kind: "array"
+  readonly classId?: ObjectClassName | undefined
+  readonly raw?: { readonly [key: string]: unknown } | undefined
+  readonly arrayOf: HulyAttributeType
+}
+interface HulyArrayAttributeTypeEncoded {
+  readonly kind: "array"
+  readonly classId?: string | undefined
+  readonly raw?: { readonly [key: string]: unknown } | undefined
+  readonly arrayOf: HulyAttributeTypeEncoded
+}
+
+export type HulyAttributeType =
+  | Schema.Schema.Type<typeof HulyScalarAttributeTypeSchema>
+  | Schema.Schema.Type<typeof HulyRefAttributeTypeSchema>
+  | Schema.Schema.Type<typeof HulyEnumAttributeTypeSchema>
+  | Schema.Schema.Type<typeof HulyCollectionAttributeTypeSchema>
+  | HulyArrayAttributeType
+
+type HulyAttributeTypeEncoded =
+  | Schema.Schema.Encoded<typeof HulyScalarAttributeTypeSchema>
+  | Schema.Schema.Encoded<typeof HulyRefAttributeTypeSchema>
+  | Schema.Schema.Encoded<typeof HulyEnumAttributeTypeSchema>
+  | Schema.Schema.Encoded<typeof HulyCollectionAttributeTypeSchema>
+  | HulyArrayAttributeTypeEncoded
+
 const HulyArrayAttributeTypeSchema = Schema.Struct({
   kind: Schema.Literal("array"),
   ...HulyAttributeTypeBaseFields,
-  arrayOf: TypeDetailsSchema.annotations({
-    description: "Raw nested type descriptor when kind is array"
-  })
+  arrayOf: Schema.suspend((): Schema.Schema<HulyAttributeType, HulyAttributeTypeEncoded> => HulyAttributeTypeSchema)
+    .annotations({
+      description: "Decoded element type when kind is array, recursively shaped like any attribute type"
+    })
 })
 
-export const HulyAttributeTypeSchema = Schema.Union(
+export const HulyAttributeTypeSchema: Schema.Schema<HulyAttributeType, HulyAttributeTypeEncoded> = Schema.Union(
   HulyScalarAttributeTypeSchema,
   HulyRefAttributeTypeSchema,
   HulyEnumAttributeTypeSchema,
   HulyCollectionAttributeTypeSchema,
   HulyArrayAttributeTypeSchema
 )
-export type HulyAttributeType = Schema.Schema.Type<typeof HulyAttributeTypeSchema>
 
 export const HulyClassToolHintSchema = Schema.Struct({
   category: NonEmptyString,

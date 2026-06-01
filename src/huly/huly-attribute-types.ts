@@ -26,6 +26,14 @@ export const HULY_ATTRIBUTE_TYPE_KIND_BY_CLASS = [
   [String(core.class.Collection), "collection"]
 ] as const satisfies ReadonlyArray<readonly [string, HulyMappedAttributeTypeKind]>
 
+export const HULY_ATTRIBUTE_TYPE_CLASSES_WITH_UNKNOWN_KIND = [
+  String(core.class.Type),
+  String(core.class.TypeAny),
+  String(core.class.TypeBlob),
+  String(core.class.TypeRecord),
+  String(core.class.TypeRelatedDocument)
+] as const
+
 const attributeTypeKindByClass = new Map<string, HulyMappedAttributeTypeKind>(HULY_ATTRIBUTE_TYPE_KIND_BY_CLASS)
 
 const customFieldTypeByAttributeTypeKind = {

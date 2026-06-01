@@ -2,6 +2,7 @@ import { describe, it } from "@effect/vitest"
 import { expect } from "vitest"
 
 import {
+  HULY_ATTRIBUTE_TYPE_CLASSES_WITH_UNKNOWN_KIND,
   HULY_ATTRIBUTE_TYPE_KIND_BY_CLASS,
   hulyAttributeTypeKindFromClass,
   hulyCustomFieldTypeNameFromClass
@@ -30,7 +31,25 @@ const expectedSdkMappings = [
   [String(core.class.Collection), "core:class:Collection", "collection", "unknown"]
 ] as const
 
+const modelTypeClassNames = ["RefTo", "ArrOf", "EnumOf", "Collection"] as const
+const modelTypeClassNameSet = new Set<string>(modelTypeClassNames)
+
+const sdkTypeClassIds = Object.entries(core.class)
+  .filter(([name]) => name.startsWith("Type") || modelTypeClassNameSet.has(name))
+  .filter(([name]) => name !== "TypedSpace")
+  .map(([, classId]) => String(classId))
+  .sort()
+
 describe("huly attribute type mapping", () => {
+  it("forces every Huly SDK type descriptor class to be mapped or explicitly unknown", () => {
+    const knownClassIds = [
+      ...HULY_ATTRIBUTE_TYPE_KIND_BY_CLASS.map(([classId]) => classId),
+      ...HULY_ATTRIBUTE_TYPE_CLASSES_WITH_UNKNOWN_KIND
+    ].sort()
+
+    expect(knownClassIds).toEqual(sdkTypeClassIds)
+  })
+
   it("maps exact real Huly SDK type class constants", () => {
     const mappedClassIds = HULY_ATTRIBUTE_TYPE_KIND_BY_CLASS.map(([classId]) => classId)
 
@@ -48,6 +67,12 @@ describe("huly attribute type mapping", () => {
   it("does not infer type families from partial class-name strings", () => {
     expect(hulyAttributeTypeKindFromClass("custom:class:TypeStringish")).toBe("unknown")
     expect(hulyCustomFieldTypeNameFromClass("custom:class:EnumOfSomething")).toBe("unknown")
+  })
+
+  it("keeps intentionally unmapped Huly SDK type classes as unknown", () => {
+    for (const classId of HULY_ATTRIBUTE_TYPE_CLASSES_WITH_UNKNOWN_KIND) {
+      expect(hulyAttributeTypeKindFromClass(classId)).toBe("unknown")
+    }
   })
 
   it("does not coerce non-string type class IDs", () => {

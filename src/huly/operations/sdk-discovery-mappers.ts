@@ -151,7 +151,8 @@ const decodeAttributeType = (value: unknown): HulyAttributeType => {
       return Option.isSome(collectionOf) ? { kind: rawKind, ...base, collectionOf: collectionOf.value } : unknownType
     }
     case "array":
-      return "of" in record ? { kind: rawKind, ...base, arrayOf: decodeSdkRecord(record.of) } : unknownType
+      // Recurse so the element carries a structured kind (e.g. ref/enum/string) instead of a raw descriptor.
+      return "of" in record ? { kind: rawKind, ...base, arrayOf: decodeAttributeType(record.of) } : unknownType
     default:
       return rawKind === "unknown" ? unknownType : { kind: rawKind, ...base }
   }

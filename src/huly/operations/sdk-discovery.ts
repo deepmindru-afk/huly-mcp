@@ -130,11 +130,40 @@ const resolveClass = (
     return cls
   })
 
+const loadAncestorDocs = (
+  client: HulyClient["Type"],
+  frontier: ReadonlyArray<string>,
+  resolved: ReadonlyMap<string, MetadataClassDoc>,
+  depth: number
+): Effect.Effect<ReadonlyMap<string, MetadataClassDoc>, HulyClientError> =>
+  Effect.gen(function*() {
+    const pending = [...new Set(frontier)].filter((id) => !resolved.has(id))
+    if (pending.length === 0 || depth >= MAX_ANCESTOR_DEPTH) return resolved
+
+    const fetched = yield* client.findAll<MetadataClassDoc>(
+      classRef,
+      hulyQuery<MetadataClassDoc>({ _id: { $in: pending.map(toRef<MetadataClassDoc>) } })
+    )
+    const nextResolved = new Map<string, MetadataClassDoc>([
+      ...resolved,
+      ...fetched.map((doc) => [String(doc._id), doc] as const)
+    ])
+    const nextFrontier = fetched.flatMap((doc) => directAncestorRefs(doc).map(String))
+    return yield* loadAncestorDocs(client, nextFrontier, nextResolved, depth + 1)
+  })
+
 const resolveAncestors = (
   client: HulyClient["Type"],
   cls: MetadataClassDoc
 ): Effect.Effect<ReadonlyArray<MetadataClassDoc>, SdkDiscoveryError> =>
   Effect.gen(function*() {
+    // Phase 1: breadth-first batch-load every reachable ancestor in one findAll per depth level,
+    // rather than a sequential findOne per ancestor.
+    const docs = yield* loadAncestorDocs(client, directAncestorRefs(cls).map(String), new Map(), 0)
+
+    // Phase 2: rebuild the original depth-first, cycle-safe ancestor order from the in-memory docs.
+    // A ref genuinely absent from the model surfaces the same HulyClassNotFoundError the sequential
+    // resolver produced.
     const collect = (
       nextRefs: ReadonlyArray<DirectAncestorRef>,
       visited: ReadonlySet<string>,
@@ -146,7 +175,10 @@ const resolveAncestors = (
         const [next, ...tail] = nextRefs
         if (visited.has(String(next))) return yield* collect(tail, visited, depth)
 
-        const parent = yield* resolveClass(client, ObjectClassName.make(String(next)))
+        const parent = docs.get(String(next))
+        if (parent === undefined) {
+          return yield* new HulyClassNotFoundError({ classId: ObjectClassName.make(String(next)) })
+        }
         const nextVisited = new Set([...visited, String(next)])
         const parentAncestors = yield* collect(directAncestorRefs(parent), nextVisited, depth + 1)
         const siblingAncestors = yield* collect(

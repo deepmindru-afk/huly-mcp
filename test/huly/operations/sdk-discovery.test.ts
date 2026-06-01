@@ -259,6 +259,52 @@ describe("sdk discovery operations", () => {
       )
     }))
 
+  it.effect("decodes array attribute element types recursively", () =>
+    Effect.gen(function*() {
+      const classes = [makeClassDoc({ _id: tracker.class.Issue, label: "tracker:class:Issue" })]
+      const attributes = [
+        makeAttribute({
+          _id: "attr:assignees",
+          name: "assignees",
+          attributeOf: tracker.class.Issue,
+          type: { _class: core.class.ArrOf, of: { _class: core.class.RefTo, to: contact.class.Person } }
+        }),
+        makeAttribute({
+          _id: "attr:tagMatrix",
+          name: "tagMatrix",
+          attributeOf: tracker.class.Issue,
+          type: { _class: core.class.ArrOf, of: { _class: core.class.ArrOf, of: { _class: core.class.TypeString } } }
+        })
+      ]
+
+      const result = yield* getHulyClass({ class: ObjectClassName.make(tracker.class.Issue) }).pipe(
+        Effect.provide(createTestLayer({ classes, attributes }))
+      )
+      const encoded = yield* Schema.encodeUnknown(GetHulyClassResultSchema)(result)
+
+      expect(encoded.attributes).toEqual(
+        expect.arrayContaining([
+          expect.objectContaining({
+            name: "assignees",
+            type: expect.objectContaining({
+              kind: "array",
+              arrayOf: expect.objectContaining({ kind: "ref", refTo: contact.class.Person })
+            })
+          }),
+          expect.objectContaining({
+            name: "tagMatrix",
+            type: expect.objectContaining({
+              kind: "array",
+              arrayOf: expect.objectContaining({
+                kind: "array",
+                arrayOf: expect.objectContaining({ kind: "string" })
+              })
+            })
+          })
+        ])
+      )
+    }))
+
   it.effect("gets attributes from implemented interfaces and interface ancestors", () =>
     Effect.gen(function*() {
       const timestampInterface = "core:interface:Timestamped"
@@ -336,6 +382,23 @@ describe("sdk discovery operations", () => {
     Effect.gen(function*() {
       const exit = yield* getHulyClass({ class: ObjectClassName.make("missing:class:Thing") }).pipe(
         Effect.provide(createTestLayer({})),
+        Effect.exit
+      )
+
+      expect(Exit.isFailure(exit)).toBe(true)
+      if (Exit.isFailure(exit)) {
+        expect(exit.cause.toString()).toContain("HulyClassNotFoundError")
+      }
+    }))
+
+  it.effect("fails get_huly_class when an ancestor class is missing from the model", () =>
+    Effect.gen(function*() {
+      const classes = [
+        makeClassDoc({ _id: tracker.class.Issue, label: "tracker:class:Issue", extends: "missing:class:Parent" })
+      ]
+
+      const exit = yield* getHulyClass({ class: ObjectClassName.make(tracker.class.Issue) }).pipe(
+        Effect.provide(createTestLayer({ classes })),
         Effect.exit
       )
 

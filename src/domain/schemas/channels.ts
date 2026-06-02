@@ -4,6 +4,7 @@ import type { AccountUuid, ChannelId, ChannelName, PersonName } from "./shared.j
 import {
   atLeastOneUpdateFieldMessage,
   ChannelIdentifier,
+  hasAtLeastOneDefined,
   LimitParam,
   MessageId,
   NonEmptyString,
@@ -140,7 +141,13 @@ export const UpdateChannelParamsSchema = Schema.Struct({
   topic: Schema.optional(Schema.String.annotations({
     description: "New channel topic"
   }))
-}).annotations({
+}).pipe(
+  Schema.filter((params) =>
+    hasAtLeastOneDefined(params, UPDATE_CHANNEL_FIELDS)
+      ? undefined
+      : atLeastOneUpdateFieldMessage(UPDATE_CHANNEL_FIELDS)
+  )
+).annotations({
   title: "UpdateChannelParams",
   description: `Parameters for updating a channel. ${atLeastOneUpdateFieldMessage(UPDATE_CHANNEL_FIELDS)}`
 })

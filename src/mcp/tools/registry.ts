@@ -100,25 +100,69 @@ export const isEmptyArgumentsObject = (args: unknown): boolean =>
 interface ToolInputSchema {
   readonly properties?: Record<string, unknown>
   readonly required?: ReadonlyArray<string>
-  readonly anyOf?: ReadonlyArray<{ readonly required?: ReadonlyArray<string> }>
-  readonly oneOf?: ReadonlyArray<{ readonly required?: ReadonlyArray<string> }>
+  readonly anyOf?: ReadonlyArray<ToolInputSchemaVariant>
+  readonly oneOf?: ReadonlyArray<ToolInputSchemaVariant>
   readonly additionalProperties?: unknown
+}
+
+interface ToolInputSchemaVariant {
+  readonly properties?: Record<string, unknown>
+  readonly required?: ReadonlyArray<string>
+  readonly type?: unknown
 }
 
 const isToolInputSchema = (schema: object): schema is ToolInputSchema => typeof schema === "object"
 
+const hasRequiredFields = (schema: ToolInputSchemaVariant): boolean => (schema.required?.length ?? 0) > 0
+
+const hasDeclaredProperties = (schema: ToolInputSchemaVariant): boolean =>
+  Object.keys(schema.properties ?? {}).length > 0
+
+const unionVariants = (schema: ToolInputSchema): ReadonlyArray<ToolInputSchemaVariant> => [
+  ...(schema.anyOf ?? []),
+  ...(schema.oneOf ?? [])
+]
+
+const EMPTY_EFFECT_STRUCT_VARIANT_COUNT = 2
+
+const isEmptySchemaVariant = (schema: ToolInputSchemaVariant): boolean =>
+  !hasRequiredFields(schema) && !hasDeclaredProperties(schema)
+
+/**
+ * Effect encodes a no-argument tool's empty `Schema.Struct({})` as a two-variant
+ * union — an empty `object` and an empty `array`, neither carrying properties or
+ * required fields. We detect that exact shape so such tools count as no-argument
+ * (callable with no input) instead of demanding an arguments object.
+ *
+ * This is coupled to Effect's JSON Schema output: if a future Effect version
+ * changes how it encodes empty structs, the "classifies empty Effect Struct union
+ * schemas" property in `test/mcp/registry.property.test.ts` fails loudly rather
+ * than this silently misclassifying tools.
+ */
+const isEmptyStructUnionSchema = (schema: ToolInputSchema): boolean => {
+  const variants = unionVariants(schema)
+  const types = new Set(variants.map((variant) => variant.type))
+
+  return variants.length === EMPTY_EFFECT_STRUCT_VARIANT_COUNT
+    && isEmptySchemaVariant(schema)
+    && variants.every(isEmptySchemaVariant)
+    && types.has("object")
+    && types.has("array")
+}
+
 export const requiresArgumentsObject = (tool: ToolDefinition): boolean =>
   isToolInputSchema(tool.inputSchema)
   && (
-    (tool.inputSchema.required?.length ?? 0) > 0
-    || tool.inputSchema.anyOf?.some((schema) => (schema.required?.length ?? 0) > 0) === true
-    || tool.inputSchema.oneOf?.some((schema) => (schema.required?.length ?? 0) > 0) === true
+    hasRequiredFields(tool.inputSchema)
+    || unionVariants(tool.inputSchema).some(hasRequiredFields)
   )
 
 export const isNoArgumentTool = (tool: ToolDefinition): boolean =>
-  isToolInputSchema(tool.inputSchema)
-  && Object.keys(tool.inputSchema.properties ?? {}).length === 0
-  && tool.inputSchema.additionalProperties === false
+  isToolInputSchema(tool.inputSchema) && !requiresArgumentsObject(tool)
+  && (
+    (!hasDeclaredProperties(tool.inputSchema) && tool.inputSchema.additionalProperties === false)
+    || isEmptyStructUnionSchema(tool.inputSchema)
+  )
 
 const encodeOutput = (schema: Schema.Schema.AnyNoContext, result: unknown): unknown =>
   Schema.encodeUnknownSync(schema)(result)

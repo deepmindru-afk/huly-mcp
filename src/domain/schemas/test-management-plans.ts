@@ -4,6 +4,7 @@ import type { TestPlanId, TestPlanItemId, TestResultId, TestRunId } from "./shar
 import {
   atLeastOneUpdateFieldMessage,
   enumValuesDescription,
+  hasAtLeastOneDefined,
   LimitParam,
   NonEmptyString,
   TestCaseIdentifier,
@@ -92,7 +93,13 @@ export const UpdateTestPlanParamsSchema = Schema.Struct({
   plan: planField,
   name: Schema.optional(nameField),
   description: Schema.optional(descNullField)
-}).annotations({
+}).pipe(
+  Schema.filter((params) =>
+    hasAtLeastOneDefined(params, UPDATE_TEST_PLAN_FIELDS)
+      ? undefined
+      : atLeastOneUpdateFieldMessage(UPDATE_TEST_PLAN_FIELDS)
+  )
+).annotations({
   title: "UpdateTestPlanParams",
   description: `Update a test plan. ${atLeastOneUpdateFieldMessage(UPDATE_TEST_PLAN_FIELDS)}`
 })
@@ -189,7 +196,13 @@ export const UpdateTestRunParamsSchema = Schema.Struct({
       description: "Due date (ms timestamp), or null to clear"
     })
   )
-}).annotations({
+}).pipe(
+  Schema.filter((params) =>
+    hasAtLeastOneDefined(params, UPDATE_TEST_RUN_FIELDS)
+      ? undefined
+      : atLeastOneUpdateFieldMessage(UPDATE_TEST_RUN_FIELDS)
+  )
+).annotations({
   title: "UpdateTestRunParams",
   description: `Update a test run. ${atLeastOneUpdateFieldMessage(UPDATE_TEST_RUN_FIELDS)}`
 })
@@ -268,7 +281,13 @@ export const UpdateTestResultParamsSchema = Schema.Struct({
     Schema.NullOr(NonEmptyString).annotations({ description: "Assignee email or name, or null to unassign" })
   ),
   description: Schema.optional(descNullField)
-}).annotations({
+}).pipe(
+  Schema.filter((params) =>
+    hasAtLeastOneDefined(params, UPDATE_TEST_RESULT_FIELDS)
+      ? undefined
+      : atLeastOneUpdateFieldMessage(UPDATE_TEST_RESULT_FIELDS)
+  )
+).annotations({
   title: "UpdateTestResultParams",
   description: `Update a test result. ${atLeastOneUpdateFieldMessage(UPDATE_TEST_RESULT_FIELDS)}`
 })

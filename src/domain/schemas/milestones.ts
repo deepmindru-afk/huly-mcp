@@ -3,6 +3,7 @@ import { JSONSchema, Schema } from "effect"
 import {
   atLeastOneUpdateFieldMessage,
   enumValuesDescription,
+  hasAtLeastOneDefined,
   IssueIdentifier,
   LimitParam,
   MilestoneId,
@@ -128,7 +129,13 @@ export const UpdateMilestoneParamsSchema = Schema.Struct({
   status: Schema.optional(MilestoneStatusSchema.annotations({
     description: "New milestone status"
   }))
-}).annotations({
+}).pipe(
+  Schema.filter((params) =>
+    hasAtLeastOneDefined(params, UPDATE_MILESTONE_FIELDS)
+      ? undefined
+      : atLeastOneUpdateFieldMessage(UPDATE_MILESTONE_FIELDS)
+  )
+).annotations({
   title: "UpdateMilestoneParams",
   description: `Parameters for updating a milestone. ${atLeastOneUpdateFieldMessage(UPDATE_MILESTONE_FIELDS)}`
 })

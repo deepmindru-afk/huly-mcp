@@ -5,6 +5,7 @@ import {
   atLeastOneUpdateFieldMessage,
   Email,
   enumValuesDescription,
+  hasAtLeastOneDefined,
   LimitParam,
   MemberReference,
   NonEmptyString,
@@ -12,7 +13,6 @@ import {
   withAtLeastOneRequired
 } from "./shared.js"
 
-// No codec needed — internal type, not used for runtime validation
 export interface PersonSummary {
   readonly id: PersonId
   readonly name: PersonName
@@ -145,6 +145,7 @@ export const UPDATE_PERSON_FIELDS: ReadonlyArray<"firstName" | "lastName" | "cit
   "lastName",
   "city"
 ]
+const updatePersonFieldMessage = atLeastOneUpdateFieldMessage(UPDATE_PERSON_FIELDS)
 
 export const UpdatePersonParamsSchema = Schema.Struct({
   personId: PersonId.annotations({
@@ -161,13 +162,14 @@ export const UpdatePersonParamsSchema = Schema.Struct({
       description: "New city (null to clear)"
     })
   )
-}).annotations({
+}).pipe(
+  Schema.filter((params) => hasAtLeastOneDefined(params, UPDATE_PERSON_FIELDS) ? undefined : updatePersonFieldMessage)
+).annotations({
   title: "UpdatePersonParams",
-  description: `Parameters for updating a person. ${atLeastOneUpdateFieldMessage(UPDATE_PERSON_FIELDS)}`
+  description: `Parameters for updating a person. ${updatePersonFieldMessage}`
 })
 
 export type UpdatePersonParams = Schema.Schema.Type<typeof UpdatePersonParamsSchema>
-
 export const DeletePersonParamsSchema = Schema.Struct({
   personId: PersonId.annotations({
     description: "Person ID"
@@ -237,6 +239,7 @@ export const UPDATE_ORGANIZATION_FIELDS: ReadonlyArray<"name" | "city" | "descri
   "city",
   "description"
 ]
+const updateOrganizationFieldMessage = atLeastOneUpdateFieldMessage(UPDATE_ORGANIZATION_FIELDS)
 
 export const UpdateOrganizationParamsSchema = Schema.Struct({
   identifier: NonEmptyString.annotations({
@@ -255,11 +258,14 @@ export const UpdateOrganizationParamsSchema = Schema.Struct({
       description: "New description/notes (null to clear). Supports multi-line plain text."
     })
   )
-}).annotations({
+}).pipe(
+  Schema.filter((params) =>
+    hasAtLeastOneDefined(params, UPDATE_ORGANIZATION_FIELDS) ? undefined : updateOrganizationFieldMessage
+  )
+).annotations({
   title: "UpdateOrganizationParams",
-  description: `Update fields on an existing organization. Only provided fields are modified. ${
-    atLeastOneUpdateFieldMessage(UPDATE_ORGANIZATION_FIELDS)
-  }`
+  description:
+    `Update fields on an existing organization. Only provided fields are modified. ${updateOrganizationFieldMessage}`
 })
 
 export type UpdateOrganizationParams = Schema.Schema.Type<typeof UpdateOrganizationParamsSchema>

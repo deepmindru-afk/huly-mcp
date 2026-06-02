@@ -6,6 +6,7 @@ import {
   atLeastOneUpdateFieldMessage,
   ComponentIdentifier,
   ComponentLabel,
+  hasAtLeastOneDefined,
   IssueTemplateChildId,
   IssueTemplateId,
   LimitParam,
@@ -231,7 +232,13 @@ export const UpdateIssueTemplateParamsSchema = Schema.Struct({
   estimation: Schema.optional(PositiveNumber.annotations({
     description: "New default estimation in minutes"
   }))
-}).annotations({
+}).pipe(
+  Schema.filter((params) =>
+    hasAtLeastOneDefined(params, UPDATE_ISSUE_TEMPLATE_FIELDS)
+      ? undefined
+      : atLeastOneUpdateFieldMessage(UPDATE_ISSUE_TEMPLATE_FIELDS)
+  )
+).annotations({
   title: "UpdateIssueTemplateParams",
   description: `Parameters for updating an issue template. ${
     atLeastOneUpdateFieldMessage(UPDATE_ISSUE_TEMPLATE_FIELDS)

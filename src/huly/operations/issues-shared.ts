@@ -80,8 +80,8 @@ export const uniqueStatusRefs = (refs: ReadonlyArray<Ref<Status>>): Array<Ref<St
     []
   )
 
-export const uniqueStatusDocs = (statuses: Iterable<Status>): Array<Status> =>
-  Array.from(statuses).reduce<Array<Status>>(
+export const uniqueStatusDocs = <T extends Pick<Status, "_id">>(statuses: Iterable<T>): Array<T> =>
+  Array.from(statuses).reduce<Array<T>>(
     (unique, status) => unique.some((existing) => existing._id === status._id) ? unique : [...unique, status],
     []
   )

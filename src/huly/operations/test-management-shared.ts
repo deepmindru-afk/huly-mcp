@@ -65,8 +65,13 @@ const stringToCaseTypeExact = {
 
 const stringToCaseType: Readonly<Record<string, TestCaseType>> = stringToCaseTypeExact
 
+const lookupEnumValue = <T>(map: Readonly<Record<string, T>>, value: string): T | undefined => {
+  const key = value.toLowerCase()
+  return Object.hasOwn(map, key) ? map[key] : undefined
+}
+
 export const testCaseTypeToString = (t: TestCaseType): TestCaseTypeStr => caseTypeToString[t]
-export const stringToTestCaseType = (s: string): TestCaseType | undefined => stringToCaseType[s.toLowerCase()]
+export const stringToTestCaseType = (s: string): TestCaseType | undefined => lookupEnumValue(stringToCaseType, s)
 
 const casePriorityToString: Record<TestCasePriority, TestCasePriorityStr> = {
   [CasePriority.Low]: "low",
@@ -86,7 +91,7 @@ const stringToCasePriority: Readonly<Record<string, TestCasePriority>> = stringT
 
 export const testCasePriorityToString = (p: TestCasePriority): TestCasePriorityStr => casePriorityToString[p]
 export const stringToTestCasePriority = (s: string): TestCasePriority | undefined =>
-  stringToCasePriority[s.toLowerCase()]
+  lookupEnumValue(stringToCasePriority, s)
 
 const caseStatusToString: Record<TestCaseStatus, TestCaseStatusStr> = {
   [CaseStatus.Draft]: "draft",
@@ -107,7 +112,7 @@ const stringToCaseStatusExact = {
 const stringToCaseStatus: Readonly<Record<string, TestCaseStatus>> = stringToCaseStatusExact
 
 export const testCaseStatusToString = (s: TestCaseStatus): TestCaseStatusStr => caseStatusToString[s]
-export const stringToTestCaseStatus = (s: string): TestCaseStatus | undefined => stringToCaseStatus[s.toLowerCase()]
+export const stringToTestCaseStatus = (s: string): TestCaseStatus | undefined => lookupEnumValue(stringToCaseStatus, s)
 
 const runStatusToString: Record<TestRunStatus, TestRunStatusStr> = {
   [RunStatus.Untested]: "untested",
@@ -126,7 +131,7 @@ const stringToRunStatusExact = {
 const stringToRunStatus: Readonly<Record<string, TestRunStatus>> = stringToRunStatusExact
 
 export const testRunStatusToString = (s: TestRunStatus): TestRunStatusStr => runStatusToString[s]
-export const stringToTestRunStatus = (s: string): TestRunStatus | undefined => stringToRunStatus[s.toLowerCase()]
+export const stringToTestRunStatus = (s: string): TestRunStatus | undefined => lookupEnumValue(stringToRunStatus, s)
 
 // --- Markup helpers ---
 

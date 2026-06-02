@@ -4,6 +4,7 @@ import type { DocumentId, TeamspaceId, UrlString } from "./shared.js"
 import {
   atLeastOneUpdateFieldMessage,
   DocumentIdentifier,
+  hasAtLeastOneDefined,
   LimitParam,
   NonEmptyString,
   TeamspaceIdentifier,
@@ -284,7 +285,13 @@ export const UpdateTeamspaceParamsSchema = Schema.Struct({
   archived: Schema.optional(Schema.Boolean.annotations({
     description: "Set archived status"
   }))
-}).annotations({
+}).pipe(
+  Schema.filter((params) =>
+    hasAtLeastOneDefined(params, UPDATE_TEAMSPACE_FIELDS)
+      ? undefined
+      : atLeastOneUpdateFieldMessage(UPDATE_TEAMSPACE_FIELDS)
+  )
+).annotations({
   title: "UpdateTeamspaceParams",
   description: `Parameters for updating a teamspace. ${atLeastOneUpdateFieldMessage(UPDATE_TEAMSPACE_FIELDS)}`
 })

@@ -7,6 +7,7 @@ import {
   EmptyParamsSchema,
   enumValuesDescription,
   EventId,
+  hasAtLeastOneDefined,
   LimitParam,
   NonEmptyString,
   Timestamp,
@@ -295,7 +296,11 @@ export const UpdateEventParamsSchema = Schema.Struct({
   visibility: Schema.optional(VisibilitySchema.annotations({
     description: "New event visibility"
   }))
-}).annotations({
+}).pipe(
+  Schema.filter((params) =>
+    hasAtLeastOneDefined(params, UPDATE_EVENT_FIELDS) ? undefined : atLeastOneUpdateFieldMessage(UPDATE_EVENT_FIELDS)
+  )
+).annotations({
   title: "UpdateEventParams",
   description: `Parameters for updating an event. ${atLeastOneUpdateFieldMessage(UPDATE_EVENT_FIELDS)}`
 })

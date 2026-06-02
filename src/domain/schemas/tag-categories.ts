@@ -2,6 +2,7 @@ import { JSONSchema, Schema } from "effect"
 
 import {
   atLeastOneUpdateFieldMessage,
+  hasAtLeastOneDefined,
   LimitParam,
   NonEmptyString,
   TagCategoryId,
@@ -75,7 +76,13 @@ export const UpdateTagCategoryParamsSchema = Schema.Struct({
       description: "New default flag"
     })
   )
-}).annotations({
+}).pipe(
+  Schema.filter((params) =>
+    hasAtLeastOneDefined(params, UPDATE_TAG_CATEGORY_FIELDS)
+      ? undefined
+      : atLeastOneUpdateFieldMessage(UPDATE_TAG_CATEGORY_FIELDS)
+  )
+).annotations({
   title: "UpdateTagCategoryParams",
   description: `Parameters for updating a tag category. ${atLeastOneUpdateFieldMessage(UPDATE_TAG_CATEGORY_FIELDS)}`
 })

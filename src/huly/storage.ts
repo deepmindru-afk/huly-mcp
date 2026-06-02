@@ -15,21 +15,18 @@ import { Context, Effect, Layer } from "effect"
 import { HulyConfigService } from "../config/config.js"
 import { concatLink } from "../utils/url.js"
 import { authToOptions, connectWithRetry } from "./client.js"
-import type { HulyAuthError, HulyConnectionError } from "./errors.js"
+import type { FileFetchError, HulyAuthError, HulyConnectionError } from "./errors.js"
 import {
-  BYTES_PER_MB,
-  FileFetchError,
   FileNotFoundError,
   FileTooLargeError,
   FileUploadError,
   InvalidContentTypeError,
-  InvalidFileDataError
+  InvalidFileDataError,
+  MAX_FILE_SIZE
 } from "./errors.js"
 import { toRef } from "./operations/sdk-boundary.js"
 import { HulySdk, type HulySdkDependencies } from "./sdk-deps.js"
-
-const MAX_FILE_SIZE_MB = 100
-const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * BYTES_PER_MB
+import { fetchFromUrl } from "./url-fetch.js"
 
 const ALLOWED_CONTENT_TYPES = new Set([
   // Images
@@ -303,30 +300,25 @@ export const decodeBase64 = (
 ): Effect.Effect<Buffer, InvalidFileDataError> =>
   Effect.try({
     try: () => {
-      // Remove data URL prefix if present (e.g., "data:image/png;base64,")
-      const base64Clean = base64Data.includes(",")
-        ? base64Data.split(",")[1]
-        : base64Data
+      const dataUrlMatch = base64Data.match(
+        /^data:(?:[A-Za-z0-9!#$&^_.+-]+\/[A-Za-z0-9!#$&^_.+-]+)?(?:;[A-Za-z0-9!#$&^_.+-]+=[^,;\s]+)*;base64,(.+)$/s
+      )
+      if (base64Data.includes(",") && dataUrlMatch === null) {
+        throw new Error("Malformed data URL")
+      }
+
+      const base64Clean = dataUrlMatch?.[1] ?? base64Data
+      const normalizedInput = base64Clean.replace(/[\r\n\s]/g, "")
+
+      if (!/^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}(?:==)?|[A-Za-z0-9+/]{3}=?)?$/.test(normalizedInput)) {
+        throw new Error("Invalid base64 encoding")
+      }
 
       const buffer = Buffer.from(base64Clean, "base64")
 
       // Validate the buffer is not empty and is valid base64
       if (buffer.length === 0) {
         throw new Error("Empty buffer after decoding")
-      }
-
-      // Check if the base64 decoding was successful
-      // If the input was not valid base64, Buffer.from returns an empty buffer or garbage
-      const reEncoded = buffer.toString("base64")
-      const normalizedInput = base64Clean.replace(/[\r\n\s]/g, "")
-      const normalizedOutput = reEncoded.replace(/[\r\n\s]/g, "")
-
-      // Allow for padding differences
-      const inputNoPad = normalizedInput.replace(/=/g, "")
-      const outputNoPad = normalizedOutput.replace(/=/g, "")
-
-      if (inputNoPad !== outputNoPad) {
-        throw new Error("Invalid base64 encoding")
       }
 
       return buffer
@@ -355,88 +347,4 @@ export const readFromFilePath = (
     }
   })
 
-/** Fetch timeout in milliseconds */
-const FETCH_TIMEOUT_MS = 30_000
-
-/**
- * Check if URL points to a potentially dangerous internal address.
- * Blocks: localhost, private IPs, link-local, cloud metadata endpoints.
- */
-export const isBlockedUrl = (urlString: string): boolean => {
-  try {
-    const url = new URL(urlString)
-    const hostname = url.hostname.toLowerCase()
-
-    // Block cloud metadata endpoints
-    if (hostname === "metadata.google.internal") {
-      return true
-    }
-
-    // Block localhost variants (IPv6 has brackets in URL hostname)
-    if (hostname === "localhost" || hostname === "::1" || hostname === "[::1]") {
-      return true
-    }
-
-    // Check IPv4 private/reserved ranges (RFC 1918, RFC 3927)
-    const ipMatch = hostname.match(/^(\d+)\.(\d+)\.(\d+)\.(\d+)$/)
-    if (ipMatch) {
-      const [a, b] = [Number(ipMatch[1]), Number(ipMatch[2])]
-
-      // 127.x.x.x (loopback)
-      if (a === 127) return true // eslint-disable-line no-magic-numbers
-
-      // 10.x.x.x (private)
-      if (a === 10) return true // eslint-disable-line no-magic-numbers
-
-      // 172.16-31.x.x (private)
-      if (a === 172 && b >= 16 && b <= 31) return true // eslint-disable-line no-magic-numbers
-
-      // 192.168.x.x (private)
-      if (a === 192 && b === 168) return true // eslint-disable-line no-magic-numbers
-
-      // 169.254.x.x (link-local, includes metadata endpoint)
-      if (a === 169 && b === 254) return true // eslint-disable-line no-magic-numbers
-    }
-
-    return false
-  } catch {
-    return true // Invalid URL
-  }
-}
-
-/**
- * Fetch file from URL.
- * Includes timeout, SSRF protection, and redirect blocking.
- */
-export const fetchFromUrl = (
-  fileUrl: string
-): Effect.Effect<Buffer, FileFetchError> =>
-  Effect.tryPromise({
-    try: async () => {
-      if (isBlockedUrl(fileUrl)) {
-        throw new Error("URL blocked: internal/private addresses not allowed")
-      }
-
-      const controller = new AbortController()
-      const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS)
-
-      try {
-        const response = await fetch(fileUrl, {
-          signal: controller.signal,
-          redirect: "error" // Prevent redirect-based SSRF
-        })
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`)
-        }
-        const arrayBuffer = await response.arrayBuffer()
-        return Buffer.from(arrayBuffer)
-      } finally {
-        clearTimeout(timeout)
-      }
-    },
-    catch: (e) =>
-      new FileFetchError({
-        fileUrl,
-        reason: String(e)
-      })
-  })
+export { fetchFromUrl, isBlockedUrl } from "./url-fetch.js"

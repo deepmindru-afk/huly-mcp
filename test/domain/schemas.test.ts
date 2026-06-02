@@ -469,10 +469,10 @@ describe("Domain Schemas", () => {
   })
 
   describe("UpdateIssueParamsSchema", () => {
-    it.effect("parses minimal params and advertises update-field requirement in JSON Schema", () =>
+    it.effect("rejects minimal params and advertises update-field requirement in JSON Schema", () =>
       Effect.gen(function*() {
-        const result = yield* parseUpdateIssueParams({ project: "HULY", identifier: "HULY-123" })
-        expect(result).toEqual({ project: "HULY", identifier: "HULY-123" })
+        const error = yield* Effect.flip(parseUpdateIssueParams({ project: "HULY", identifier: "HULY-123" }))
+        expect(error._tag).toBe("ParseError")
 
         const schema = expectJsonSchemaObject(updateIssueParamsJsonSchema)
         expect(schema.anyOf).toEqual(
@@ -504,10 +504,10 @@ describe("Domain Schemas", () => {
   })
 
   describe("Other update schemas", () => {
-    it.effect("card updates parse minimal params and advertise update-field requirement", () =>
+    it.effect("card updates reject minimal params and advertise update-field requirement", () =>
       Effect.gen(function*() {
-        const result = yield* parseUpdateCardParams({ cardSpace: "Cards", card: "Roadmap" })
-        expect(result).toEqual({ cardSpace: "Cards", card: "Roadmap" })
+        const error = yield* Effect.flip(parseUpdateCardParams({ cardSpace: "Cards", card: "Roadmap" }))
+        expect(error._tag).toBe("ParseError")
 
         const schema = expectJsonSchemaObject(updateCardParamsJsonSchema)
         expect(schema.anyOf).toEqual(
@@ -515,12 +515,12 @@ describe("Domain Schemas", () => {
         )
       }))
 
-    it.effect("workspace updates parse minimal params and advertise update-field requirement", () =>
+    it.effect("workspace updates reject minimal params and advertise update-field requirement", () =>
       Effect.gen(function*() {
-        const profile = yield* parseUpdateUserProfileParams({})
-        const guestSettings = yield* parseUpdateGuestSettingsParams({})
-        expect(profile).toEqual({})
-        expect(guestSettings).toEqual({})
+        const profileError = yield* Effect.flip(parseUpdateUserProfileParams({}))
+        const guestSettingsError = yield* Effect.flip(parseUpdateGuestSettingsParams({}))
+        expect(profileError._tag).toBe("ParseError")
+        expect(guestSettingsError._tag).toBe("ParseError")
 
         const profileSchema = expectJsonSchemaObject(updateUserProfileParamsJsonSchema)
         expect(profileSchema.anyOf).toEqual(
@@ -540,14 +540,16 @@ describe("Domain Schemas", () => {
         )
       }))
 
-    it.effect("test-management updates parse minimal params and advertise update-field requirement", () =>
+    it.effect("test-management updates reject minimal params and advertise update-field requirement", () =>
       Effect.gen(function*() {
-        const plan = yield* parseUpdateTestPlanParams({ project: "QA", plan: "Regression" })
-        const run = yield* parseUpdateTestRunParams({ project: "QA", run: "Nightly" })
-        const result = yield* parseUpdateTestResultParams({ project: "QA", result: "Login result" })
-        expect(plan).toEqual({ project: "QA", plan: "Regression" })
-        expect(run).toEqual({ project: "QA", run: "Nightly" })
-        expect(result).toEqual({ project: "QA", result: "Login result" })
+        const planError = yield* Effect.flip(parseUpdateTestPlanParams({ project: "QA", plan: "Regression" }))
+        const runError = yield* Effect.flip(parseUpdateTestRunParams({ project: "QA", run: "Nightly" }))
+        const resultError = yield* Effect.flip(
+          parseUpdateTestResultParams({ project: "QA", result: "Login result" })
+        )
+        expect(planError._tag).toBe("ParseError")
+        expect(runError._tag).toBe("ParseError")
+        expect(resultError._tag).toBe("ParseError")
 
         const planSchema = expectJsonSchemaObject(updateTestPlanParamsJsonSchema)
         expect(planSchema.anyOf).toEqual(

@@ -6,6 +6,8 @@
 import { Schema } from "effect"
 
 export const BYTES_PER_MB = 1024 * 1024
+export const MAX_FILE_SIZE_MB = 100
+export const MAX_FILE_SIZE = MAX_FILE_SIZE_MB * BYTES_PER_MB
 
 /**
  * File upload error - storage operation failed.

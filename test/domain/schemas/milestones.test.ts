@@ -403,13 +403,13 @@ describe("Milestone Schemas", () => {
   })
 
   describe("UpdateMilestoneParamsSchema", () => {
-    it.effect("parses minimal params and advertises update-field requirement in JSON Schema", () =>
+    it.effect("rejects minimal params and advertises update-field requirement in JSON Schema", () =>
       Effect.gen(function*() {
-        const result = yield* parseUpdateMilestoneParams({
+        const error = yield* Effect.flip(parseUpdateMilestoneParams({
           project: "HULY",
           milestone: "Sprint 1"
-        })
-        expect(result).toEqual({ project: "HULY", milestone: "Sprint 1" })
+        }))
+        expect(error._tag).toBe("ParseError")
 
         const schema = expectJsonSchemaObject(updateMilestoneParamsJsonSchema)
         expect(schema.anyOf).toEqual(

@@ -5,6 +5,7 @@ import {
   atLeastOneUpdateFieldMessage,
   CardIdentifier,
   CardSpaceIdentifier,
+  hasAtLeastOneDefined,
   LimitParam,
   MasterTagIdentifier,
   NonEmptyString,
@@ -174,7 +175,11 @@ export const UpdateCardParamsSchema = Schema.Struct({
   content: Schema.optional(Schema.String.annotations({
     description: "New card content (markdown supported)"
   }))
-}).annotations({
+}).pipe(
+  Schema.filter((params) =>
+    hasAtLeastOneDefined(params, UPDATE_CARD_FIELDS) ? undefined : atLeastOneUpdateFieldMessage(UPDATE_CARD_FIELDS)
+  )
+).annotations({
   title: "UpdateCardParams",
   description: `Parameters for updating a card. ${atLeastOneUpdateFieldMessage(UPDATE_CARD_FIELDS)}`
 })

@@ -180,11 +180,11 @@ describe("Contact Schemas", () => {
   })
 
   describe("UpdatePersonParamsSchema", () => {
-    it("accepts personId only and advertises update-field requirement in JSON Schema", () => {
+    it("rejects personId only and advertises update-field requirement in JSON Schema", () => {
       const result = Schema.decodeUnknownEither(UpdatePersonParamsSchema)({
         personId: "abc123"
       })
-      expect(result._tag).toBe("Right")
+      expect(result._tag).toBe("Left")
 
       const jsonSchema = expectJsonSchemaObject(updatePersonParamsJsonSchema)
       expect(jsonSchema.anyOf).toEqual(

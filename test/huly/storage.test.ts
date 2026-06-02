@@ -2,6 +2,7 @@ import { describe, it } from "@effect/vitest"
 import type { Blob, Ref, WorkspaceUuid } from "@hcengineering/core"
 import { Effect, Layer } from "effect"
 import * as fs from "node:fs/promises"
+import * as http from "node:http"
 import * as os from "node:os"
 import * as path from "node:path"
 import { expect } from "vitest"
@@ -21,6 +22,7 @@ import {
   validateContentType,
   validateFileSize
 } from "../../src/huly/storage.js"
+import { requestUrl } from "../../src/huly/url-fetch.js"
 import { mockFn } from "../helpers/mock-fn.js"
 
 const mockPut = mockFn<
@@ -430,51 +432,133 @@ describe("fetchFromUrl", () => {
       expect(error.reason).toContain("blocked")
     }))
 
+  it.effect("blocks public hostnames when DNS resolves to a private address", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(
+        fetchFromUrl("https://example.com/file.png", {
+          requestUrl: () => Promise.reject(new Error("request should not run")),
+          resolveHostname: () => Promise.resolve([{ address: "10.0.0.1", family: 4 }])
+        })
+      )
+
+      expect(error._tag).toBe("FileFetchError")
+      expect(error.reason).toContain("DNS resolved")
+    }))
+
+  it.effect("blocks public hostnames when DNS resolves to non-global IPv6", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(
+        fetchFromUrl("https://example.com/file.png", {
+          requestUrl: () => Promise.reject(new Error("request should not run")),
+          resolveHostname: () => Promise.resolve([{ address: "fc00::1", family: 6 }])
+        })
+      )
+
+      expect(error._tag).toBe("FileFetchError")
+      expect(error.reason).toContain("DNS resolved")
+    }))
+
   it.effect("returns FileFetchError for non-ok HTTP responses", () =>
     Effect.gen(function*() {
-      const originalFetch = globalThis.fetch
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- partial Fetch Response for the file-fetch branch
-      const response: Response = {
-        ok: false,
-        status: 403,
-        statusText: "Forbidden"
-      } as Response
-      globalThis.fetch = async () => response
-
-      try {
-        const error = yield* Effect.flip(
-          fetchFromUrl("https://example.com/secret-file.png")
-        )
-        expect(error._tag).toBe("FileFetchError")
-        expect(error.fileUrl).toBe("https://example.com/secret-file.png")
-        expect(error.reason).toContain("403")
-      } finally {
-        globalThis.fetch = originalFetch
-      }
+      const error = yield* Effect.flip(
+        fetchFromUrl("https://example.com/secret-file.png", {
+          requestUrl: () => Promise.reject(new Error("HTTP 403: Forbidden")),
+          resolveHostname: () => Promise.resolve([{ address: "93.184.216.34", family: 4 }])
+        })
+      )
+      expect(error._tag).toBe("FileFetchError")
+      expect(error.fileUrl).toBe("https://example.com/secret-file.png")
+      expect(error.reason).toContain("403")
     }))
 
   it.effect("returns buffer on successful fetch", () =>
     Effect.gen(function*() {
-      const originalFetch = globalThis.fetch
       const fileContent = Buffer.from("fetched file data")
-      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- partial Fetch Response for the file-fetch branch
-      const response: Response = {
-        ok: true,
-        status: 200,
-        statusText: "OK",
-        arrayBuffer: () =>
-          Promise.resolve(fileContent.buffer.slice(
-            fileContent.byteOffset,
-            fileContent.byteOffset + fileContent.byteLength
-          ))
-      } as Response
-      globalThis.fetch = async () => response
+
+      const buffer = yield* fetchFromUrl("https://example.com/file.png", {
+        requestUrl: () => Promise.resolve(fileContent),
+        resolveHostname: () => Promise.resolve([{ address: "93.184.216.34", family: 4 }])
+      })
+
+      expect(buffer.toString()).toBe("fetched file data")
+    }))
+
+  it.effect("tries each pre-vetted resolved address until a request succeeds", () =>
+    Effect.gen(function*() {
+      const fileContent = Buffer.from("fetched from fallback address")
+      const requestedAddresses: Array<string> = []
+
+      const buffer = yield* fetchFromUrl("https://example.com/file.png", {
+        requestUrl: (_url, address) => {
+          requestedAddresses.push(address.address)
+          return address.address === "93.184.216.34"
+            ? Promise.reject(new Error("first address unavailable"))
+            : Promise.resolve(fileContent)
+        },
+        resolveHostname: () =>
+          Promise.resolve([
+            { address: "93.184.216.34", family: 4 },
+            { address: "2606:2800:220:1:248:1893:25c8:1946", family: 6 }
+          ])
+      })
+
+      expect(buffer.toString()).toBe("fetched from fallback address")
+      expect(requestedAddresses).toEqual([
+        "93.184.216.34",
+        "2606:2800:220:1:248:1893:25c8:1946"
+      ])
+    }))
+
+  it.effect("destroys the request when received chunks exceed the byte cap", () =>
+    Effect.gen(function*() {
+      const maxBytes = 4
+      let resolveResponseClosed: (() => void) | undefined
+      const responseClosed = new Promise<void>((resolve) => {
+        resolveResponseClosed = resolve
+      })
+      const server = http.createServer((_request, response) => {
+        response.on("close", () => {
+          resolveResponseClosed?.()
+        })
+        response.write(Buffer.alloc(maxBytes, "a"))
+        setImmediate(() => {
+          response.write(Buffer.from("b"))
+        })
+      })
+
+      yield* Effect.tryPromise(() =>
+        new Promise<void>((resolve, reject) => {
+          server.once("error", reject)
+          server.listen(0, "127.0.0.1", resolve)
+        })
+      )
 
       try {
-        const buffer = yield* fetchFromUrl("https://example.com/file.png")
-        expect(buffer.toString()).toBe("fetched file data")
+        const address = server.address()
+        if (address === null || typeof address === "string") {
+          throw new Error("Expected server to listen on a TCP address")
+        }
+
+        const error = yield* Effect.flip(
+          Effect.tryPromise({
+            try: () =>
+              requestUrl(
+                new URL(`http://example.com:${address.port}/file.bin`),
+                { address: "127.0.0.1", family: 4 },
+                maxBytes
+              ),
+            catch: (e) => e
+          })
+        )
+
+        expect(String(error)).toContain("maximum file size")
+        yield* Effect.tryPromise(() => responseClosed)
       } finally {
-        globalThis.fetch = originalFetch
+        yield* Effect.tryPromise(() =>
+          new Promise<void>((resolve, reject) => {
+            server.close((error) => error === undefined ? resolve() : reject(error))
+          })
+        )
       }
     }))
 })
@@ -565,6 +649,18 @@ describe("isBlockedUrl", () => {
 
   it("blocks ::1 IPv6 loopback", () => {
     expect(isBlockedUrl("http://[::1]/file")).toBe(true)
+  })
+
+  it("blocks IPv6 special-use ranges inside 2000::/3", () => {
+    expect(isBlockedUrl("http://[2001::1]/file")).toBe(true)
+    expect(isBlockedUrl("http://[2001:1::1]/file")).toBe(true)
+    expect(isBlockedUrl("http://[2001:1::2]/file")).toBe(true)
+    expect(isBlockedUrl("http://[2001:2::1]/file")).toBe(true)
+    expect(isBlockedUrl("http://[2001:10::1]/file")).toBe(true)
+    expect(isBlockedUrl("http://[2001:20::1]/file")).toBe(true)
+    expect(isBlockedUrl("http://[2001:db8::1]/file")).toBe(true)
+    expect(isBlockedUrl("http://[2002::1]/file")).toBe(true)
+    expect(isBlockedUrl("http://[3fff::1]/file")).toBe(true)
   })
 
   it("blocks 10.x.x.x private range", () => {

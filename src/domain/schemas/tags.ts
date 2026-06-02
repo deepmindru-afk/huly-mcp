@@ -5,6 +5,7 @@ import {
   atLeastOneUpdateFieldMessage,
   ColorCode,
   DocId,
+  hasAtLeastOneDefined,
   LimitParam,
   NonEmptyString,
   ObjectClassName,
@@ -162,7 +163,11 @@ export const UpdateTagParamsSchema = Schema.Struct({
     description: "Tag ID or exact title. Title lookup is scoped to targetClass."
   }),
   ...UpdateTagFieldSchema.fields
-}).annotations({
+}).pipe(
+  Schema.filter((params) =>
+    hasAtLeastOneDefined(params, UPDATE_TAG_FIELDS) ? undefined : atLeastOneUpdateFieldMessage(UPDATE_TAG_FIELDS)
+  )
+).annotations({
   title: "UpdateTagParams",
   description: `Update a generic Huly tag definition. ${atLeastOneUpdateFieldMessage(UPDATE_TAG_FIELDS)}`
 })

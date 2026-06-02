@@ -3,6 +3,7 @@ import { JSONSchema, Schema } from "effect"
 import {
   atLeastOneUpdateFieldMessage,
   ColorCode,
+  hasAtLeastOneDefined,
   LimitParam,
   NonEmptyString,
   TagCategoryIdentifier,
@@ -82,7 +83,11 @@ export const UpdateLabelParamsSchema = Schema.Struct({
   description: Schema.optional(Schema.String.annotations({
     description: "New label description"
   }))
-}).annotations({
+}).pipe(
+  Schema.filter((params) =>
+    hasAtLeastOneDefined(params, UPDATE_LABEL_FIELDS) ? undefined : atLeastOneUpdateFieldMessage(UPDATE_LABEL_FIELDS)
+  )
+).annotations({
   title: "UpdateLabelParams",
   description: `Parameters for updating a label definition. ${atLeastOneUpdateFieldMessage(UPDATE_LABEL_FIELDS)}`
 })

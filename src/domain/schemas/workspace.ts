@@ -7,6 +7,7 @@ import {
   Email,
   EmptyParamsSchema,
   enumValuesDescription,
+  hasAtLeastOneDefined,
   LimitParam,
   NonEmptyString,
   PersonUuid,
@@ -174,7 +175,13 @@ export const UpdateUserProfileParamsSchema = Schema.Struct({
       description: "Whether profile is public"
     })
   )
-}).annotations({
+}).pipe(
+  Schema.filter((params) =>
+    hasAtLeastOneDefined(params, UPDATE_USER_PROFILE_FIELDS)
+      ? undefined
+      : atLeastOneUpdateFieldMessage(UPDATE_USER_PROFILE_FIELDS)
+  )
+).annotations({
   title: "UpdateUserProfileParams",
   description: `Parameters for updating user profile. ${atLeastOneUpdateFieldMessage(UPDATE_USER_PROFILE_FIELDS)}`
 })
@@ -197,7 +204,13 @@ export const UpdateGuestSettingsParamsSchema = Schema.Struct({
       description: "Allow guest sign-up"
     })
   )
-}).annotations({
+}).pipe(
+  Schema.filter((params) =>
+    hasAtLeastOneDefined(params, UPDATE_GUEST_SETTINGS_FIELDS)
+      ? undefined
+      : atLeastOneUpdateFieldMessage(UPDATE_GUEST_SETTINGS_FIELDS)
+  )
+).annotations({
   title: "UpdateGuestSettingsParams",
   description: `Parameters for updating guest settings. ${atLeastOneUpdateFieldMessage(UPDATE_GUEST_SETTINGS_FIELDS)}`
 })

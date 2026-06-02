@@ -6,6 +6,7 @@ import {
   AttachmentId,
   DocId,
   DocumentIdentifier,
+  hasAtLeastOneDefined,
   IssueIdentifier,
   LimitParam,
   MimeType,
@@ -140,7 +141,13 @@ export const UpdateAttachmentParamsSchema = Schema.Struct({
   pinned: Schema.optional(Schema.Boolean.annotations({
     description: "Pin or unpin the attachment"
   }))
-}).annotations({
+}).pipe(
+  Schema.filter((params) =>
+    hasAtLeastOneDefined(params, UPDATE_ATTACHMENT_FIELDS)
+      ? undefined
+      : atLeastOneUpdateFieldMessage(UPDATE_ATTACHMENT_FIELDS)
+  )
+).annotations({
   title: "UpdateAttachmentParams",
   description: `Parameters for updating an attachment. ${atLeastOneUpdateFieldMessage(UPDATE_ATTACHMENT_FIELDS)}`
 })

@@ -46,7 +46,9 @@ import {
   FileTooLargeError,
   FileUploadError,
   InvalidContentTypeError,
-  InvalidFileDataError
+  InvalidFileDataError,
+  MAX_FILE_SIZE,
+  MAX_FILE_SIZE_MB
 } from "./errors-files.js"
 import {
   AssociationConflictError,
@@ -159,6 +161,8 @@ export {
   IssueTemplateNotFoundError,
   LeadNotFoundError,
   MasterTagNotFoundError,
+  MAX_FILE_SIZE,
+  MAX_FILE_SIZE_MB,
   MessageNotFoundError,
   MilestoneNotFoundError,
   NotificationContextNotFoundError,

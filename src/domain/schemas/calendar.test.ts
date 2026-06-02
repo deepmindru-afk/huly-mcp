@@ -216,11 +216,11 @@ describe("Calendar Schemas", () => {
   })
 
   describe("UpdateEventParamsSchema", () => {
-    it("accepts only eventId and advertises update-field requirement in JSON Schema", () => {
+    it("rejects only eventId and advertises update-field requirement in JSON Schema", () => {
       const result = Schema.decodeUnknownEither(UpdateEventParamsSchema)({
         eventId: "evt-123"
       })
-      expect(Either.isRight(result)).toBe(true)
+      expect(Either.isLeft(result)).toBe(true)
 
       const jsonSchema = expectJsonSchemaObject(updateEventParamsJsonSchema)
       expect(jsonSchema.anyOf).toEqual(

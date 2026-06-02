@@ -4,6 +4,7 @@ import type { TestCaseId, TestProjectId, TestSuiteId } from "./shared.js"
 import {
   atLeastOneUpdateFieldMessage,
   enumValuesDescription,
+  hasAtLeastOneDefined,
   LimitParam,
   NonEmptyString,
   TestCaseIdentifier,
@@ -163,7 +164,13 @@ export const UpdateTestSuiteParamsSchema = Schema.Struct({
       description: "New suite description (null to clear)"
     })
   )
-}).annotations({
+}).pipe(
+  Schema.filter((params) =>
+    hasAtLeastOneDefined(params, UPDATE_TEST_SUITE_FIELDS)
+      ? undefined
+      : atLeastOneUpdateFieldMessage(UPDATE_TEST_SUITE_FIELDS)
+  )
+).annotations({
   title: "UpdateTestSuiteParams",
   description: `Parameters for updating a test suite. Only provided fields are modified. ${
     atLeastOneUpdateFieldMessage(UPDATE_TEST_SUITE_FIELDS)
@@ -309,7 +316,13 @@ export const UpdateTestCaseParamsSchema = Schema.Struct({
       description: "New assignee name or email (null to unassign)"
     })
   )
-}).annotations({
+}).pipe(
+  Schema.filter((params) =>
+    hasAtLeastOneDefined(params, UPDATE_TEST_CASE_FIELDS)
+      ? undefined
+      : atLeastOneUpdateFieldMessage(UPDATE_TEST_CASE_FIELDS)
+  )
+).annotations({
   title: "UpdateTestCaseParams",
   description: `Parameters for updating a test case. Only provided fields are modified. ${
     atLeastOneUpdateFieldMessage(UPDATE_TEST_CASE_FIELDS)

@@ -86,7 +86,21 @@ export const directAncestorRefs = (cls: MetadataClassDoc): ReadonlyArray<DirectA
     : Array.isArray(cls.extends)
     ? cls.extends
     : [cls.extends]
-  return [...extended, ...(cls.implements ?? [])]
+  return [...extended, ...(cls.implements ?? [])].reduce<{
+    readonly refs: ReadonlyArray<DirectAncestorRef>
+    readonly seen: ReadonlySet<string>
+  }>(
+    (state, ref) => {
+      const key = String(ref)
+      return state.seen.has(key)
+        ? state
+        : {
+          refs: [...state.refs, ref],
+          seen: new Set([...state.seen, key])
+        }
+    },
+    { refs: [], seen: new Set([String(cls._id)]) }
+  ).refs
 }
 
 const directAncestorIds = (cls: MetadataClassDoc): ReadonlyArray<ObjectClassName> =>

@@ -143,10 +143,10 @@ describe("Channel Domain Schemas", () => {
   })
 
   describe("UpdateChannelParamsSchema", () => {
-    it.effect("parses minimal params and advertises update-field requirement in JSON Schema", () =>
+    it.effect("rejects minimal params and advertises update-field requirement in JSON Schema", () =>
       Effect.gen(function*() {
-        const result = yield* parseUpdateChannelParams({ channel: "general" })
-        expect(result).toEqual({ channel: "general" })
+        const error = yield* Effect.flip(parseUpdateChannelParams({ channel: "general" }))
+        expect(error._tag).toBe("ParseError")
 
         const schema = expectJsonSchemaObject(updateChannelParamsJsonSchema)
         expect(schema.anyOf).toEqual(expect.arrayContaining([{ required: ["name"] }, { required: ["topic"] }]))

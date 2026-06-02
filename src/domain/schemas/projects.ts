@@ -2,6 +2,7 @@ import { JSONSchema, Schema } from "effect"
 
 import {
   atLeastOneUpdateFieldMessage,
+  hasAtLeastOneDefined,
   LimitParam,
   NonEmptyString,
   ProjectIdentifier,
@@ -82,7 +83,13 @@ export const UpdateProjectParamsSchema = Schema.Struct({
   description: Schema.optional(
     Schema.NullOr(Schema.String).annotations({ description: "New description (null to clear)" })
   )
-}).annotations({
+}).pipe(
+  Schema.filter((params) =>
+    hasAtLeastOneDefined(params, UPDATE_PROJECT_FIELDS)
+      ? undefined
+      : atLeastOneUpdateFieldMessage(UPDATE_PROJECT_FIELDS)
+  )
+).annotations({
   title: "UpdateProjectParams",
   description: `Parameters for updating a project. ${atLeastOneUpdateFieldMessage(UPDATE_PROJECT_FIELDS)}`
 })

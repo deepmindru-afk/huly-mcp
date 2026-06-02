@@ -7,6 +7,7 @@ import {
   ComponentIdentifier,
   Email,
   enumValuesDescription,
+  hasAtLeastOneDefined,
   IssueId,
   IssueIdentifier,
   LimitParam,
@@ -302,7 +303,11 @@ export const UpdateIssueParamsSchema = Schema.Struct({
       description: "Time estimation in minutes, or null to clear"
     })
   )
-}).annotations({
+}).pipe(
+  Schema.filter((params) =>
+    hasAtLeastOneDefined(params, UPDATE_ISSUE_FIELDS) ? undefined : atLeastOneUpdateFieldMessage(UPDATE_ISSUE_FIELDS)
+  )
+).annotations({
   title: "UpdateIssueParams",
   description: `Parameters for updating an issue. ${atLeastOneUpdateFieldMessage(UPDATE_ISSUE_FIELDS)}`
 })

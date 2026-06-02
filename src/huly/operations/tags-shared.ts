@@ -65,8 +65,13 @@ const toTagReferenceRef: (tagReference: string) => Ref<TagReference> = toRef
 const toSpaceRef: (space: string) => Ref<Space> = toRef
 const toDocRef: (doc: string) => Ref<Doc> = toRef
 
-export const normalizeColorCode = (color: number): ColorCode =>
-  ColorCode.make(Number.isFinite(color) ? Math.max(0, Math.trunc(color)) : 0)
+export const normalizeColorCode = (color: number): ColorCode => {
+  if (!Number.isFinite(color)) {
+    return ColorCode.make(0)
+  }
+
+  return ColorCode.make(Math.min(Number.MAX_SAFE_INTEGER, Math.max(0, Math.trunc(color))))
+}
 
 export const toResolvedTagElement = (tag: HulyTagElement, created: boolean): ResolvedTagElement => ({
   id: tag._id,
@@ -92,7 +97,9 @@ const createdResolvedTagElement = (
   created: true
 })
 
-export const toAttachedTagSummary = (tagRef: TagReference): AttachedTagSummary => {
+export const toAttachedTagSummary = (
+  tagRef: Pick<TagReference, "_id" | "tag" | "title" | "color" | "weight">
+): AttachedTagSummary => {
   const summary = {
     id: TagReferenceId.make(tagRef._id),
     tag: TagElementId.make(tagRef.tag),

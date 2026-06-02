@@ -5,6 +5,7 @@ import {
   ComponentId,
   ComponentIdentifier,
   ComponentLabel,
+  hasAtLeastOneDefined,
   IssueIdentifier,
   LimitParam,
   NonEmptyString,
@@ -116,7 +117,13 @@ export const UpdateComponentParamsSchema = Schema.Struct({
       description: "New lead person email or display name (null to unassign)"
     })
   )
-}).annotations({
+}).pipe(
+  Schema.filter((params) =>
+    hasAtLeastOneDefined(params, UPDATE_COMPONENT_FIELDS)
+      ? undefined
+      : atLeastOneUpdateFieldMessage(UPDATE_COMPONENT_FIELDS)
+  )
+).annotations({
   title: "UpdateComponentParams",
   description: `Parameters for updating a component. ${atLeastOneUpdateFieldMessage(UPDATE_COMPONENT_FIELDS)}`
 })

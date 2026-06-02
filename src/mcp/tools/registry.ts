@@ -128,6 +128,17 @@ const EMPTY_EFFECT_STRUCT_VARIANT_COUNT = 2
 const isEmptySchemaVariant = (schema: ToolInputSchemaVariant): boolean =>
   !hasRequiredFields(schema) && !hasDeclaredProperties(schema)
 
+/**
+ * Effect encodes a no-argument tool's empty `Schema.Struct({})` as a two-variant
+ * union — an empty `object` and an empty `array`, neither carrying properties or
+ * required fields. We detect that exact shape so such tools count as no-argument
+ * (callable with no input) instead of demanding an arguments object.
+ *
+ * This is coupled to Effect's JSON Schema output: if a future Effect version
+ * changes how it encodes empty structs, the "classifies empty Effect Struct union
+ * schemas" property in `test/mcp/registry.property.test.ts` fails loudly rather
+ * than this silently misclassifying tools.
+ */
 const isEmptyStructUnionSchema = (schema: ToolInputSchema): boolean => {
   const variants = unionVariants(schema)
   const types = new Set(variants.map((variant) => variant.type))

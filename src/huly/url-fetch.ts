@@ -94,7 +94,7 @@ const parseIpv4Address = (hostname: string): readonly [number, number, number, n
   return [octets[0], octets[1], octets[2], octets[3]]
 }
 
-const isBlockedIpv4Address = ([a, b, c, d]: readonly [number, number, number, number]): boolean => {
+const isBlockedIpv4Address = ([a, b, c]: readonly [number, number, number, number]): boolean => {
   if (a === 0) return true
   if (a === IPV4_PRIVATE_10) return true
   if (a === IPV4_CGNAT_A && b >= IPV4_CGNAT_B_MIN && b <= IPV4_CGNAT_B_MAX) return true
@@ -107,9 +107,8 @@ const isBlockedIpv4Address = ([a, b, c, d]: readonly [number, number, number, nu
   if (a === IPV4_BENCHMARK_A && (b === IPV4_BENCHMARK_B_MIN || b === IPV4_BENCHMARK_B_MAX)) return true
   if (a === IPV4_BENCHMARK_A && b === IPV4_DOCS_198_B && c === IPV4_DOCS_198_C) return true
   if (a === IPV4_DOCS_203_A && b === 0 && c === IPV4_DOCS_203_C) return true
-  if (a >= IPV4_MULTICAST_A_MIN) return true
-
-  return a === IPV4_MAX_OCTET && b === IPV4_MAX_OCTET && c === IPV4_MAX_OCTET && d === IPV4_MAX_OCTET
+  // 224.0.0.0/4 (multicast), 240.0.0.0/4 (reserved), and 255.255.255.255 (broadcast).
+  return a >= IPV4_MULTICAST_A_MIN
 }
 
 const normalizeUrlHostname = (hostname: string): string =>

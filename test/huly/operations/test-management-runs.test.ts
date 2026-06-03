@@ -4,7 +4,9 @@ import { type Doc, type PersonId, type Ref, toFindResult } from "@hcengineering/
 import { Effect } from "effect"
 import { expect } from "vitest"
 
+import type { Person as HulyPerson } from "@hcengineering/contact"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
+import { contact } from "../../../src/huly/huly-plugins.js"
 import {
   createTestResult,
   createTestRun,
@@ -134,11 +136,15 @@ interface MockConfig {
   testCases?: Array<TestCase>
   plans?: Array<TestPlan>
   planItems?: Array<TestPlanItem>
+  persons?: Array<HulyPerson>
   captureCreateDoc?: { attributes?: Record<string, unknown>; id?: string }
   captureAddCollection?: Array<Record<string, unknown>>
   captureUpdateDoc?: { operations?: Record<string, unknown> }
   captureRemoveDoc?: { called?: boolean }
 }
+
+const makePerson = (id: string, name: string): HulyPerson =>
+  ({ _id: id as Ref<HulyPerson>, _class: contact.class.Person, name, city: "" }) as unknown as HulyPerson
 
 const buildLayer = (c: MockConfig) => {
   const project = makeProject()
@@ -147,6 +153,7 @@ const buildLayer = (c: MockConfig) => {
   const testCases = c.testCases ?? []
   const plans = c.plans ?? []
   const planItems = c.planItems ?? []
+  const persons = c.persons ?? []
 
   const findAllImpl: HulyClientOperations["findAll"] = ((_class: unknown, query: unknown) => {
     const q = query as Record<string, unknown>
@@ -179,6 +186,9 @@ const buildLayer = (c: MockConfig) => {
     }
     if (_class === testManagement.class.TestPlan) {
       return Effect.succeed(plans.find(p => (q._id && p._id === q._id) || (q.name && p.name === q.name)))
+    }
+    if (_class === contact.class.Person) {
+      return Effect.succeed(persons.find(p => (q._id && p._id === q._id) || (q.name && p.name === q.name)))
     }
     return Effect.succeed(undefined)
   }) as HulyClientOperations["findOne"]
@@ -473,5 +483,91 @@ describe("runTestPlan", () => {
       }).pipe(Effect.provide(buildLayer({ plans: [plan], captureCreateDoc: createCap })))
       expect(result.name).toBe("Custom Name")
       expect(createCap.attributes?.name).toBe("Custom Name")
+    }))
+})
+
+describe("updateTestRun — description and dueDate branches", () => {
+  it.effect("uploads a description and sets a dueDate", () =>
+    Effect.gen(function*() {
+      const cap: MockConfig["captureUpdateDoc"] = {}
+      yield* updateTestRun({
+        project: testProjectIdentifier("QA Project"),
+        run: testRunIdentifier("Nightly Run"),
+        description: "Run notes",
+        dueDate: 1000
+      }).pipe(Effect.provide(buildLayer({ runs: [makeRun()], captureUpdateDoc: cap })))
+      expect(cap.operations?.description).toBe("markup-ref")
+      expect(cap.operations?.dueDate).toBe(1000)
+    }))
+
+  it.effect("clears description and dueDate when set to null", () =>
+    Effect.gen(function*() {
+      const cap: MockConfig["captureUpdateDoc"] = {}
+      yield* updateTestRun({
+        project: testProjectIdentifier("QA Project"),
+        run: testRunIdentifier("Nightly Run"),
+        description: null,
+        dueDate: null
+      }).pipe(Effect.provide(buildLayer({ runs: [makeRun()], captureUpdateDoc: cap })))
+      expect(cap.operations?.description).toBeNull()
+      expect(cap.operations?.$unset).toEqual({ dueDate: "" })
+    }))
+})
+
+describe("createTestResult — status and assignee branches", () => {
+  it.effect("maps an explicit status and resolves an assignee", () =>
+    Effect.gen(function*() {
+      const cap: Array<Record<string, unknown>> = []
+      const tc = makeTestCase("tc-1", "Login")
+      yield* createTestResult({
+        project: testProjectIdentifier("QA Project"),
+        run: testRunIdentifier("Nightly Run"),
+        testCase: testCaseIdentifier("Login"),
+        status: "passed",
+        assignee: "Alice"
+      }).pipe(Effect.provide(buildLayer({
+        runs: [makeRun()],
+        testCases: [tc],
+        persons: [makePerson("person-1", "Alice")],
+        captureAddCollection: cap
+      })))
+      expect(cap[0]?.status).toBe(TestRunStatus.Passed)
+      expect(cap[0]?.assignee).toBe("person-1")
+    }))
+})
+
+describe("updateTestResult — status, assignee, description branches", () => {
+  const baseResult = () => makeResult("r-1", "tc-1")
+
+  it.effect("updates status, resolves an assignee, and uploads a description", () =>
+    Effect.gen(function*() {
+      const cap: MockConfig["captureUpdateDoc"] = {}
+      yield* updateTestResult({
+        project: testProjectIdentifier("QA Project"),
+        result: testResultIdentifier("Result-r-1"),
+        status: "failed",
+        assignee: "Alice",
+        description: "Logs attached"
+      }).pipe(Effect.provide(buildLayer({
+        results: [baseResult()],
+        persons: [makePerson("person-1", "Alice")],
+        captureUpdateDoc: cap
+      })))
+      expect(cap.operations?.status).toBe(TestRunStatus.Failed)
+      expect(cap.operations?.assignee).toBe("person-1")
+      expect(cap.operations?.description).toBe("markup-ref")
+    }))
+
+  it.effect("clears assignee and description when set to null", () =>
+    Effect.gen(function*() {
+      const cap: MockConfig["captureUpdateDoc"] = {}
+      yield* updateTestResult({
+        project: testProjectIdentifier("QA Project"),
+        result: testResultIdentifier("Result-r-1"),
+        assignee: null,
+        description: null
+      }).pipe(Effect.provide(buildLayer({ results: [baseResult()], captureUpdateDoc: cap })))
+      expect(cap.operations?.$unset).toEqual({ assignee: "" })
+      expect(cap.operations?.description).toBeNull()
     }))
 })

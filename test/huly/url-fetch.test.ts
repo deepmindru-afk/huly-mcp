@@ -1,0 +1,203 @@
+import { describe, it } from "@effect/vitest"
+import { Effect } from "effect"
+import { createServer, type IncomingMessage, type ServerResponse } from "node:http"
+import { expect } from "vitest"
+
+import { fetchFromUrl, isBlockedUrl, requestUrl } from "../../src/huly/url-fetch.js"
+
+const LOOPBACK = { address: "127.0.0.1", family: 4 } as const
+
+// Run `fn` against a real local HTTP server (a genuine dependency, not a mock).
+const withServer = async (
+  handler: (req: IncomingMessage, res: ServerResponse) => void,
+  fn: (url: URL) => Promise<void>
+): Promise<void> => {
+  const server = createServer(handler)
+  await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve))
+  const address = server.address()
+  const port = typeof address === "object" && address !== null ? address.port : 0
+  try {
+    await fn(new URL(`http://127.0.0.1:${port}/file`))
+  } finally {
+    await new Promise<void>((resolve) => server.close(() => resolve()))
+  }
+}
+
+// Structural shape of the (unexported) FetchFromUrlDependencies — passed positionally to fetchFromUrl.
+interface ResolvedAddress {
+  readonly address: string
+  readonly family: 4 | 6
+}
+interface Deps {
+  readonly resolveHostname: (hostname: string) => Promise<ReadonlyArray<ResolvedAddress>>
+  readonly requestUrl: (url: URL, address: ResolvedAddress) => Promise<Buffer>
+}
+
+const unusedRequestUrl = (): Promise<Buffer> => Promise.reject(new Error("requestUrl must not be called"))
+const unusedResolveHostname = (): Promise<ReadonlyArray<ResolvedAddress>> =>
+  Promise.reject(new Error("resolveHostname must not be called"))
+
+describe("isBlockedUrl", () => {
+  const blocked = [
+    // non-http protocol + special hostnames
+    "ftp://example.com/file",
+    "http://localhost/",
+    "http://metadata.google.internal/computeMetadata",
+    "::not a url::",
+    // blocked IPv4 ranges
+    "http://0.0.0.1/",
+    "http://10.1.2.3/",
+    "http://100.64.0.1/",
+    "http://127.0.0.1/",
+    "http://169.254.1.1/",
+    "http://172.16.5.5/",
+    "http://192.0.0.1/",
+    "http://192.0.2.5/",
+    "http://192.168.1.1/",
+    "http://198.18.0.1/",
+    "http://198.19.0.1/",
+    "http://198.51.100.1/",
+    "http://203.0.113.1/",
+    "http://224.0.0.1/",
+    "http://240.0.0.1/",
+    "http://255.255.255.255/",
+    // blocked IPv6
+    "http://[::]/",
+    "http://[::1]/",
+    "http://[fc00::1]/",
+    "http://[fe80::1]/",
+    "http://[1000::1]/",
+    "http://[4001::1]/",
+    // IPv4-mapped IPv6 (dotted + hextet form)
+    "http://[::ffff:10.0.0.1]/",
+    "http://[::ffff:0a00:0001]/",
+    // malformed IPv6
+    "http://[1::2::3]/",
+    "http://[gggg::]/"
+  ]
+
+  const allowed = [
+    "http://8.8.8.8/",
+    "https://93.184.216.34/",
+    "http://[2001:4860:4860::8888]/",
+    "http://example.com/file"
+  ]
+
+  for (const url of blocked) {
+    it(`blocks ${url}`, () => {
+      expect(isBlockedUrl(url)).toBe(true)
+    })
+  }
+
+  for (const url of allowed) {
+    it(`allows ${url}`, () => {
+      expect(isBlockedUrl(url)).toBe(false)
+    })
+  }
+})
+
+describe("fetchFromUrl", () => {
+  const publicAddress: ResolvedAddress = { address: "8.8.8.8", family: 4 }
+
+  it.effect("rejects a blocked URL before any resolution", () =>
+    Effect.gen(function*() {
+      const deps: Deps = { resolveHostname: unusedResolveHostname, requestUrl: unusedRequestUrl }
+      const error = yield* Effect.flip(fetchFromUrl("http://127.0.0.1/file", deps))
+      expect(error._tag).toBe("FileFetchError")
+      expect(error.reason).toContain("URL blocked")
+    }))
+
+  it.effect("rejects when the hostname does not resolve", () =>
+    Effect.gen(function*() {
+      const deps: Deps = { resolveHostname: async () => [], requestUrl: unusedRequestUrl }
+      const error = yield* Effect.flip(fetchFromUrl("http://example.com/file", deps))
+      expect(error.reason).toContain("did not resolve")
+    }))
+
+  it.effect("rejects when DNS resolves to a blocked address", () =>
+    Effect.gen(function*() {
+      const deps: Deps = {
+        resolveHostname: async () => [{ address: "10.0.0.1", family: 4 }],
+        requestUrl: unusedRequestUrl
+      }
+      const error = yield* Effect.flip(fetchFromUrl("http://example.com/file", deps))
+      expect(error.reason).toContain("internal/private/non-global address")
+    }))
+
+  it.effect("returns the body on success", () =>
+    Effect.gen(function*() {
+      const deps: Deps = {
+        resolveHostname: async () => [publicAddress],
+        requestUrl: async () => Buffer.from("payload")
+      }
+      const result = yield* fetchFromUrl("http://example.com/file", deps)
+      expect(result.toString()).toBe("payload")
+    }))
+
+  it.effect("falls through to the next address when the first request fails", () =>
+    Effect.gen(function*() {
+      let calls = 0
+      const deps: Deps = {
+        resolveHostname: async () => [publicAddress, { address: "9.9.9.9", family: 4 }],
+        requestUrl: async () => {
+          calls += 1
+          if (calls === 1) throw new Error("connection reset")
+          return Buffer.from("second")
+        }
+      }
+      const result = yield* fetchFromUrl("http://example.com/file", deps)
+      expect(result.toString()).toBe("second")
+      expect(calls).toBe(2)
+    }))
+
+  it.effect("fails after exhausting every resolved address", () =>
+    Effect.gen(function*() {
+      const deps: Deps = {
+        resolveHostname: async () => [publicAddress, { address: "9.9.9.9", family: 4 }],
+        requestUrl: async () => {
+          throw new Error("connection reset")
+        }
+      }
+      const error = yield* Effect.flip(fetchFromUrl("http://example.com/file", deps))
+      expect(error.reason).toContain("Request failed for all resolved addresses")
+    }))
+})
+
+describe("requestUrl", () => {
+  it("returns the body of a 2xx response", async () => {
+    await withServer((_req, res) => {
+      res.writeHead(200)
+      res.end("hello body")
+    }, async (url) => {
+      const buffer = await requestUrl(url, LOOPBACK)
+      expect(buffer.toString()).toBe("hello body")
+    })
+  })
+
+  it("rejects on a non-2xx status", async () => {
+    await withServer((_req, res) => {
+      res.writeHead(404)
+      res.end("missing")
+    }, async (url) => {
+      await expect(requestUrl(url, LOOPBACK)).rejects.toThrow("HTTP 404")
+    })
+  })
+
+  it("rejects when the response exceeds the byte limit", async () => {
+    await withServer((_req, res) => {
+      res.writeHead(200)
+      res.end("x".repeat(1000))
+    }, async (url) => {
+      await expect(requestUrl(url, LOOPBACK, 16)).rejects.toThrow("exceeded maximum file size")
+    })
+  })
+
+  it("rejects when the connection cannot be established", async () => {
+    let closedPortUrl = new URL("http://127.0.0.1/file")
+    await withServer((_req, res) => res.end(), async (url) => {
+      closedPortUrl = url
+    })
+    // the server is now closed; the pinned connection is refused
+    await expect(requestUrl(closedPortUrl, LOOPBACK)).rejects.toThrow()
+  })
+})

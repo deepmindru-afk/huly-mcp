@@ -4,8 +4,10 @@ import { type Doc, type PersonId, type Ref, toFindResult } from "@hcengineering/
 import { Effect } from "effect"
 import { expect } from "vitest"
 
+import type { Person as HulyPerson } from "@hcengineering/contact"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
 import type { TestPlanItemNotFoundError, TestPlanNotFoundError } from "../../../src/huly/errors.js"
+import { contact } from "../../../src/huly/huly-plugins.js"
 import {
   addTestPlanItem,
   createTestPlan,
@@ -84,17 +86,22 @@ interface MockConfig {
   plans?: Array<TestPlan>
   items?: Array<TestPlanItem>
   testCases?: Array<TestCase>
+  persons?: Array<HulyPerson>
   captureCreateDoc?: { attributes?: Record<string, unknown>; id?: string }
   captureAddCollection?: { attributes?: Record<string, unknown>; id?: string }
   captureUpdateDoc?: { operations?: Record<string, unknown> }
   captureRemoveDoc?: { called?: boolean; id?: string }
 }
 
+const makePerson = (id: string, name: string): HulyPerson =>
+  ({ _id: id as Ref<HulyPerson>, _class: contact.class.Person, name, city: "" }) as unknown as HulyPerson
+
 const buildLayer = (c: MockConfig) => {
   const project = c.project ?? makeProject()
   const plans = c.plans ?? []
   const items = c.items ?? []
   const testCases = c.testCases ?? []
+  const persons = c.persons ?? []
 
   const findAllImpl: HulyClientOperations["findAll"] = ((_class: unknown, query: unknown) => {
     const q = query as Record<string, unknown>
@@ -127,6 +134,9 @@ const buildLayer = (c: MockConfig) => {
     }
     if (_class === testManagement.class.TestCase) {
       return Effect.succeed(testCases.find(tc => (q._id && tc._id === q._id) || (q.name && tc.name === q.name)))
+    }
+    if (_class === contact.class.Person) {
+      return Effect.succeed(persons.find(p => (q._id && p._id === q._id) || (q.name && p.name === q.name)))
     }
     return Effect.succeed(undefined)
   }) as HulyClientOperations["findOne"]
@@ -181,6 +191,10 @@ const buildLayer = (c: MockConfig) => {
     () => Effect.succeed("markup-ref" as never)
   ) as HulyClientOperations["uploadMarkup"]
 
+  const fetchMarkupImpl: HulyClientOperations["fetchMarkup"] = (
+    () => Effect.succeed("fetched description")
+  ) as HulyClientOperations["fetchMarkup"]
+
   return HulyClient.testLayer({
     findAll: findAllImpl,
     findOne: findOneImpl,
@@ -188,7 +202,8 @@ const buildLayer = (c: MockConfig) => {
     addCollection: addCollectionImpl,
     updateDoc: updateDocImpl,
     removeDoc: removeDocImpl,
-    uploadMarkup: uploadMarkupImpl
+    uploadMarkup: uploadMarkupImpl,
+    fetchMarkup: fetchMarkupImpl
   })
 }
 
@@ -346,5 +361,74 @@ describe("removeTestPlanItem", () => {
       )
       expect(err._tag).toBe("TestPlanItemNotFoundError")
       expect((err as TestPlanItemNotFoundError).plan).toBe(PLAN_ID)
+    }))
+})
+
+describe("test-management-plans — optional field branches", () => {
+  it.effect("getTestPlan surfaces description and item testSuite/assignee", () =>
+    Effect.gen(function*() {
+      const item = {
+        ...makeItem("item-1", "tc-1"),
+        testSuite: "ts-1",
+        assignee: "person-1"
+      } as unknown as TestPlanItem
+      const planWithDesc = makePlan({ description: "blob" as unknown as TestPlan["description"] })
+      const result = yield* getTestPlan({
+        project: testProjectIdentifier("QA Project"),
+        plan: testPlanIdentifier("Sprint Plan")
+      }).pipe(Effect.provide(buildLayer({ plans: [planWithDesc], items: [item] })))
+      expect(result.description).toBe("fetched description")
+      expect(result.items[0].testSuite).toBe("ts-1")
+      expect(result.items[0].assignee).toBe("person-1")
+    }))
+
+  it.effect("createTestPlan returns the existing plan when one already exists", () =>
+    Effect.gen(function*() {
+      const result = yield* createTestPlan({
+        project: testProjectIdentifier("QA Project"),
+        name: "Sprint Plan"
+      }).pipe(Effect.provide(buildLayer({ plans: [makePlan()] })))
+      expect(result.created).toBe(false)
+    }))
+
+  it.effect("updateTestPlan uploads a new description", () =>
+    Effect.gen(function*() {
+      const cap: MockConfig["captureUpdateDoc"] = {}
+      yield* updateTestPlan({
+        project: testProjectIdentifier("QA Project"),
+        plan: testPlanIdentifier("Sprint Plan"),
+        description: "Updated"
+      }).pipe(Effect.provide(buildLayer({ plans: [makePlan()], captureUpdateDoc: cap })))
+      expect(cap.operations?.description).toBe("markup-ref")
+    }))
+
+  it.effect("updateTestPlan clears the description when set to null", () =>
+    Effect.gen(function*() {
+      const cap: MockConfig["captureUpdateDoc"] = {}
+      yield* updateTestPlan({
+        project: testProjectIdentifier("QA Project"),
+        plan: testPlanIdentifier("Sprint Plan"),
+        description: null
+      }).pipe(Effect.provide(buildLayer({ plans: [makePlan()], captureUpdateDoc: cap })))
+      expect(cap.operations?.description).toBeNull()
+    }))
+
+  it.effect("addTestPlanItem threads the case suite and a resolved assignee", () =>
+    Effect.gen(function*() {
+      const cap: { attributes?: Record<string, unknown>; id?: string } = {}
+      const tcWithSuite = { ...makeTestCase("tc-9", "Case9"), attachedTo: "ts-1" } as unknown as TestCase
+      yield* addTestPlanItem({
+        project: testProjectIdentifier("QA Project"),
+        plan: testPlanIdentifier("Sprint Plan"),
+        testCase: testCaseIdentifier("Case9"),
+        assignee: "Alice"
+      }).pipe(Effect.provide(buildLayer({
+        plans: [makePlan()],
+        testCases: [tcWithSuite],
+        persons: [makePerson("person-1", "Alice")],
+        captureAddCollection: cap
+      })))
+      expect(cap.attributes?.testSuite).toBe("ts-1")
+      expect(cap.attributes?.assignee).toBe("person-1")
     }))
 })

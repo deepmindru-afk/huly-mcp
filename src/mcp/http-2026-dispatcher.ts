@@ -319,6 +319,9 @@ export const dispatchMcp2026Request = async (
         return
 
       case "tools/call":
+        // defensive: validateHeadersAndMeta already rejects a tools/call whose params.name is not
+        // a string (Mcp-Name header presence + body match), so this re-check is never hit.
+        /* v8 ignore start */
         if (typeof validation.params.name !== "string") {
           writeError(
             res,
@@ -329,6 +332,7 @@ export const dispatchMcp2026Request = async (
           )
           return
         }
+        /* v8 ignore stop */
         writeSuccess(
           res,
           validation.id,
@@ -352,6 +356,9 @@ export const dispatchMcp2026Request = async (
         return
 
       case "resources/read":
+        // defensive: validateHeadersAndMeta already rejects a resources/read whose params.uri is
+        // not a string (Mcp-Name header presence + body match), so this re-check is never hit.
+        /* v8 ignore start */
         if (typeof validation.params.uri !== "string") {
           writeError(
             res,
@@ -362,6 +369,7 @@ export const dispatchMcp2026Request = async (
           )
           return
         }
+        /* v8 ignore stop */
         writeSuccess(
           res,
           validation.id,

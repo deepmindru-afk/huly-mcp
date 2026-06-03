@@ -1416,3 +1416,181 @@ describe("HTTP Transport", () => {
     })
   })
 })
+
+describe("2026 dispatcher validation errors", () => {
+  const meta = modernMeta
+  const validBody = (method: string): Record<string, unknown> => ({
+    jsonrpc: "2.0",
+    method,
+    id: 1,
+    params: { _meta: meta }
+  })
+
+  const post = async (body: unknown, headers: Request["headers"]): Promise<{
+    status: number | undefined
+    error: { code: number; message: string } | undefined
+  }> => {
+    const handlers = createMcpHandlers(createMockMcpServer, undefined, undefined, modernHandlerFactory)
+    const res = createMockResponse()
+    await handlers.post(createMockRequest(body, headers), res)
+    const calls = getResponseCalls(res)
+    const json = calls.json[0]?.[0] as { error?: { code: number; message: string } } | undefined
+    return { status: calls.status[0]?.[0], error: json?.error }
+  }
+
+  const cases: ReadonlyArray<{
+    name: string
+    body: unknown
+    headers: Request["headers"]
+    message: string
+  }> = [
+    {
+      name: "rejects batch requests",
+      body: [validBody("tools/list")],
+      headers: modernHeaders("tools/list"),
+      message: "Batch JSON-RPC"
+    },
+    {
+      name: "rejects a non-object body",
+      body: "not-an-object",
+      headers: modernHeaders("tools/list"),
+      message: "single JSON-RPC object"
+    },
+    {
+      name: "rejects a wrong jsonrpc version",
+      body: { ...validBody("tools/list"), jsonrpc: "1.0" },
+      headers: modernHeaders("tools/list"),
+      message: "jsonrpc"
+    },
+    {
+      name: "rejects an empty method",
+      body: { ...validBody("tools/list"), method: "" },
+      headers: modernHeaders("tools/list"),
+      message: "non-empty method"
+    },
+    {
+      name: "rejects a missing Accept header",
+      body: validBody("tools/list"),
+      headers: { "mcp-protocol-version": "2026-07-28", "mcp-method": "tools/list" },
+      message: "Accept header"
+    },
+    {
+      name: "rejects a missing protocol-version header",
+      body: validBody("tools/list"),
+      headers: { accept: "application/json, text/event-stream", "mcp-method": "tools/list" },
+      message: "MCP-Protocol-Version header is missing"
+    },
+    {
+      name: "rejects an unsupported protocol-version header",
+      body: validBody("tools/list"),
+      headers: { ...modernHeaders("tools/list"), "mcp-protocol-version": "2025-01-01" },
+      message: "Unsupported protocol version"
+    },
+    {
+      name: "rejects a method header that does not match the body",
+      body: validBody("tools/list"),
+      headers: modernHeaders("resources/list"),
+      message: "does not match body value"
+    },
+    {
+      name: "rejects a missing _meta",
+      body: { jsonrpc: "2.0", method: "tools/list", id: 1, params: {} },
+      headers: modernHeaders("tools/list"),
+      message: "params._meta is required"
+    },
+    {
+      name: "rejects a wrong _meta protocol version",
+      body: {
+        jsonrpc: "2.0",
+        method: "tools/list",
+        id: 1,
+        params: { _meta: { ...meta, "io.modelcontextprotocol/protocolVersion": "2025-01-01" } }
+      },
+      headers: modernHeaders("tools/list"),
+      message: "protocol version must be 2026-07-28"
+    },
+    {
+      name: "rejects a missing clientInfo in _meta",
+      body: {
+        jsonrpc: "2.0",
+        method: "tools/list",
+        id: 1,
+        params: {
+          _meta: {
+            "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+            "io.modelcontextprotocol/clientCapabilities": {}
+          }
+        }
+      },
+      headers: modernHeaders("tools/list"),
+      message: "clientInfo metadata is required"
+    },
+    {
+      name: "rejects a missing clientCapabilities in _meta",
+      body: {
+        jsonrpc: "2.0",
+        method: "tools/list",
+        id: 1,
+        params: {
+          _meta: {
+            "io.modelcontextprotocol/protocolVersion": "2026-07-28",
+            "io.modelcontextprotocol/clientInfo": { name: "t", version: "1" }
+          }
+        }
+      },
+      headers: modernHeaders("tools/list"),
+      message: "clientCapabilities metadata is required"
+    }
+  ]
+
+  for (const c of cases) {
+    it(c.name, async () => {
+      const result = await post(c.body, c.headers)
+      expect(result.error?.message).toContain(c.message)
+    })
+  }
+
+  it("returns Method not found (404) for an unknown 2026 method", async () => {
+    const result = await post(validBody("does/not/exist"), modernHeaders("does/not/exist"))
+    expect(result.status).toBe(404)
+    expect(result.error?.message).toContain("Method not found")
+  })
+
+  it("rejects tools/call whose body omits params.name", async () => {
+    const result = await post(
+      { jsonrpc: "2.0", method: "tools/call", id: 1, params: { arguments: {}, _meta: meta } },
+      modernHeaders("tools/call", "some_tool")
+    )
+    expect(result.error?.message).toContain("tools/call requires params.name")
+  })
+
+  it("rejects resources/read whose body omits params.uri", async () => {
+    const result = await post(
+      { jsonrpc: "2.0", method: "resources/read", id: 1, params: { _meta: meta } },
+      modernHeaders("resources/read", "huly://projects/HULY")
+    )
+    expect(result.error?.message).toContain("resources/read requires params.uri")
+  })
+
+  it("maps a thrown non-McpError to an internal server error", async () => {
+    const throwingFactory = (): McpProtocolHandlers => ({
+      ...createMockProtocolHandlers(),
+      listTools: () => Promise.reject(new Error("boom"))
+    })
+    const handlers = createMcpHandlers(createMockMcpServer, undefined, undefined, throwingFactory)
+    const res = createMockResponse()
+    await handlers.post(createMockRequest(validBody("tools/list"), modernHeaders("tools/list")), res)
+    const calls = getResponseCalls(res)
+    const json = calls.json[0]?.[0] as { error?: { message: string } } | undefined
+    expect(calls.status[0]?.[0]).toBe(500)
+    expect(json?.error?.message).toContain("Internal server error")
+  })
+
+  it("treats a non-object params as empty (still requires _meta)", async () => {
+    const result = await post(
+      { jsonrpc: "2.0", method: "tools/list", id: 1 },
+      modernHeaders("tools/list")
+    )
+    expect(result.error?.message).toContain("params._meta is required")
+  })
+})

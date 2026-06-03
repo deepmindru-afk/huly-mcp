@@ -9,11 +9,13 @@
  *
  * @module
  */
+import { McpError } from "@modelcontextprotocol/sdk/types.js"
 import { Context, Effect, Layer, Schema } from "effect"
 import { describe, expect, it } from "vitest"
 
 import { type GetHulyContextResult, GetHulyContextResultSchema } from "../../src/domain/schemas/index.js"
 import { HulyClient, type HulyClientOperations } from "../../src/huly/client.js"
+import { HulyError } from "../../src/huly/errors.js"
 import { HulyStorageClient } from "../../src/huly/storage.js"
 import { GET_HULY_CONTEXT_TOOL_NAME, VERSION_TOOL_NAME } from "../../src/mcp/huly-context-tool.js"
 import {
@@ -377,6 +379,118 @@ describe("createMcpProtocolHandlers — tool dispatch", () => {
     const response = await handlers.callTool({ params: { name: argsTool.name } })
 
     expect(response.isError).toBe(true)
+  })
+})
+
+describe("createMcpProtocolHandlers — resource handlers", () => {
+  it("lists resources when clients resolve and the backend succeeds", async () => {
+    const handlers = createMcpProtocolHandlers(
+      buildStubClients(),
+      createTelemetryProbe().telemetry,
+      emptyRegistry,
+      unusedGetHulyContext
+    )
+    const result = await handlers.listResources()
+    expect(Array.isArray(result.resources)).toBe(true)
+  })
+
+  it("throws an McpError when client resolution fails while listing resources", async () => {
+    const handlers = createMcpProtocolHandlers(
+      rejectingResolveClients,
+      createTelemetryProbe().telemetry,
+      emptyRegistry,
+      unusedGetHulyContext
+    )
+    await expect(handlers.listResources()).rejects.toThrow(McpError)
+  })
+
+  it("surfaces an McpError when the backend fails while listing resources", async () => {
+    const handlers = createMcpProtocolHandlers(
+      buildStubClients({ findAll: () => Effect.fail(new HulyError({ message: "backend down" })) }),
+      createTelemetryProbe().telemetry,
+      emptyRegistry,
+      unusedGetHulyContext
+    )
+    await expect(handlers.listResources()).rejects.toThrow(McpError)
+  })
+
+  it("throws an McpError when client resolution fails while reading a resource", async () => {
+    const handlers = createMcpProtocolHandlers(
+      rejectingResolveClients,
+      createTelemetryProbe().telemetry,
+      emptyRegistry,
+      unusedGetHulyContext
+    )
+    await expect(handlers.readResource({ params: { uri: "huly://projects/TEST" } })).rejects.toThrow(McpError)
+  })
+
+  it("wraps a non-McpError defect into an McpError while listing resources", async () => {
+    const handlers = createMcpProtocolHandlers(
+      buildStubClients({ findAll: () => Effect.die(new Error("kaboom")) }),
+      createTelemetryProbe().telemetry,
+      emptyRegistry,
+      unusedGetHulyContext
+    )
+    await expect(handlers.listResources()).rejects.toThrow(McpError)
+  })
+
+  it("wraps a non-McpError defect into an McpError while reading a resource", async () => {
+    const handlers = createMcpProtocolHandlers(
+      buildStubClients({ findOne: () => Effect.die(new Error("kaboom")) }),
+      createTelemetryProbe().telemetry,
+      emptyRegistry,
+      unusedGetHulyContext
+    )
+    await expect(handlers.readResource({ params: { uri: "huly://projects/TEST" } })).rejects.toThrow(McpError)
+  })
+})
+
+describe("createMcpProtocolHandlers — drainInflight", () => {
+  it("resolves immediately when nothing is in flight", async () => {
+    const handlers = createMcpProtocolHandlers(
+      buildStubClients(),
+      createTelemetryProbe().telemetry,
+      emptyRegistry,
+      unusedGetHulyContext
+    )
+    await expect(handlers.drainInflight()).resolves.toBeUndefined()
+  })
+
+  it("waits for an in-flight call to complete, then resolves", async () => {
+    let release: (bundle: ClientBundle) => void = () => {}
+    const gate = new Promise<ClientBundle>((resolve) => {
+      release = resolve
+    })
+    const handlers = createMcpProtocolHandlers(
+      () => gate,
+      createTelemetryProbe().telemetry,
+      toolRegistry,
+      unusedGetHulyContext
+    )
+
+    // enter() runs synchronously, so inflight becomes 1 before the first await
+    const callPromise = handlers.callTool({ params: { name: "list_projects", arguments: {} } })
+    const drainPromise = handlers.drainInflight()
+
+    release(await buildStubClients()())
+    await callPromise
+    await expect(drainPromise).resolves.toBeUndefined()
+  })
+
+  it("stops draining once the timeout elapses even if a call is still in flight", async () => {
+    const neverResolves = new Promise<ClientBundle>(() => {})
+    // Clock readings: callTool start, drain start, drain check (> 30s after start) -> timeout branch
+    const clock = queuedClock([0, 0, 31_000])
+    const handlers = createMcpProtocolHandlers(
+      () => neverResolves,
+      createTelemetryProbe().telemetry,
+      toolRegistry,
+      unusedGetHulyContext,
+      clock
+    )
+
+    void handlers.callTool({ params: { name: "list_projects", arguments: {} } })
+    await expect(handlers.drainInflight()).resolves.toBeUndefined()
   })
 })
 

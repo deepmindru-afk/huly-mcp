@@ -113,7 +113,9 @@ const decodePathSegment = (uri: string, value: string): string => {
 
 const splitPath = (uri: string, url: URL): ReadonlyArray<string> => {
   if (url.pathname === "") return []
+  /* v8 ignore start -- defensive: a non-empty WHATWG URL pathname always begins with "/" */
   if (!url.pathname.startsWith("/")) throw invalidResourceUri(uri, "Resource URI path is malformed.")
+  /* v8 ignore stop */
 
   const rawSegments = url.pathname.slice(1).split("/")
   if (rawSegments.some(segment => segment === "")) {
@@ -156,17 +158,21 @@ const splitFullIssueIdentifier = (
 const parseProjectIdentifier = (uri: string, value: string): ProjectIdentifier => {
   try {
     return Schema.decodeUnknownSync(ProjectIdentifier)(value)
+    /* v8 ignore start -- defensive: callers pass decodePathSegment output, a non-empty trimmed string the NonEmptyString brand always accepts */
   } catch {
     throw invalidResourceUri(uri, "Project identifier is invalid.")
   }
+  /* v8 ignore stop */
 }
 
 const parseIssueIdentifier = (uri: string, value: string): IssueIdentifier => {
   try {
     return Schema.decodeUnknownSync(IssueIdentifier)(value)
+    /* v8 ignore start -- defensive: see parseProjectIdentifier; pre-validated segments never reject */
   } catch {
     throw invalidResourceUri(uri, "Issue identifier is invalid.")
   }
+  /* v8 ignore stop */
 }
 
 const parseResourceUrl = (uri: string): URL => {
@@ -229,12 +235,16 @@ const projectSummaryResource = (project: ProjectSummary): ListResourcesResult["r
 })
 
 const mapListErrorToMcp = (error: HulyDomainError | ParseResult.ParseError): McpError => {
+  // defensive: listResources passes hardcoded valid params, so the parse channel never yields a
+  // ParseError at runtime — but the union type keeps this branch for type-completeness.
+  /* v8 ignore start */
   if (ParseResult.isParseError(error)) {
     return new McpError(
       ErrorCode.InternalError,
       `Failed to list Huly resources: ${formatParseError(error)}.`
     )
   }
+  /* v8 ignore stop */
 
   if (error._tag === "HulyAuthError") {
     return new McpError(
@@ -268,12 +278,16 @@ const isNotFoundError = (error: HulyDomainError): boolean =>
   error._tag === "ProjectNotFoundError" || error._tag === "IssueNotFoundError"
 
 const mapReadErrorToMcp = (uri: string, error: HulyDomainError | ParseResult.ParseError): McpError => {
+  // defensive: readParsedHulyResource passes pre-validated params, so the parse channel never yields
+  // a ParseError at runtime — but the union type keeps this branch for type-completeness.
+  /* v8 ignore start */
   if (ParseResult.isParseError(error)) {
     return new McpError(
       ErrorCode.InvalidParams,
       `Invalid Huly resource URI "${uri}": ${formatParseError(error)}. ${expectedFormats}`
     )
   }
+  /* v8 ignore stop */
 
   if (isNotFoundError(error)) {
     return new McpError(McpErrorCode.ResourceNotFound, "Resource not found", { uri })
@@ -326,9 +340,13 @@ const issueReadResult = (uri: string, issue: Issue): ReadResourceResult => ({
   }]
 })
 
+// defensive: HulyResource is a closed union of "project" | "issue", both handled in the switch
+// below; this exhaustiveness guard is unreachable at runtime.
+/* v8 ignore start */
 const absurdResource = (_resource: never): never => {
   throw new McpError(ErrorCode.InternalError, "Unsupported Huly resource type.")
 }
+/* v8 ignore stop */
 
 const readParsedHulyResource = (
   resource: HulyResource
@@ -348,6 +366,7 @@ const readParsedHulyResource = (
         Effect.mapError(error => mapReadErrorToMcp(resource.uri, error))
       )
 
+    /* v8 ignore next 2 -- defensive: exhaustive over the HulyResource union */
     default:
       return absurdResource(resource)
   }
@@ -358,10 +377,12 @@ export const readHulyResource = (
 ): Effect.Effect<ReadResourceResult, McpError, HulyClient> =>
   Effect.try({
     try: () => parseHulyResourceUri(uri),
+    /* v8 ignore start -- defensive: parseHulyResourceUri only ever throws McpError, so the else branch is unreachable */
     catch: (e) =>
       e instanceof McpError
         ? e
         : new McpError(ErrorCode.InvalidParams, `Invalid Huly resource URI "${uri}". ${expectedFormats}`)
+    /* v8 ignore stop */
   }).pipe(
     Effect.flatMap(readParsedHulyResource)
   )

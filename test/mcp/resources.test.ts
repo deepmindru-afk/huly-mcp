@@ -20,7 +20,7 @@ import { Effect } from "effect"
 import { expect } from "vitest"
 
 import { HulyClient, type HulyClientOperations } from "../../src/huly/client.js"
-import { HulyConnectionError } from "../../src/huly/errors.js"
+import { HulyAuthError, HulyConnectionError, HulyError } from "../../src/huly/errors.js"
 import { tracker } from "../../src/huly/huly-plugins.js"
 import {
   HULY_RESOURCE_MIME_TYPE,
@@ -218,6 +218,16 @@ describe("MCP resources", () => {
       })
     }))
 
+  it.effect("falls back to a synthesized description for projects without one", () =>
+    Effect.gen(function*() {
+      const result = yield* listResources().pipe(
+        Effect.provide(createClientLayer({
+          projects: [makeProject({ identifier: "NODESC", description: "" })]
+        }))
+      )
+      expect(result.resources[0]?.description).toBe("Huly project NODESC")
+    }))
+
   it.effect("does not hide backend connection errors while listing resources", () =>
     Effect.gen(function*() {
       const backendSecret = "https://user:password@example.huly.app/path?token=secret"
@@ -265,10 +275,13 @@ describe("MCP resources", () => {
     for (
       const uri of [
         "huly://issues/123",
+        "huly://issues/HULY-1/extra",
+        "huly://projects",
         "huly://projects/",
         "huly://projects/%20HULY",
         "huly://projects/HULY%20",
         "huly://projects/HULY%2FCORE",
+        "huly://projects/%FF",
         "huly://projects/HULY/extra",
         "huly://documents/DOC-1",
         "https://huly.app/projects/HULY",
@@ -366,5 +379,76 @@ describe("MCP resources", () => {
       expect(error.message).not.toContain(backendSecret)
       expect(error.message).not.toContain("password")
       expect(error.message).not.toContain("secret")
+    }))
+
+  it.effect("maps an auth failure while listing to a redacted internal error", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(
+        listResources().pipe(
+          Effect.provide(
+            HulyClient.testLayer({ findAll: () => Effect.fail(new HulyAuthError({ message: "bad token" })) })
+          )
+        )
+      )
+      expect(error).toBeInstanceOf(McpError)
+      expect(error.message).toContain("Authentication error while listing Huly resources")
+      expect(error.message).not.toContain("bad token")
+    }))
+
+  it.effect("maps an unexpected error while listing to the generic list failure", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(
+        listResources().pipe(
+          Effect.provide(HulyClient.testLayer({ findAll: () => Effect.fail(new HulyError({ message: "boom" })) }))
+        )
+      )
+      expect(error).toBeInstanceOf(McpError)
+      expect(error.message).toContain("Failed to list Huly resources.")
+    }))
+
+  it.effect("maps an auth failure while reading to a redacted internal error", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(
+        readHulyResource("huly://projects/TEST").pipe(
+          Effect.provide(
+            HulyClient.testLayer({ findOne: () => Effect.fail(new HulyAuthError({ message: "bad token" })) })
+          )
+        )
+      )
+      expect(error).toBeInstanceOf(McpError)
+      expect(error.message).toContain("Authentication error while reading Huly resource")
+      expect(error.message).not.toContain("bad token")
+    }))
+
+  it.effect("maps an unexpected error while reading to the generic read failure", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(
+        readHulyResource("huly://projects/TEST").pipe(
+          Effect.provide(HulyClient.testLayer({ findOne: () => Effect.fail(new HulyError({ message: "boom" })) }))
+        )
+      )
+      expect(error).toBeInstanceOf(McpError)
+      expect(error.message).toContain("Failed to read Huly resource \"huly://projects/TEST\".")
+    }))
+
+  it.effect("maps an invalid resource URI passed to readHulyResource to an McpError", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(
+        readHulyResource("not-a-uri").pipe(Effect.provide(createClientLayer()))
+      )
+      expect(error).toBeInstanceOf(McpError)
+      expect(error.message).toContain("Invalid Huly resource URI")
+    }))
+
+  it.effect("maps a missing issue resource to the MCP resource not found code", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(
+        readHulyResource("huly://issues/TEST-404").pipe(
+          Effect.provide(createClientLayer({ projects: [makeProject()], issues: [] }))
+        )
+      )
+      expect(error).toBeInstanceOf(McpError)
+      expect(error.code).toBe(-32002)
+      expect(error.data).toEqual({ uri: "huly://issues/TEST-404" })
     }))
 })

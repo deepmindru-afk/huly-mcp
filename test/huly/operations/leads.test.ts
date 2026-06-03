@@ -544,3 +544,37 @@ describe("Lead Operations", () => {
       }))
   })
 })
+
+describe("Lead status resolution failures", () => {
+  it.effect("fails when the funnel is missing its ProjectType reference", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(
+        listLeads({ funnel: funnelReference("funnel-1") }).pipe(
+          Effect.provide(createTestLayer({ funnels: [makeFunnel({ type: undefined })], leads: [] }))
+        )
+      )
+      expect(error._tag).toBe("HulyConnectionError")
+      expect(error.message).toContain("missing its ProjectType")
+    }))
+
+  it.effect("fails when the ProjectType has no statuses", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(
+        listLeads({ funnel: funnelReference("funnel-1") }).pipe(
+          Effect.provide(createTestLayer({ leads: [], projectType: makeProjectType([]) }))
+        )
+      )
+      expect(error._tag).toBe("HulyConnectionError")
+      expect(error.message).toContain("no statuses")
+    }))
+
+  it.effect("fails with InvalidStatusError for an unknown status filter", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(
+        listLeads({ funnel: funnelReference("funnel-1"), status: statusName("Nonexistent") }).pipe(
+          Effect.provide(createTestLayer({ leads: [makeLead()], statuses: [makeStatus("status-1", "Active")] }))
+        )
+      )
+      expect(error._tag).toBe("InvalidStatusError")
+    }))
+})

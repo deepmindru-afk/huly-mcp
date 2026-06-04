@@ -658,6 +658,17 @@ describe("Config Module", () => {
         expect(JSON.stringify(context)).not.toContain("not a url")
       }))
 
+    it.effect("reports non-HTTP URL schemes as invalid", () =>
+      Effect.gen(function*() {
+        const context = sanitizeHulyRuntimeConfigFromEnv({
+          HULY_URL: "ftp://huly.app",
+          HULY_TOKEN: "secret-token",
+          HULY_WORKSPACE: "my-workspace"
+        })
+
+        expect(context.huly.url).toEqual({ configured: true, valid: false })
+      }))
+
     it.effect("reports missing timeout as the default", () =>
       Effect.gen(function*() {
         const context = sanitizeHulyRuntimeConfigFromEnv({})
@@ -677,6 +688,23 @@ describe("Config Module", () => {
           HULY_CONNECTION_TIMEOUT: "nope"
         })
 
+        expect(context.huly.connectionTimeout).toEqual({
+          configured: true,
+          valid: false,
+          defaultMs: HulyConfigService.DEFAULT_TIMEOUT,
+          source: "invalid"
+        })
+      }))
+
+    it.effect("reports array header values as configured but invalid for URL and timeout", () =>
+      Effect.gen(function*() {
+        const context = sanitizeHulyRuntimeConfigFromHeaders({
+          "x-huly-url": ["https://huly.app"],
+          "x-huly-token": "secret-token",
+          "x-huly-connection-timeout": ["45000"]
+        })
+
+        expect(context.huly.url).toEqual({ configured: true, valid: false })
         expect(context.huly.connectionTimeout).toEqual({
           configured: true,
           valid: false,

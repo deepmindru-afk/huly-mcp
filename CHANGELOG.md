@@ -1,5 +1,15 @@
 # @firfi/huly-mcp
 
+## 0.20.0
+
+### Minor Changes
+
+- Add SDK object discovery tools, 2026 stateless HTTP MCP support, and request-scoped hosted HTTP configuration coverage.
+
+  Fix corrupted Huly document content handling so unreadable stored markup reports a clear typed error and can be repaired by `edit_document`.
+
+  Harden the release gate with import-cycle detection, package smoke coverage, property-based tests, full transport integration coverage, and 99% coverage thresholds.
+
 ## 0.19.0
 
 ### Minor Changes

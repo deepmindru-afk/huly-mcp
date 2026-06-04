@@ -1,5 +1,11 @@
 # @firfi/huly-mcp
 
+## 0.20.1
+
+### Patch Changes
+
+- Preserve Huly browse URLs in document markdown writes as plain links instead of auto-converting them to native Huly reference nodes.
+
 ## 0.20.0
 
 ### Minor Changes

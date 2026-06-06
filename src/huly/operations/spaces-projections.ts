@@ -17,6 +17,7 @@ import type {
 } from "../../domain/schemas.js"
 import {
   AccountUuid,
+  Count,
   ObjectClassName,
   PermissionId,
   RoleId,
@@ -51,8 +52,8 @@ export const toSpaceSummary = (space: GenericSpace): SpaceSummary => ({
   private: space.private,
   archived: space.archived,
   autoJoin: space.autoJoin,
-  membersCount: space.members.length,
-  ownersCount: space.owners?.length ?? 0
+  membersCount: Count.make(space.members.length),
+  ownersCount: Count.make(space.owners?.length ?? 0)
 })
 
 const roleAssignments = (space: SpaceWithRoles): Array<SpaceRoleAssignment> | undefined => {
@@ -89,7 +90,7 @@ export const spaceTypeSummary = (
   targetClass: ObjectClassName.make(spaceType.targetClass),
   defaultMembers: (spaceType.members ?? []).map((member) => AccountUuid.make(member)),
   autoJoin: spaceType.autoJoin,
-  rolesCount: spaceType.roles
+  rolesCount: Count.make(spaceType.roles)
 })
 
 export const roleSummary = (

@@ -46,6 +46,7 @@ import type {
 import { UPDATE_ISSUE_TEMPLATE_FIELDS } from "../../domain/schemas/issue-templates.js"
 import {
   ComponentLabel,
+  Count,
   Email,
   IssueTemplateChildId,
   IssueTemplateId,
@@ -292,7 +293,7 @@ export const listIssueTemplates = (
       }
       // exactOptionalPropertyTypes: only set childrenCount when > 0
       if (t.children.length > 0) {
-        return { ...base, childrenCount: t.children.length }
+        return { ...base, childrenCount: Count.make(t.children.length) }
       }
       return base
     })
@@ -516,7 +517,7 @@ export const createIssueFromTemplate = (
 
       return {
         ...result,
-        childrenCreated: template.children.length
+        childrenCreated: Count.make(template.children.length)
       }
     }
 

@@ -3,7 +3,7 @@ import type { DocumentUpdate, MarkupBlobRef, Ref } from "@hcengineering/core"
 import { generateId, SortingOrder } from "@hcengineering/core"
 import { Effect } from "effect"
 
-import { TestResultId, TestRunId } from "../../domain/schemas/shared.js"
+import { Count, TestResultId, TestRunId } from "../../domain/schemas/shared.js"
 import type {
   CreateTestResultParams,
   CreateTestResultResult,
@@ -44,6 +44,7 @@ import { TestCaseNotFoundError } from "../errors.js"
 import { testManagement } from "../test-management-classes.js"
 import type { TestCase, TestPlanItem, TestResult, TestRun } from "../test-management-types.js"
 import { TestRunStatus } from "../test-management-types.js"
+import { listTotal } from "./counts.js"
 import { clampLimit } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
 import {
@@ -105,7 +106,7 @@ export const listTestRuns = (
       { space: project._id },
       { limit, sort: { modifiedOn: SortingOrder.Descending } }
     )
-    return { runs: runs.map(toRunSummary), total: runs.total }
+    return { runs: runs.map(toRunSummary), total: listTotal(runs.total) }
   })
 
 export const getTestRun = (
@@ -214,7 +215,7 @@ export const listTestResults = (
       { attachedTo: run._id },
       { limit, sort: { modifiedOn: SortingOrder.Descending } }
     )
-    return { results: results.map(toResultSummary), total: results.total }
+    return { results: results.map(toResultSummary), total: listTotal(results.total) }
   })
 
 export const getTestResult = (
@@ -367,5 +368,5 @@ export const runTestPlan = (
           attrs as Parameters<typeof client.addCollection<TestRun, TestResult>>[5]
         )
       }), { concurrency: BATCH_CONCURRENCY })
-    return { runId: TestRunId.make(runId), name: runName, resultsCreated: results.length }
+    return { runId: TestRunId.make(runId), name: runName, resultsCreated: Count.make(results.length) }
   })

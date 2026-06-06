@@ -54,6 +54,7 @@ import {
   type TeamspaceNotFoundError
 } from "../errors.js"
 import { buildDocumentUrlFromConfig } from "../url-builders.js"
+import { listTotal } from "./counts.js"
 import { renderDocumentContentForWrite } from "./document-native-references.js"
 import { fetchReadableDocumentContent, findTeamspace, findTeamspaceAndDocument } from "./documents-shared.js"
 import {
@@ -159,7 +160,7 @@ export const listTeamspaces = (
 
     return {
       teamspaces: summaries,
-      total
+      total: listTotal(total)
     }
   })
 
@@ -183,7 +184,7 @@ export const getTeamspace = (
       description: teamspace.description || undefined,
       archived: teamspace.archived,
       private: teamspace.private,
-      documents: docs.total
+      documents: listTotal(docs.total)
     }
   })
 
@@ -334,7 +335,7 @@ export const listDocuments = (
 
     return {
       documents: summaries,
-      total
+      total: listTotal(total)
     }
   })
 

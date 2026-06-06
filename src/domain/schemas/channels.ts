@@ -1,6 +1,6 @@
 import { JSONSchema, Schema } from "effect"
 
-import type { AccountUuid, ChannelId, ChannelName, PersonName } from "./shared.js"
+import type { AccountUuid, ChannelId, ChannelName, Count, ListTotal, PersonName } from "./shared.js"
 import {
   assertUpdateFields,
   atLeastOneUpdateFieldMessage,
@@ -20,8 +20,8 @@ export interface ChannelSummary {
   readonly topic?: string | undefined
   readonly private: boolean
   readonly archived: boolean
-  readonly members?: number | undefined
-  readonly messages?: number | undefined
+  readonly members?: Count | undefined
+  readonly messages?: Count | undefined
   readonly modifiedOn?: number | undefined
 }
 
@@ -33,7 +33,7 @@ export interface Channel {
   readonly private: boolean
   readonly archived: boolean
   readonly members?: ReadonlyArray<PersonName> | undefined
-  readonly messages?: number | undefined
+  readonly messages?: Count | undefined
   readonly modifiedOn?: number | undefined
   readonly createdOn?: number | undefined
 }
@@ -46,14 +46,14 @@ export interface MessageSummary {
   readonly createdOn?: number | undefined
   readonly modifiedOn?: number | undefined
   readonly editedOn?: number | undefined
-  readonly replies?: number | undefined
+  readonly replies?: Count | undefined
 }
 
 export interface DirectMessageSummary {
   readonly id: ChannelId
   readonly participants: ReadonlyArray<PersonName>
   readonly participantIds?: ReadonlyArray<AccountUuid> | undefined
-  readonly messages?: number | undefined
+  readonly messages?: Count | undefined
   readonly modifiedOn?: number | undefined
 }
 
@@ -400,7 +400,7 @@ export interface DeleteChannelResult {
 
 export interface ListChannelMessagesResult {
   readonly messages: ReadonlyArray<MessageSummary>
-  readonly total: number
+  readonly total: ListTotal
 }
 
 export interface SendChannelMessageResult {
@@ -420,12 +420,12 @@ export interface DeleteChannelMessageResult {
 
 export interface ListDirectMessagesResult {
   readonly conversations: ReadonlyArray<DirectMessageSummary>
-  readonly total: number
+  readonly total: ListTotal
 }
 
 export interface ListThreadRepliesResult {
   readonly replies: ReadonlyArray<ThreadMessage>
-  readonly total: number
+  readonly total: ListTotal
 }
 
 export interface AddThreadReplyResult {

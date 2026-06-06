@@ -1,6 +1,6 @@
 import { JSONSchema, Schema } from "effect"
 
-import type { DocumentId, TeamspaceId, UrlString } from "./shared.js"
+import type { DocumentId, ListTotal, TeamspaceId, UrlString } from "./shared.js"
 import {
   assertUpdateFields,
   atLeastOneUpdateFieldMessage,
@@ -39,7 +39,7 @@ export type ListTeamspacesParams = Schema.Schema.Type<typeof ListTeamspacesParam
 
 export interface ListTeamspacesResult {
   readonly teamspaces: ReadonlyArray<TeamspaceSummary>
-  readonly total: number
+  readonly total: ListTotal
 }
 
 export interface DocumentSummary {
@@ -87,7 +87,7 @@ export type ListDocumentsParams = Schema.Schema.Type<typeof ListDocumentsParamsS
 
 export interface ListDocumentsResult {
   readonly documents: ReadonlyArray<DocumentSummary>
-  readonly total: number
+  readonly total: ListTotal
 }
 
 export interface Document {
@@ -312,7 +312,7 @@ export const DeleteTeamspaceParamsSchema = Schema.Struct({
 export type DeleteTeamspaceParams = Schema.Schema.Type<typeof DeleteTeamspaceParamsSchema>
 
 export interface GetTeamspaceResult extends TeamspaceSummary {
-  readonly documents: number
+  readonly documents: ListTotal
 }
 
 export interface CreateTeamspaceResult {
@@ -365,7 +365,7 @@ export interface InlineCommentThread {
 
 export interface ListInlineCommentsResult {
   readonly comments: ReadonlyArray<InlineCommentThread>
-  readonly total: number
+  readonly total: ListTotal
 }
 
 // --- JSON Schemas & Parsers ---

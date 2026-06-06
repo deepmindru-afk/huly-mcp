@@ -28,7 +28,7 @@ import type {
   UpdateOrganizationResult
 } from "../../domain/schemas/contact-organizations.js"
 import { UPDATE_ORGANIZATION_FIELDS } from "../../domain/schemas/contact-organizations.js"
-import { Email, OrganizationId, PersonId, PersonName } from "../../domain/schemas/shared.js"
+import { Count, Email, OrganizationId, PersonId, PersonName } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import {
   type NoUpdateFieldsError,
@@ -95,7 +95,7 @@ const findOrganizationByIdentifier = (
     if (byName.length > 1) {
       return yield* new OrganizationIdentifierAmbiguousError({
         identifier,
-        matches: byName.length
+        matches: Count.make(byName.length)
       })
     }
 
@@ -163,7 +163,7 @@ export const listOrganizations = (
         id,
         name: org.name,
         city: org.city,
-        members: org.members,
+        members: Count.make(org.members),
         url: buildContactUrlFromConfig(client.workbenchUrlConfig, id),
         modifiedOn: org.modifiedOn
       }
@@ -240,7 +240,7 @@ export const getOrganization = (
       name: org.name,
       city: org.city || undefined,
       description: descriptionText,
-      members: org.members,
+      members: Count.make(org.members),
       url: buildContactUrlFromConfig(client.workbenchUrlConfig, id),
       modifiedOn: org.modifiedOn
     }

@@ -10,7 +10,6 @@ import { Effect } from "effect"
 
 import type { SpaceClassFilter, SpaceIdentifier, SpaceTypeId } from "../../domain/schemas/shared.js"
 import {
-  ListTotal,
   NonEmptyString,
   ObjectClassName,
   SpaceId,
@@ -32,6 +31,7 @@ import {
 } from "../errors.js"
 import { core } from "../huly-plugins.js"
 import { resolveEmployeeAccountUuid } from "./contacts-shared.js"
+import { listTotal } from "./counts.js"
 import { hulyQuery, type StrictDocumentQuery } from "./query-helpers.js"
 import { toAccountUuid, toClassRef, toRef } from "./sdk-boundary.js"
 
@@ -58,7 +58,7 @@ export const sortStrings = <T extends string>(values: ReadonlyArray<T>): Array<T
 
 const uniqueSorted = <T extends string>(values: ReadonlyArray<T>): Array<T> => sortStrings([...new Set(values)])
 
-export const listTotal = (value: number): ListTotal => ListTotal.make(value)
+export { listTotal }
 
 export const mergeUniqueSortedAccountUuids = (
   current: ReadonlyArray<HulyAccountUuid>,

@@ -1,6 +1,6 @@
 import { JSONSchema, Schema } from "effect"
 
-import type { TestCaseId, TestProjectId, TestSuiteId } from "./shared.js"
+import type { ListTotal, TestCaseId, TestProjectId, TestSuiteId } from "./shared.js"
 import {
   assertUpdateFields,
   atLeastOneUpdateFieldMessage,
@@ -393,16 +393,16 @@ export const parseDeleteTestCaseParams = Schema.decodeUnknown(DeleteTestCasePara
 
 export interface ListTestProjectsResult {
   readonly projects: ReadonlyArray<TestProjectSummary>
-  readonly total: number
+  readonly total: ListTotal
 }
 
 export interface ListTestSuitesResult {
   readonly suites: ReadonlyArray<TestSuiteSummary>
-  readonly total: number
+  readonly total: ListTotal
 }
 
 export interface GetTestSuiteResult extends TestSuiteSummary {
-  readonly testCases: number
+  readonly testCases: ListTotal
 }
 
 export interface CreateTestSuiteResult {
@@ -423,7 +423,7 @@ export interface DeleteTestSuiteResult {
 
 export interface ListTestCasesResult {
   readonly testCases: ReadonlyArray<TestCaseSummary>
-  readonly total: number
+  readonly total: ListTotal
 }
 
 export interface GetTestCaseResult extends TestCaseSummary {

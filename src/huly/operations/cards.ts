@@ -39,6 +39,7 @@ import {
   type NoUpdateFieldsError
 } from "../errors.js"
 import { cardPlugin } from "../huly-plugins.js"
+import { listTotal, optionalCount } from "./counts.js"
 import { clampLimit, escapeLikeWildcards, findByNameOrId } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
 import { requireUpdateFields } from "./update-guards.js"
@@ -195,7 +196,7 @@ export const listCardSpaces = (
 
     return {
       cardSpaces: summaries,
-      total: spaces.total
+      total: listTotal(spaces.total)
     }
   })
 
@@ -207,7 +208,7 @@ export const listMasterTags = (
 
     const typeRefs = cardSpace.types
     if (typeRefs.length === 0) {
-      return { masterTags: [], total: 0 }
+      return { masterTags: [], total: listTotal(0) }
     }
 
     const tags = yield* client.findAll<HulyMasterTag>(
@@ -222,7 +223,7 @@ export const listMasterTags = (
 
     return {
       masterTags: summaries,
-      total: tags.total
+      total: listTotal(tags.total)
     }
   })
 
@@ -275,7 +276,7 @@ export const listCards = (
 
     return {
       cards: summaries,
-      total: cards.total
+      total: listTotal(cards.total)
     }
   })
 
@@ -304,7 +305,7 @@ export const getCard = (
       content,
       type: String(card._class),
       parent: card.parent ? String(card.parent) : undefined,
-      children: card.children,
+      children: optionalCount(card.children),
       cardSpace: cardSpace.name,
       modifiedOn: card.modifiedOn,
       createdOn: card.createdOn

@@ -1,16 +1,19 @@
 import { JSONSchema, Schema } from "effect"
 
-import type { OrganizationId, PersonName, UrlString } from "./shared.js"
+import type { PersonName } from "./shared.js"
 import {
   assertUpdateFields,
   atLeastOneUpdateFieldMessage,
+  Count,
   Email,
   enumValuesDescription,
   hasAtLeastOneDefined,
   LimitParam,
   MemberReference,
   NonEmptyString,
+  OrganizationId,
   PersonId,
+  UrlString,
   withAtLeastOneRequired
 } from "./shared.js"
 
@@ -23,10 +26,19 @@ export interface OrganizationSummary {
   readonly id: OrganizationId
   readonly name: string
   readonly city?: string | undefined
-  readonly members: number
+  readonly members: Count
   readonly url: UrlString
   readonly modifiedOn?: number | undefined
 }
+
+export const OrganizationSummarySchema = Schema.Struct({
+  id: OrganizationId,
+  name: NonEmptyString,
+  city: Schema.optional(Schema.String),
+  members: Count,
+  url: UrlString,
+  modifiedOn: Schema.optional(Schema.Number)
+})
 
 export const ListOrganizationsParamsSchema = Schema.Struct({
   limit: Schema.optional(
@@ -246,10 +258,20 @@ export interface GetOrganizationResult {
   readonly name: string
   readonly city?: string | undefined
   readonly description?: string | undefined
-  readonly members: number
+  readonly members: Count
   readonly url: UrlString
   readonly modifiedOn?: number | undefined
 }
+
+export const GetOrganizationResultSchema = Schema.Struct({
+  id: OrganizationId,
+  name: NonEmptyString,
+  city: Schema.optional(Schema.String),
+  description: Schema.optional(Schema.String),
+  members: Count,
+  url: UrlString,
+  modifiedOn: Schema.optional(Schema.Number)
+})
 
 export interface UpdateOrganizationResult {
   readonly id: OrganizationId

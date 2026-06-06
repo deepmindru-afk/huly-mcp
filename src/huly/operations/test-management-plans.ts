@@ -34,6 +34,7 @@ import type {
 import { TestPlanItemNotFoundError } from "../errors.js"
 import { testManagement } from "../test-management-classes.js"
 import type { TestPlan, TestPlanItem } from "../test-management-types.js"
+import { listTotal } from "./counts.js"
 import { clampLimit } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
 import {
@@ -74,7 +75,7 @@ export const listTestPlans = (
       { space: project._id },
       { limit, sort: { modifiedOn: SortingOrder.Descending } }
     )
-    return { plans: plans.map(toPlanSummary), total: plans.total }
+    return { plans: plans.map(toPlanSummary), total: listTotal(plans.total) }
   })
 
 export const getTestPlan = (

@@ -1,5 +1,6 @@
 import { JSONSchema, Schema } from "effect"
 
+import type { ListTotal } from "./shared.js"
 import {
   assertUpdateFields,
   atLeastOneUpdateFieldMessage,
@@ -42,7 +43,7 @@ export type ListProjectsParams = Schema.Schema.Type<typeof ListProjectsParamsSch
 
 export interface ListProjectsResult {
   readonly projects: ReadonlyArray<ProjectSummary>
-  readonly total: number
+  readonly total: ListTotal
 }
 
 export const ProjectSchema = Schema.Struct({
@@ -119,7 +120,7 @@ export type StatusDetail = Schema.Schema.Type<typeof StatusDetailSchema>
 
 export interface ListStatusesResult {
   readonly statuses: ReadonlyArray<StatusDetail>
-  readonly total: number
+  readonly total: ListTotal
 }
 
 export const listProjectsParamsJsonSchema = JSONSchema.make(ListProjectsParamsSchema)

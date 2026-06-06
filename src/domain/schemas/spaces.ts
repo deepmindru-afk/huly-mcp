@@ -5,6 +5,7 @@ import {
   AccountUuid,
   assertUpdateFields,
   atLeastOneUpdateFieldMessage,
+  Count,
   DEFAULT_LIMIT,
   hasAtLeastOneDefined,
   LimitParam,
@@ -48,8 +49,8 @@ export const SpaceSummarySchema = Schema.Struct({
   private: Schema.Boolean,
   archived: Schema.Boolean,
   autoJoin: Schema.optional(Schema.Boolean),
-  membersCount: Schema.Number.pipe(Schema.int(), Schema.nonNegative()),
-  ownersCount: Schema.Number.pipe(Schema.int(), Schema.nonNegative())
+  membersCount: Count,
+  ownersCount: Count
 })
 export type SpaceSummary = Schema.Schema.Type<typeof SpaceSummarySchema>
 
@@ -77,7 +78,7 @@ export const SpaceTypeSummarySchema = Schema.Struct({
   targetClass: ObjectClassName,
   defaultMembers: Schema.Array(AccountUuid),
   autoJoin: Schema.optional(Schema.Boolean),
-  rolesCount: Schema.Number.pipe(Schema.int(), Schema.nonNegative())
+  rolesCount: Count
 })
 export type SpaceTypeSummary = Schema.Schema.Type<typeof SpaceTypeSummarySchema>
 

@@ -1,6 +1,6 @@
 import { JSONSchema, Schema } from "effect"
 
-import type { CardId, CardSpaceId, MasterTagId } from "./shared.js"
+import type { CardId, CardSpaceId, Count, ListTotal, MasterTagId } from "./shared.js"
 import {
   assertUpdateFields,
   atLeastOneUpdateFieldMessage,
@@ -38,7 +38,7 @@ export type ListCardSpacesParams = Schema.Schema.Type<typeof ListCardSpacesParam
 
 export interface ListCardSpacesResult {
   readonly cardSpaces: ReadonlyArray<CardSpaceSummary>
-  readonly total: number
+  readonly total: ListTotal
 }
 
 export interface MasterTagSummary {
@@ -59,7 +59,7 @@ export type ListMasterTagsParams = Schema.Schema.Type<typeof ListMasterTagsParam
 
 export interface ListMasterTagsResult {
   readonly masterTags: ReadonlyArray<MasterTagSummary>
-  readonly total: number
+  readonly total: ListTotal
 }
 
 export interface CardSummary {
@@ -109,7 +109,7 @@ export type ListCardsParams = Schema.Schema.Type<typeof ListCardsParamsSchema>
 
 export interface ListCardsResult {
   readonly cards: ReadonlyArray<CardSummary>
-  readonly total: number
+  readonly total: ListTotal
 }
 
 export interface CardDetail {
@@ -118,7 +118,7 @@ export interface CardDetail {
   readonly content?: string | undefined
   readonly type: string
   readonly parent?: string | undefined
-  readonly children?: number | undefined
+  readonly children?: Count | undefined
   readonly cardSpace: string
   readonly modifiedOn?: number | undefined
   readonly createdOn?: number | undefined

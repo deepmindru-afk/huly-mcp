@@ -3,10 +3,26 @@ import { JSONSchema, Schema } from "effect"
 export const MAX_LIMIT = 200
 export const DEFAULT_LIMIT = 50
 
-export const ListTotal = Schema.NonNegativeInt.pipe(Schema.brand("ListTotal")).annotations({
+export const NonNegativeInteger = Schema.NonNegativeInt.annotations({
+  identifier: "NonNegativeInteger",
+  title: "NonNegativeInteger",
+  description: "Integer greater than or equal to zero."
+})
+export type NonNegativeInteger = Schema.Schema.Type<typeof NonNegativeInteger>
+
+export const Count = NonNegativeInteger.pipe(Schema.brand("Count")).annotations({
+  identifier: "Count",
+  title: "Count",
+  description: "Non-negative integer count."
+})
+export type Count = Schema.Schema.Type<typeof Count>
+
+export const UNKNOWN_TOTAL = -1
+
+export const ListTotal = Schema.Union(Count, Schema.Literal(UNKNOWN_TOTAL)).annotations({
   identifier: "ListTotal",
   title: "ListTotal",
-  description: "Non-negative integer count of matching list results."
+  description: "Count of matching list results, or -1 when the Huly backend reports an unknown total."
 })
 export type ListTotal = Schema.Schema.Type<typeof ListTotal>
 

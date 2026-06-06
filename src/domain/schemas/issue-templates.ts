@@ -7,6 +7,7 @@ import {
   atLeastOneUpdateFieldMessage,
   ComponentIdentifier,
   ComponentLabel,
+  Count,
   hasAtLeastOneDefined,
   IssueTemplateChildId,
   IssueTemplateId,
@@ -74,7 +75,7 @@ export const IssueTemplateSummarySchema = Schema.Struct({
   id: IssueTemplateId,
   title: NonEmptyString,
   priority: Schema.optional(IssuePrioritySchema),
-  childrenCount: Schema.optional(Schema.Number),
+  childrenCount: Schema.optional(Count),
   modifiedOn: Schema.optional(Timestamp)
 }).annotations({
   title: "IssueTemplateSummary",
@@ -351,7 +352,7 @@ export interface DeleteIssueTemplateResult {
 export interface CreateIssueFromTemplateResult {
   readonly identifier: IssueIdentifier
   readonly issueId: IssueId
-  readonly childrenCreated?: number
+  readonly childrenCreated?: Count
 }
 
 export interface AddTemplateChildResult {

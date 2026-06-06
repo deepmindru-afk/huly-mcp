@@ -1,6 +1,6 @@
 import { JSONSchema, Schema } from "effect"
 
-import type { TestPlanId, TestPlanItemId, TestResultId, TestRunId } from "./shared.js"
+import type { Count, ListTotal, TestPlanId, TestPlanItemId, TestResultId, TestRunId } from "./shared.js"
 import {
   assertUpdateFields,
   atLeastOneUpdateFieldMessage,
@@ -60,7 +60,7 @@ export const ListTestPlansParamsSchema = Schema.Struct({
 export type ListTestPlansParams = Schema.Schema.Type<typeof ListTestPlansParamsSchema>
 export interface ListTestPlansResult {
   readonly plans: ReadonlyArray<TestPlanSummary>
-  readonly total: number
+  readonly total: ListTotal
 }
 
 export const GetTestPlanParamsSchema = Schema.Struct({
@@ -153,7 +153,7 @@ export const ListTestRunsParamsSchema = Schema.Struct({
 export type ListTestRunsParams = Schema.Schema.Type<typeof ListTestRunsParamsSchema>
 export interface ListTestRunsResult {
   readonly runs: ReadonlyArray<TestRunSummary>
-  readonly total: number
+  readonly total: ListTotal
 }
 
 export const GetTestRunParamsSchema = Schema.Struct({
@@ -235,7 +235,7 @@ export const ListTestResultsParamsSchema = Schema.Struct({
 export type ListTestResultsParams = Schema.Schema.Type<typeof ListTestResultsParamsSchema>
 export interface ListTestResultsResult {
   readonly results: ReadonlyArray<TestResultSummary>
-  readonly total: number
+  readonly total: ListTotal
 }
 
 export const GetTestResultParamsSchema = Schema.Struct({
@@ -323,7 +323,7 @@ export type RunTestPlanParams = Schema.Schema.Type<typeof RunTestPlanParamsSchem
 export interface RunTestPlanResult {
   readonly runId: TestRunId
   readonly name: string
-  readonly resultsCreated: number
+  readonly resultsCreated: Count
 }
 
 export const listTestPlansParamsJsonSchema = JSONSchema.make(ListTestPlansParamsSchema)

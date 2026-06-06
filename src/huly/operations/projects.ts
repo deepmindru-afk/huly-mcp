@@ -32,6 +32,7 @@ import { HulyClient, type HulyClientError } from "../client.js"
 import type { NoUpdateFieldsError, ProjectNotFoundError } from "../errors.js"
 import { HulyConnectionError } from "../errors.js"
 import { tracker } from "../huly-plugins.js"
+import { listTotal } from "./counts.js"
 import { findProject, findProjectWithStatuses } from "./issues-shared.js"
 import { clampLimit } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
@@ -89,7 +90,7 @@ export const listProjects = (
 
     return {
       projects: validated,
-      total
+      total: listTotal(total)
     }
   })
 
@@ -134,7 +135,7 @@ export const listStatuses = (
       isDefault: s._id === defaultStatusId
     }))
 
-    return { statuses: details, total: details.length }
+    return { statuses: details, total: listTotal(details.length) }
   })
 
 export const createProject = (

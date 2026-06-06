@@ -5,6 +5,7 @@ import {
   assertUpdateFields,
   atLeastOneUpdateFieldMessage,
   ColorCode,
+  Count,
   DocId,
   hasAtLeastOneDefined,
   LimitParam,
@@ -70,7 +71,7 @@ export const TagSummarySchema = Schema.Struct({
   description: Schema.String,
   color: ColorCode,
   category: NonEmptyString,
-  refCount: Schema.optional(Schema.Number)
+  refCount: Schema.optional(Count)
 }).annotations({
   title: "TagSummary",
   description: "Generic Huly tag definition summary."
@@ -276,7 +277,7 @@ export type AttachTagResult = Schema.Schema.Type<typeof AttachTagResultSchema>
 
 export const DetachTagResultSchema = Schema.Struct({
   detached: Schema.Boolean,
-  detachedCount: Schema.Number
+  detachedCount: Count
 }).annotations({
   title: "DetachTagResult",
   description: "Result of detaching tag references."

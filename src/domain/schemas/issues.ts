@@ -6,6 +6,7 @@ import {
   atLeastOneUpdateFieldMessage,
   ColorCode,
   ComponentIdentifier,
+  Count,
   Email,
   enumValuesDescription,
   hasAtLeastOneDefined,
@@ -97,7 +98,7 @@ export const IssueSummarySchema = Schema.Struct({
   priority: Schema.optional(IssuePrioritySchema),
   assignee: Schema.optional(PersonName),
   parentIssue: Schema.optional(IssueIdentifier),
-  subIssues: Schema.optional(Schema.Number),
+  subIssues: Schema.optional(Count),
   modifiedOn: Schema.optional(Timestamp)
 }).annotations({
   title: "IssueSummary",
@@ -119,7 +120,7 @@ export const IssueSchema = Schema.Struct({
   labels: Schema.optional(Schema.Array(LabelSchema)),
   project: ProjectIdentifier,
   parentIssue: Schema.optional(IssueIdentifier),
-  subIssues: Schema.optional(Schema.Number),
+  subIssues: Schema.optional(Count),
   modifiedOn: Schema.optional(Timestamp),
   createdOn: Schema.optional(Timestamp),
   dueDate: Schema.optional(Schema.NullOr(Timestamp)),

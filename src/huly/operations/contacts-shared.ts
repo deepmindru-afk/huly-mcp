@@ -3,7 +3,7 @@ import type { AccountUuid, Doc, Ref } from "@hcengineering/core"
 import { SocialIdType } from "@hcengineering/core"
 import { Effect, Schema } from "effect"
 
-import { Email, type NonEmptyString, PersonName, type PersonRefInput } from "../../domain/schemas/shared.js"
+import { Count, Email, type NonEmptyString, PersonName, type PersonRefInput } from "../../domain/schemas/shared.js"
 import type { HulyClient, HulyClientError } from "../client.js"
 import { PersonIdentifierAmbiguousError, PersonNotAnEmployeeError, PersonNotFoundError } from "../errors.js"
 import { contact } from "../huly-plugins.js"
@@ -131,7 +131,7 @@ const findPersonByExactEmail = (
     }
 
     if (persons.length > 1) {
-      return yield* new PersonIdentifierAmbiguousError({ identifier: email, matches: persons.length })
+      return yield* new PersonIdentifierAmbiguousError({ identifier: email, matches: Count.make(persons.length) })
     }
 
     return persons[0]
@@ -152,7 +152,7 @@ const findPersonByExactName = (
     }
 
     if (persons.length > 1) {
-      return yield* new PersonIdentifierAmbiguousError({ identifier: name, matches: persons.length })
+      return yield* new PersonIdentifierAmbiguousError({ identifier: name, matches: Count.make(persons.length) })
     }
 
     return persons[0]

@@ -2,6 +2,7 @@
 export {
   assertUpdateFields,
   AssociationId,
+  Count,
   DEFAULT_LIMIT,
   DocId,
   emptyParamsJsonSchema,
@@ -14,6 +15,7 @@ export {
   ListTotal,
   MentionId,
   NonEmptyString,
+  NonNegativeInteger,
   NonNegativeNumber,
   NotificationContextId,
   NotificationId,
@@ -32,7 +34,8 @@ export {
   SpaceTypeId,
   SpaceTypeIdentifier,
   TaskTypeId,
-  Timestamp
+  Timestamp,
+  UNKNOWN_TOTAL
 } from "./shared.js"
 
 export {
@@ -832,6 +835,7 @@ export {
   getOrganizationParamsJsonSchema,
   GetOrganizationParamsSchema,
   type GetOrganizationResult,
+  GetOrganizationResultSchema,
   type ListOrganizationMembersParams,
   listOrganizationMembersParamsJsonSchema,
   ListOrganizationMembersParamsSchema,
@@ -846,6 +850,7 @@ export {
   type OrganizationMemberEntry,
   type OrganizationMembershipSummary,
   type OrganizationSummary,
+  OrganizationSummarySchema,
   parseAddOrganizationChannelParams,
   parseAddOrganizationMemberParams,
   parseCreateOrganizationParams,
@@ -1121,7 +1126,8 @@ export {
   type FulltextSearchResult,
   parseFulltextSearchParams,
   parseSearchResult,
-  type SearchResultItem
+  type SearchResultItem,
+  UNKNOWN_SEARCH_TOTAL
 } from "./search.js"
 
 export {

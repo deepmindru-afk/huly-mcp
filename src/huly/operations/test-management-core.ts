@@ -58,6 +58,7 @@ import {
   type TestProject,
   type TestSuite
 } from "../test-management-types.js"
+import { listTotal } from "./counts.js"
 import { clampLimit } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
 import {
@@ -171,7 +172,7 @@ export const listTestProjects = (
 
     return {
       projects: projects.map(toProjectSummary),
-      total: projects.total
+      total: listTotal(projects.total)
     }
   })
 
@@ -203,7 +204,7 @@ export const listTestSuites = (
 
     return {
       suites: suites.map(toSuiteSummary),
-      total: suites.total
+      total: listTotal(suites.total)
     }
   })
 
@@ -225,7 +226,7 @@ export const getTestSuite = (
 
     return {
       ...toSuiteSummary(suite),
-      testCases: cases.total
+      testCases: listTotal(cases.total)
     }
   })
 
@@ -359,7 +360,7 @@ export const listTestCases = (
 
     return {
       testCases: cases.map(toCaseSummary),
-      total: cases.total
+      total: listTotal(cases.total)
     }
   })
 

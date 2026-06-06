@@ -3,7 +3,7 @@ import { SortingOrder } from "@hcengineering/core"
 import type { TagElement as HulyTagElement } from "@hcengineering/tags"
 import { Effect } from "effect"
 
-import { TagElementId } from "../../domain/schemas/shared.js"
+import { Count, TagElementId } from "../../domain/schemas/shared.js"
 import type {
   AttachedTagSummary,
   AttachTagParams,
@@ -57,7 +57,7 @@ const toTagSummary = (tag: HulyTagElement): TagSummary => {
     category: tag.category
   }
 
-  return tag.refCount === undefined ? summary : { ...summary, refCount: tag.refCount }
+  return tag.refCount === undefined ? summary : { ...summary, refCount: Count.make(tag.refCount) }
 }
 
 const buildUpdateTagOperations = (

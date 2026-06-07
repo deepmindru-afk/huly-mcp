@@ -1,5 +1,6 @@
 import { JSONSchema, Schema } from "effect"
 
+import { clearableText } from "./clearable.js"
 import { IssuePrioritySchema } from "./issues.js"
 import type { IssueId, IssueIdentifier } from "./shared.js"
 import {
@@ -222,9 +223,7 @@ export const UpdateIssueTemplateParamsSchema = Schema.Struct({
   title: Schema.optional(NonEmptyString.annotations({
     description: "New template title"
   })),
-  description: Schema.optional(Schema.String.annotations({
-    description: "New template description (markdown supported)"
-  })),
+  description: Schema.optional(clearableText("New template description (markdown supported).")),
   priority: Schema.optional(IssuePrioritySchema.annotations({
     description: "New default priority"
   })),
@@ -238,9 +237,11 @@ export const UpdateIssueTemplateParamsSchema = Schema.Struct({
       description: "New default component ID or label (null to clear)"
     })
   ),
-  estimation: Schema.optional(PositiveNumber.annotations({
-    description: "New default estimation in minutes"
-  }))
+  estimation: Schema.optional(
+    Schema.NullOr(PositiveNumber).annotations({
+      description: "New default estimation in minutes, or null to clear"
+    })
+  )
 }).pipe(
   Schema.filter((params) =>
     hasAtLeastOneDefined(params, UPDATE_ISSUE_TEMPLATE_FIELDS)

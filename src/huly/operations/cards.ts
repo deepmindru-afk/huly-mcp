@@ -39,6 +39,7 @@ import {
   type NoUpdateFieldsError
 } from "../errors.js"
 import { cardPlugin } from "../huly-plugins.js"
+import { clearTextAsEmptyString } from "./clear-field-updates.js"
 import { listTotal, optionalCount } from "./counts.js"
 import { clampLimit, escapeLikeWildcards, findByNameOrId } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
@@ -408,17 +409,18 @@ export const updateCard = (
       title: Effect.succeed(params.title === undefined ? {} : { title: params.title }),
       content: Effect.gen(function*() {
         if (params.content === undefined) return {}
+        const content = clearTextAsEmptyString(params.content)
         // Card.content is non-nullable MarkupBlobRef (unlike Document.content which can be null).
         // Empty string clears the content blob rather than nulling the field.
         if (card.content) {
-          yield* client.updateMarkup(card._class, card._id, "content", params.content, "markdown")
+          yield* client.updateMarkup(card._class, card._id, "content", content, "markdown")
           return {}
         }
         const contentMarkupRef = yield* client.uploadMarkup(
           card._class,
           card._id,
           "content",
-          params.content,
+          content,
           "markdown"
         )
         return { content: contentMarkupRef }

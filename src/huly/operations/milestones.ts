@@ -24,6 +24,7 @@ import { IssueIdentifier, MilestoneId, MilestoneLabel } from "../../domain/schem
 import type { HulyClient, HulyClientError } from "../client.js"
 import type { IssueNotFoundError, NoUpdateFieldsError, ProjectNotFoundError } from "../errors.js"
 import { MilestoneNotFoundError } from "../errors.js"
+import { clearTextAsEmptyString, textContentOrClear } from "./clear-field-updates.js"
 import { findProject, findProjectAndIssue } from "./issues-shared.js"
 import { clampLimit, findByNameOrId } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
@@ -226,17 +227,20 @@ export const updateMilestone = (
       label: Effect.succeed(params.label === undefined ? {} : { label: params.label }),
       description: Effect.gen(function*() {
         if (params.description === undefined) return {}
+        const description = textContentOrClear(params.description)
         // Dual-write: see comment in createMilestone for rationale.
-        if (params.description.trim() !== "") {
+        if (description !== undefined) {
           yield* client.uploadMarkup(
             tracker.class.Milestone,
             milestone._id,
             "description",
-            params.description,
+            description,
             "markdown"
           )
         }
-        return { description: optionalMarkdownToMarkup(params.description, markupUrlConfig, "") }
+        return {
+          description: optionalMarkdownToMarkup(clearTextAsEmptyString(params.description), markupUrlConfig, "")
+        }
       }),
       targetDate: Effect.succeed(params.targetDate === undefined ? {} : { targetDate: params.targetDate }),
       status: Effect.succeed(params.status === undefined ? {} : { status: stringToMilestoneStatus(params.status) })

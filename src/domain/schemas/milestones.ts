@@ -1,5 +1,6 @@
 import { JSONSchema, Schema } from "effect"
 
+import { clearableText } from "./clearable.js"
 import {
   assertUpdateFields,
   atLeastOneUpdateFieldMessage,
@@ -121,9 +122,7 @@ export const UpdateMilestoneParamsSchema = Schema.Struct({
   label: Schema.optional(NonEmptyString.annotations({
     description: "New milestone name/label"
   })),
-  description: Schema.optional(Schema.String.annotations({
-    description: "New milestone description (markdown supported)"
-  })),
+  description: Schema.optional(clearableText("New milestone description (markdown supported).")),
   targetDate: Schema.optional(Timestamp.annotations({
     description: "New target date as Unix timestamp in milliseconds"
   })),

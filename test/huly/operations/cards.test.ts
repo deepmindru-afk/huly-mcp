@@ -485,6 +485,21 @@ describe("updateCard", () => {
       expect(captures.updateDoc?.called).toBeUndefined()
     }))
 
+  it.effect("clears existing content in place when content is null", () =>
+    Effect.gen(function*() {
+      const captures: Captures = { updateDoc: {}, updateMarkup: {}, uploadMarkup: {} }
+
+      yield* updateCard({ cardSpace: SPACE, card: CardIdentifier.make("Roadmap"), content: null }).pipe(
+        Effect.provide(
+          buildLayer({ spaces: [makeSpace()], cards: [makeCard({ content: "existing" as never })], captures })
+        )
+      )
+
+      expect(captures.updateMarkup?.value).toBe("")
+      expect(captures.uploadMarkup?.called).toBeUndefined()
+      expect(captures.updateDoc?.called).toBeUndefined()
+    }))
+
   it.effect("uploads content when the card had no content blob", () =>
     Effect.gen(function*() {
       const captures: Captures = { updateDoc: {}, updateMarkup: {}, uploadMarkup: {} }
@@ -494,6 +509,19 @@ describe("updateCard", () => {
         )
 
       expect(captures.uploadMarkup?.value).toBe("first body")
+      expect(captures.updateMarkup?.called).toBeUndefined()
+      expect(captures.updateDoc?.operations).toEqual({ content: "markup-ref" })
+    }))
+
+  it.effect("uploads empty content when a card without content is cleared with null", () =>
+    Effect.gen(function*() {
+      const captures: Captures = { updateDoc: {}, updateMarkup: {}, uploadMarkup: {} }
+
+      yield* updateCard({ cardSpace: SPACE, card: CardIdentifier.make("Roadmap"), content: null }).pipe(
+        Effect.provide(buildLayer({ spaces: [makeSpace()], cards: [makeCard({ content: "" as never })], captures }))
+      )
+
+      expect(captures.uploadMarkup?.value).toBe("")
       expect(captures.updateMarkup?.called).toBeUndefined()
       expect(captures.updateDoc?.operations).toEqual({ content: "markup-ref" })
     }))

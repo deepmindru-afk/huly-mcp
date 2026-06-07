@@ -1,5 +1,6 @@
 import { JSONSchema, Schema } from "effect"
 
+import { clearableText } from "./clearable.js"
 import {
   assertUpdateFields,
   atLeastOneUpdateFieldMessage,
@@ -83,9 +84,7 @@ export const UpdateLabelParamsSchema = Schema.Struct({
       description: "New non-negative Huly platform color index"
     })
   ),
-  description: Schema.optional(Schema.String.annotations({
-    description: "New label description"
-  }))
+  description: Schema.optional(clearableText("New label description."))
 }).pipe(
   Schema.filter((params) =>
     hasAtLeastOneDefined(params, UPDATE_LABEL_FIELDS) ? undefined : atLeastOneUpdateFieldMessage(UPDATE_LABEL_FIELDS)

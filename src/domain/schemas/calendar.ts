@@ -1,5 +1,6 @@
 import { JSONSchema, Schema } from "effect"
 
+import { clearableText } from "./clearable.js"
 import {
   assertUpdateFields,
   atLeastOneUpdateFieldMessage,
@@ -287,9 +288,7 @@ export const UpdateEventParamsSchema = Schema.Struct({
   title: Schema.optional(NonEmptyString.annotations({
     description: "New event title"
   })),
-  description: Schema.optional(Schema.String.annotations({
-    description: "New event description (markdown supported)"
-  })),
+  description: Schema.optional(clearableText("New event description (markdown supported).")),
   date: Schema.optional(Timestamp.annotations({
     description: "New start date/time (timestamp)"
   })),
@@ -299,9 +298,7 @@ export const UpdateEventParamsSchema = Schema.Struct({
   allDay: Schema.optional(Schema.Boolean.annotations({
     description: "All-day event"
   })),
-  location: Schema.optional(Schema.String.annotations({
-    description: "New event location"
-  })),
+  location: Schema.optional(clearableText("New event location.")),
   visibility: Schema.optional(VisibilitySchema.annotations({
     description: "New event visibility"
   }))

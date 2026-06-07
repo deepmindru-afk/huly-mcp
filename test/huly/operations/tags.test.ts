@@ -390,6 +390,23 @@ describe("updateTag", () => {
       })
     }))
 
+  it.effect("clears description when set to null", () =>
+    Effect.gen(function*() {
+      const captures = emptyCaptures()
+      const testLayer = createFixtureLayer({
+        captures,
+        tagElements: [makeTagElement({ _id: toRef<HulyTagElement>("tag-1"), description: "Old description" })]
+      })
+
+      yield* updateTag({
+        targetClass: TARGET_CLASS,
+        tag: tagIdentifier("bug"),
+        description: null
+      }).pipe(Effect.provide(testLayer))
+
+      expect(captures.updateDocs[0].operations).toMatchObject({ description: "" })
+    }))
+
   it.effect("fails when a requested category does not exist", () =>
     Effect.gen(function*() {
       const testLayer = createFixtureLayer({

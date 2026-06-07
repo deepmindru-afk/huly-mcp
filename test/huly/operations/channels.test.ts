@@ -625,6 +625,19 @@ describe("updateChannel", () => {
       expect(captureUpdateDoc.operations?.topic).toBe("New topic")
     }))
 
+  it.effect("clears channel topic with unset when set to null", () =>
+    Effect.gen(function*() {
+      const channel = makeChannel({ _id: "ch-1" as Ref<HulyChannel>, name: "general", topic: "Old topic" })
+      const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
+
+      yield* updateChannel({
+        channel: channelIdentifier("general"),
+        topic: null
+      }).pipe(Effect.provide(createTestLayerWithMocks({ channels: [channel], captureUpdateDoc })))
+
+      expect(captureUpdateDoc.operations).toEqual({ $unset: { topic: "" } })
+    }))
+
   it.effect("fails when no fields provided", () =>
     Effect.gen(function*() {
       const channel = makeChannel({ _id: "ch-1" as Ref<HulyChannel>, name: "general" })

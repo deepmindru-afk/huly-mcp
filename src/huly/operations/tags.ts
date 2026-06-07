@@ -25,6 +25,7 @@ import { TagTargetClass, UPDATE_TAG_FIELDS } from "../../domain/schemas/tags.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import type { NoUpdateFieldsError, TagCategoryNotFoundError, TagNotFoundError } from "../errors.js"
 import { core, tags } from "../huly-plugins.js"
+import { clearTextAsEmptyString } from "./clear-field-updates.js"
 import { clampLimit, escapeLikeWildcards, hulyQuery, type StrictDocumentQuery } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
 import {
@@ -73,7 +74,7 @@ const buildUpdateTagOperations = (
         ? {}
         : { category: yield* resolveTagCategoryRef(client, params.targetClass, params.category) },
       color: params.color === undefined ? {} : { color: params.color },
-      description: params.description === undefined ? {} : { description: params.description },
+      description: params.description === undefined ? {} : { description: clearTextAsEmptyString(params.description) },
       title: params.title === undefined ? {} : { title: params.title }
     } satisfies UpdateTagEntries
 

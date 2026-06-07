@@ -54,7 +54,12 @@ import {
 } from "./calendar-shared.js"
 import { clampLimit } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
-import { type DirectUpdateEntry, mergeUpdateEntries, requireUpdateFields } from "./update-guards.js"
+import {
+  type DirectOrUnsetUpdateEntry,
+  type DirectUpdateEntry,
+  mergeUpdateEntries,
+  requireUpdateFields
+} from "./update-guards.js"
 
 // Re-export recurring operations for barrel consumers
 export { createRecurringEvent, listEventInstances, listRecurringEvents } from "./calendar-recurring.js"
@@ -273,17 +278,29 @@ export const updateEvent = (
     }
 
     type UpdateEventField = typeof UPDATE_EVENT_FIELDS[number]
+    type UpdateEventEffect<Field extends UpdateEventField> = Effect.Effect<
+      DirectUpdateEntry<UpdateEventField, DocumentUpdate<HulyEvent>, Field>,
+      HulyClientError
+    >
     type UpdateEventEntries = {
-      readonly [Field in UpdateEventField]: Effect.Effect<
-        DirectUpdateEntry<UpdateEventField, DocumentUpdate<HulyEvent>, Field>,
+      readonly title: UpdateEventEffect<"title">
+      readonly description: UpdateEventEffect<"description">
+      readonly date: UpdateEventEffect<"date">
+      readonly dueDate: UpdateEventEffect<"dueDate">
+      readonly allDay: UpdateEventEffect<"allDay">
+      readonly location: Effect.Effect<
+        DirectOrUnsetUpdateEntry<UpdateEventField, DocumentUpdate<HulyEvent>, "location">,
         HulyClientError
       >
+      readonly visibility: UpdateEventEffect<"visibility">
     }
     const updateEntries = {
       title: Effect.succeed(params.title === undefined ? {} : { title: params.title }),
       description: Effect.gen(function*() {
         if (params.description === undefined) return {}
-        if (params.description.trim() === "") return { description: emptyEventDescription }
+        if (params.description === null || params.description.trim() === "") {
+          return { description: emptyEventDescription }
+        }
         if (event.description) {
           yield* client.updateMarkup(calendar.class.Event, event._id, "description", params.description, "markdown")
           return {}
@@ -300,7 +317,11 @@ export const updateEvent = (
       date: Effect.succeed(params.date === undefined ? {} : { date: params.date }),
       dueDate: Effect.succeed(params.dueDate === undefined ? {} : { dueDate: params.dueDate }),
       allDay: Effect.succeed(params.allDay === undefined ? {} : { allDay: params.allDay }),
-      location: Effect.succeed(params.location === undefined ? {} : { location: params.location }),
+      location: Effect.succeed(
+        params.location === undefined ? {} : params.location === null ? { $unset: { location: "" } } : {
+          location: params.location
+        }
+      ),
       visibility: Effect.succeed(
         params.visibility === undefined
           ? {}

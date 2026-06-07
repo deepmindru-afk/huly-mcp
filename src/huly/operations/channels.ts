@@ -45,7 +45,12 @@ import { listTotal, optionalCount } from "./counts.js"
 import { markdownToMarkupString, markupToMarkdownString } from "./markup.js"
 import { clampLimit, escapeLikeWildcards } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
-import { type DirectUpdateEntry, mergeUpdateEntries, requireUpdateFields } from "./update-guards.js"
+import {
+  type DirectOrUnsetUpdateEntry,
+  type DirectUpdateEntry,
+  mergeUpdateEntries,
+  requireUpdateFields
+} from "./update-guards.js"
 
 import { chunter, contact } from "../huly-plugins.js"
 
@@ -308,11 +313,16 @@ export const updateChannel = (
 
     type UpdateChannelField = typeof UPDATE_CHANNEL_FIELDS[number]
     type UpdateChannelEntries = {
-      readonly [Field in UpdateChannelField]: DirectUpdateEntry<UpdateChannelField, DocumentUpdate<HulyChannel>, Field>
+      readonly name: DirectUpdateEntry<UpdateChannelField, DocumentUpdate<HulyChannel>, "name">
+      readonly topic: DirectOrUnsetUpdateEntry<UpdateChannelField, DocumentUpdate<HulyChannel>, "topic">
     }
     const updateEntries = {
       name: params.name === undefined ? {} : { name: params.name },
-      topic: params.topic === undefined ? {} : { topic: params.topic }
+      topic: params.topic === undefined
+        ? {}
+        : params.topic === null
+        ? { $unset: { topic: "" } }
+        : { topic: params.topic }
     } satisfies UpdateChannelEntries
     const updateOps: DocumentUpdate<HulyChannel> = mergeUpdateEntries(Object.values(updateEntries))
 

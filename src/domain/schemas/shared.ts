@@ -29,7 +29,7 @@ export type ListTotal = Schema.Schema.Type<typeof ListTotal>
 export const NonEmptyString = Schema.Trim.pipe(Schema.nonEmptyString())
 export type NonEmptyString = Schema.Schema.Type<typeof NonEmptyString>
 
-export const Timestamp = Schema.NonNegativeInt.annotations({
+export const Timestamp = NonNegativeInteger.annotations({
   identifier: "Timestamp",
   title: "Timestamp",
   description: "Unix timestamp in milliseconds (non-negative integer)"

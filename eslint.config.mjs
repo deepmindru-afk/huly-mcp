@@ -41,6 +41,46 @@ const mockBanSelectors = [
   message: "jest.mock is banned — use dependency injection. See CLAUDE.md \"No Test Mocks\"."
 }])
 
+const schemaPrimitiveBanSelectors = [{
+  selector: "MemberExpression[object.name='Schema'][property.name='NonNegativeInt']",
+  message:
+    "Use NonNegativeInteger from src/domain/schemas/shared.ts instead of Schema.NonNegativeInt. Domain numeric primitives are centralized in shared.ts."
+}, {
+  selector: "MemberExpression[object.name='Schema'][computed=true][property.value='NonNegativeInt']",
+  message:
+    "Use NonNegativeInteger from src/domain/schemas/shared.ts instead of Schema.NonNegativeInt. Domain numeric primitives are centralized in shared.ts."
+}]
+
+const restrictedSyntaxSelectors = [
+  doubleAssertionSelector,
+  ...dateBanSelectors,
+  ...mockBanSelectors,
+  ...schemaPrimitiveBanSelectors,
+  {
+    selector: "TSAsExpression:not([typeAnnotation.typeName.name='const'])",
+    message:
+      "Type assertion (as T) is banned. Use Effect Schema decode, satisfies, or restructure code to avoid the cast. If truly unavoidable at an SDK boundary, add eslint-disable with justification."
+  }
+]
+
+const sharedSchemaRestrictedSyntaxSelectors = [
+  doubleAssertionSelector,
+  ...dateBanSelectors,
+  ...mockBanSelectors,
+  {
+    selector: "TSAsExpression:not([typeAnnotation.typeName.name='const'])",
+    message:
+      "Type assertion (as T) is banned. Use Effect Schema decode, satisfies, or restructure code to avoid the cast. If truly unavoidable at an SDK boundary, add eslint-disable with justification."
+  }
+]
+
+const testRestrictedSyntaxSelectors = [
+  doubleAssertionSelector,
+  ...dateBanSelectors,
+  ...mockBanSelectors,
+  ...schemaPrimitiveBanSelectors
+]
+
 export default [
   {
     ignores: ["**/dist", "**/build", "**/*.md", "**/.reference"]
@@ -115,10 +155,7 @@ export default [
       "@typescript-eslint/no-floating-promises": "error",
       "@typescript-eslint/no-unnecessary-type-assertion": "error",
       "@typescript-eslint/no-unnecessary-condition": "error",
-      "no-restricted-syntax": ["error", doubleAssertionSelector, ...dateBanSelectors, ...mockBanSelectors, {
-        selector: "TSAsExpression:not([typeAnnotation.typeName.name='const'])",
-        message: "Type assertion (as T) is banned. Use Effect Schema decode, satisfies, or restructure code to avoid the cast. If truly unavoidable at an SDK boundary, add eslint-disable with justification."
-      }],
+      "no-restricted-syntax": ["error", ...restrictedSyntaxSelectors],
       "no-restricted-imports": ["error", {
         paths: [{
           name: "@hcengineering/text",
@@ -170,6 +207,13 @@ export default [
     }
   },
 
+  {
+    files: ["src/domain/schemas/shared.ts"],
+    rules: {
+      "no-restricted-syntax": ["error", ...sharedSchemaRestrictedSyntaxSelectors]
+    }
+  },
+
   // Dead export detection (import-x supports flat config, unlike import/no-unused-modules)
   {
     files: ["src/**/*.ts"],
@@ -198,7 +242,7 @@ export default [
       "no-magic-numbers": "off",
       "functional/immutable-data": "off",
       // Override: keep Date, mock and double-assertion bans; drop the general `as T` ban since test drivers need branded casts.
-      "no-restricted-syntax": ["error", doubleAssertionSelector, ...dateBanSelectors, ...mockBanSelectors]
+      "no-restricted-syntax": ["error", ...testRestrictedSyntaxSelectors]
     }
   }
 ]

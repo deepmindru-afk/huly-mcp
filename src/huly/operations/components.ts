@@ -34,6 +34,7 @@ import { isExistent } from "../../utils/assertions.js"
 import type { HulyClient, HulyClientError } from "../client.js"
 import type { HulyConnectionError, IssueNotFoundError, NoUpdateFieldsError, ProjectNotFoundError } from "../errors.js"
 import { ComponentNotFoundError, PersonNotFoundError } from "../errors.js"
+import { clearTextAsEmptyString } from "./clear-field-updates.js"
 import { findPersonByEmailOrName } from "./contacts-shared.js"
 import { findProject, findProjectAndIssue } from "./issues-shared.js"
 import { toRef } from "./sdk-boundary.js"
@@ -249,7 +250,7 @@ export const updateComponent = (
       description: Effect.succeed(
         params.description === undefined
           ? {}
-          : { description: optionalMarkdownToMarkup(params.description, markupUrlConfig, "") }
+          : { description: optionalMarkdownToMarkup(clearTextAsEmptyString(params.description), markupUrlConfig, "") }
       ),
       lead: Effect.gen(function*() {
         if (params.lead === undefined) return {}

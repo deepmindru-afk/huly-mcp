@@ -1,5 +1,6 @@
 import { JSONSchema, Schema } from "effect"
 
+import { clearableText } from "./clearable.js"
 import type { ListTotal } from "./shared.js"
 import {
   AccountUuid,
@@ -209,9 +210,7 @@ export const UpdateSpaceParamsSchema = Schema.Struct({
     description: "Optional raw Huly SpaceType _id used to disambiguate exact-name lookup."
   })),
   name: Schema.optional(NonEmptyString.annotations({ description: "New space display name." })),
-  description: Schema.optional(
-    Schema.String.annotations({ description: "New plain-text description. Use an empty string to clear." })
-  ),
+  description: Schema.optional(clearableText("New plain-text description.")),
   private: Schema.optional(Schema.Boolean.annotations({ description: "Whether the space is private." })),
   archived: Schema.optional(Schema.Boolean.annotations({ description: "Whether the space is archived." })),
   autoJoin: Schema.optional(

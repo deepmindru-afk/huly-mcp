@@ -68,6 +68,7 @@ import {
   PersonNotFoundError,
   TemplateChildNotFoundError
 } from "../errors.js"
+import { clearTextAsEmptyString } from "./clear-field-updates.js"
 import { findComponentByIdOrLabel } from "./components.js"
 import { findPersonByEmailOrName } from "./contacts-shared.js"
 import { findProject, priorityToString, stringToPriority, zeroAsUnset } from "./issues-shared.js"
@@ -545,7 +546,7 @@ export const updateIssueTemplate = (
       description: Effect.succeed(
         params.description === undefined
           ? {}
-          : { description: optionalMarkdownToMarkup(params.description, markupUrlConfig, "") }
+          : { description: optionalMarkdownToMarkup(clearTextAsEmptyString(params.description), markupUrlConfig, "") }
       ),
       priority: Effect.succeed(params.priority === undefined ? {} : { priority: stringToPriority(params.priority) }),
       assignee: Effect.gen(function*() {
@@ -569,7 +570,9 @@ export const updateIssueTemplate = (
         }
         return { component: component._id }
       }),
-      estimation: Effect.succeed(params.estimation === undefined ? {} : { estimation: params.estimation })
+      estimation: Effect.succeed(
+        params.estimation === undefined ? {} : { estimation: params.estimation === null ? 0 : params.estimation }
+      )
     } satisfies UpdateIssueTemplateEntries
     const updateOps: DocumentUpdate<HulyIssueTemplate> = mergeUpdateEntries(
       yield* Effect.all(Object.values(updateEntries))

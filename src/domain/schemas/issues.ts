@@ -1,6 +1,7 @@
 import { JSONSchema, ParseResult, Schema } from "effect"
 
 import { normalizeForComparison } from "../../utils/normalize.js"
+import { clearableText } from "./clearable.js"
 import {
   assertUpdateFields,
   atLeastOneUpdateFieldMessage,
@@ -286,9 +287,7 @@ export const UpdateIssueParamsSchema = Schema.Struct({
   title: Schema.optional(NonEmptyString.annotations({
     description: "New issue title"
   })),
-  description: Schema.optional(Schema.String.annotations({
-    description: "New issue description (markdown supported)"
-  })),
+  description: Schema.optional(clearableText("New issue description (markdown supported).")),
   priority: Schema.optional(IssuePrioritySchema.annotations({
     description: "New issue priority"
   })),

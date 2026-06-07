@@ -208,4 +208,50 @@ describe("updateMilestone - description dual-write", () => {
       expect(result).toEqual({ id: "m-1", updated: true })
       expect(uploads).toEqual([])
     }))
+
+  it.effect("clears description and skips markup upload when the description is null", () =>
+    Effect.gen(function*() {
+      const project = makeProject()
+      const milestone = makeMilestone({ _id: "m-1" as Ref<HulyMilestone>, label: "Sprint 1" })
+      const uploads: Array<string> = []
+      const updates: Array<Record<string, unknown>> = []
+
+      const findOneImpl: HulyClientOperations["findOne"] = ((_class: unknown) => {
+        if (_class === tracker.class.Project) return Effect.succeed(project)
+        if (_class === tracker.class.Milestone) return Effect.succeed(milestone)
+        return Effect.succeed(undefined)
+      }) as HulyClientOperations["findOne"]
+      // eslint-disable-next-line no-restricted-syntax -- stub returns Effect<string> which doesn't overlap the SDK's Effect<MarkupRef> return
+      const uploadMarkupImpl: HulyClientOperations["uploadMarkup"] = ((
+        _objectClass: unknown,
+        _objectId: unknown,
+        objectAttr: unknown
+      ) => {
+        uploads.push(String(objectAttr))
+        return Effect.succeed("markup-ref")
+      }) as unknown as HulyClientOperations["uploadMarkup"]
+      const updateDocImpl: HulyClientOperations["updateDoc"] = ((
+        _class: unknown,
+        _space: unknown,
+        _objectId: unknown,
+        operations: Record<string, unknown>
+      ) => {
+        updates.push(operations)
+        return Effect.succeed({})
+      }) as HulyClientOperations["updateDoc"]
+
+      const result = yield* updateMilestone({
+        project: projectIdentifier("TEST"),
+        milestone: milestoneIdentifier("Sprint 1"),
+        description: null
+      }).pipe(
+        Effect.provide(
+          HulyClient.testLayer({ findOne: findOneImpl, updateDoc: updateDocImpl, uploadMarkup: uploadMarkupImpl })
+        )
+      )
+
+      expect(result).toEqual({ id: "m-1", updated: true })
+      expect(uploads).toEqual([])
+      expect(updates[0]?.description).toBe("")
+    }))
 })

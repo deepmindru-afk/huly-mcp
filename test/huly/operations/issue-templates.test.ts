@@ -1024,6 +1024,26 @@ describe("updateIssueTemplate", () => {
       })
     }))
 
+  it.effect("clears template description when set to null", () =>
+    Effect.gen(function*() {
+      const project = makeProject({ identifier: "TEST" })
+      const template = makeIssueTemplate({ description: markdownToMarkupString("Old", testMarkupUrlConfig) })
+      const captureUpdate: MockConfig["captureUpdateDoc"] = {}
+
+      const result = yield* updateIssueTemplate({
+        project: projectIdentifier("TEST"),
+        template: templateIdentifier("Bug Report Template"),
+        description: null
+      }).pipe(
+        Effect.provide(
+          createTestLayerWithMocks({ projects: [project], templates: [template], captureUpdateDoc: captureUpdate })
+        )
+      )
+
+      expect(result.updated).toBe(true)
+      expect(captureUpdate.operations).toMatchObject({ description: "" })
+    }))
+
   it.effect("updates template priority", () =>
     Effect.gen(function*() {
       const project = makeProject({ identifier: "TEST" })
@@ -1160,6 +1180,26 @@ describe("updateIssueTemplate", () => {
 
       expect(result.updated).toBe(true)
       expect(captureUpdate.operations).toMatchObject({ estimation: 90 })
+    }))
+
+  it.effect("clears template estimation to zero when set to null", () =>
+    Effect.gen(function*() {
+      const project = makeProject({ identifier: "TEST" })
+      const template = makeIssueTemplate({ estimation: 90 })
+      const captureUpdate: MockConfig["captureUpdateDoc"] = {}
+
+      const result = yield* updateIssueTemplate({
+        project: projectIdentifier("TEST"),
+        template: templateIdentifier("Bug Report Template"),
+        estimation: null
+      }).pipe(
+        Effect.provide(
+          createTestLayerWithMocks({ projects: [project], templates: [template], captureUpdateDoc: captureUpdate })
+        )
+      )
+
+      expect(result.updated).toBe(true)
+      expect(captureUpdate.operations).toMatchObject({ estimation: 0 })
     }))
 
   it.effect("fails when no changes provided", () =>

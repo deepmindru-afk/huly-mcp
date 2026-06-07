@@ -1919,6 +1919,24 @@ describe("updateIssue", () => {
 
         expect(captureUpdateDoc.operations?.description).toBeNull()
       }))
+
+    it.effect("clears description when null provided", () =>
+      Effect.gen(function*() {
+        const project = makeProject({ identifier: "TEST" })
+        const issue = makeIssue({ identifier: "TEST-1", description: "markup-old" as MarkupBlobRef })
+        const statuses = [makeStatus({ _id: "status-open" as Ref<Status>, name: "Open" })]
+        const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
+
+        yield* updateIssue({
+          project: projectIdentifier("TEST"),
+          identifier: issueIdentifier("TEST-1"),
+          description: null
+        }).pipe(
+          Effect.provide(createTestLayerWithMocks({ projects: [project], issues: [issue], statuses, captureUpdateDoc }))
+        )
+
+        expect(captureUpdateDoc.operations?.description).toBeNull()
+      }))
   })
 
   describe("identifier parsing", () => {

@@ -12,6 +12,7 @@ import type {
 import { UPDATE_SPACE_FIELDS } from "../../domain/schemas.js"
 import { AccountUuid, SpaceId } from "../../domain/schemas/shared.js"
 import { HulyClient } from "../client.js"
+import { clearTextAsEmptyString } from "./clear-field-updates.js"
 import { toAccountUuid } from "./sdk-boundary.js"
 import {
   arraysEqual,
@@ -57,7 +58,7 @@ type UpdateSpaceEntries = {
 const buildUpdateSpaceOperations = (params: UpdateSpaceParams): DocumentUpdate<GenericSpace> => {
   const updateEntries = {
     name: params.name === undefined ? {} : { name: params.name },
-    description: params.description === undefined ? {} : { description: params.description },
+    description: params.description === undefined ? {} : { description: clearTextAsEmptyString(params.description) },
     private: params.private === undefined ? {} : { private: params.private },
     archived: params.archived === undefined ? {} : { archived: params.archived },
     autoJoin: params.autoJoin === undefined ? {} : { autoJoin: params.autoJoin }

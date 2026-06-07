@@ -648,6 +648,26 @@ describe("updateComponent", () => {
       )
     }))
 
+  it.effect("clears component description when set to null", () =>
+    Effect.gen(function*() {
+      const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "PROJ" })
+      const comp = makeComponent({
+        _id: "comp-1" as Ref<HulyComponent>,
+        label: "Backend",
+        space: "proj-1" as Ref<HulyProject>
+      })
+      const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
+
+      const result = yield* updateComponent({
+        project: projectIdentifier("PROJ"),
+        component: componentIdentifier("Backend"),
+        description: null
+      }).pipe(Effect.provide(createTestLayerWithMocks({ projects: [project], components: [comp], captureUpdateDoc })))
+
+      expect(result.updated).toBe(true)
+      expect(captureUpdateDoc.operations?.description).toBe("")
+    }))
+
   it.effect("updates component lead", () =>
     Effect.gen(function*() {
       const project = makeProject({ _id: "proj-1" as Ref<HulyProject>, identifier: "PROJ" })

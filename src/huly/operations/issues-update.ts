@@ -17,6 +17,7 @@ import type {
   ProjectNotFoundError
 } from "../errors.js"
 import { tracker } from "../huly-plugins.js"
+import { textContentOrClear } from "./clear-field-updates.js"
 import { findProjectAndIssue, findProjectWithStatuses, resolveStatusByName, stringToPriority } from "./issues-shared.js"
 import { chooseStatusForTaskType, resolveAssignee, resolveTaskTypeWorkflow } from "./issues-write-shared.js"
 import {
@@ -74,7 +75,7 @@ export const updateIssue = (
       )
 
     const descriptionUpdatedInPlace = params.description !== undefined
-      && params.description.trim() !== ""
+      && textContentOrClear(params.description) !== undefined
       && Boolean(issue.description)
 
     type UpdateIssueField = typeof UPDATE_ISSUE_FIELDS[number]
@@ -100,16 +101,17 @@ export const updateIssue = (
       title: Effect.succeed(coveredUpdateEntry("title", params.title === undefined ? {} : { title: params.title })),
       description: Effect.gen(function*() {
         if (params.description === undefined) return coveredUpdateEntry("description", {})
-        if (params.description.trim() === "") return coveredUpdateEntry("description", { description: null })
+        const description = textContentOrClear(params.description)
+        if (description === undefined) return coveredUpdateEntry("description", { description: null })
         if (issue.description) {
-          yield* client.updateMarkup(tracker.class.Issue, issue._id, "description", params.description, "markdown")
+          yield* client.updateMarkup(tracker.class.Issue, issue._id, "description", description, "markdown")
           return coveredUpdateEntry("description", {})
         }
         const descriptionMarkupRef = yield* client.uploadMarkup(
           tracker.class.Issue,
           issue._id,
           "description",
-          params.description,
+          description,
           "markdown"
         )
         return coveredUpdateEntry("description", { description: descriptionMarkupRef })

@@ -1,5 +1,6 @@
 import { JSONSchema, Schema } from "effect"
 
+import { clearableText } from "./clearable.js"
 import type { AccountUuid, ChannelId, ChannelName, Count, ListTotal, PersonName } from "./shared.js"
 import {
   assertUpdateFields,
@@ -139,9 +140,7 @@ export const UpdateChannelParamsSchema = Schema.Struct({
   name: Schema.optional(NonEmptyString.annotations({
     description: "New channel name"
   })),
-  topic: Schema.optional(Schema.String.annotations({
-    description: "New channel topic"
-  }))
+  topic: Schema.optional(clearableText("New channel topic."))
 }).pipe(
   Schema.filter((params) =>
     hasAtLeastOneDefined(params, UPDATE_CHANNEL_FIELDS)

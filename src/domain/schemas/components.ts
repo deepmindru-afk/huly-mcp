@@ -1,5 +1,6 @@
 import { JSONSchema, Schema } from "effect"
 
+import { clearableText } from "./clearable.js"
 import {
   assertUpdateFields,
   atLeastOneUpdateFieldMessage,
@@ -110,9 +111,7 @@ export const UpdateComponentParamsSchema = Schema.Struct({
   label: Schema.optional(NonEmptyString.annotations({
     description: "New component name/label"
   })),
-  description: Schema.optional(Schema.String.annotations({
-    description: "New component description (markdown supported)"
-  })),
+  description: Schema.optional(clearableText("New component description (markdown supported).")),
   lead: Schema.optional(
     Schema.NullOr(PersonRefInput).annotations({
       description: "New lead person email or display name (null to unassign)"

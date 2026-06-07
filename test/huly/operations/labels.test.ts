@@ -327,6 +327,20 @@ describe("updateLabel", () => {
       expect(captureUpdateDoc.operations?.color).toBe(7)
     }))
 
+  it.effect("clears description when set to null", () =>
+    Effect.gen(function*() {
+      const tag = makeTagElement({ title: "test", description: "Old description" })
+      const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
+
+      const result = yield* updateLabel({
+        label: tagIdentifier("test"),
+        description: null
+      }).pipe(Effect.provide(createTestLayerWithMocks({ tagElements: [tag], captureUpdateDoc })))
+
+      expect(result.updated).toBe(true)
+      expect(captureUpdateDoc.operations?.description).toBe("")
+    }))
+
   it.effect("fails when no fields provided", () =>
     Effect.gen(function*() {
       const tag = makeTagElement({ title: "test" })

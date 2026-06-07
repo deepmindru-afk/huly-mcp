@@ -429,6 +429,33 @@ describe("updateEvent", () => {
       expect(captureUpdateDoc.operations?.description).toBe("")
     }))
 
+  it.effect("clears description with null", () =>
+    Effect.gen(function*() {
+      const event = makeEvent({ eventId: "evt-1", description: "old-desc" as HulyEvent["description"] })
+      const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
+
+      const result = yield* updateEvent({
+        eventId: eventBrandId("evt-1"),
+        description: null
+      }).pipe(Effect.provide(createTestLayer({ events: [event], captureUpdateDoc })))
+
+      expect(result.updated).toBe(true)
+      expect(captureUpdateDoc.operations?.description).toBe("")
+    }))
+
+  it.effect("clears optional location with unset when set to null", () =>
+    Effect.gen(function*() {
+      const event = makeEvent({ eventId: "evt-1", location: "Old room" })
+      const captureUpdateDoc: MockConfig["captureUpdateDoc"] = {}
+
+      yield* updateEvent({
+        eventId: eventBrandId("evt-1"),
+        location: null
+      }).pipe(Effect.provide(createTestLayer({ events: [event], captureUpdateDoc })))
+
+      expect(captureUpdateDoc.operations).toEqual({ $unset: { location: "" } })
+    }))
+
   it.effect("updates description in place when event already has one", () =>
     Effect.gen(function*() {
       const event = makeEvent({ eventId: "evt-1", description: "existing-markup-ref" as HulyEvent["description"] })

@@ -1,6 +1,7 @@
 import type { TagReference as HulyTagReference } from "@hcengineering/tags"
 import { JSONSchema, Schema } from "effect"
 
+import { clearableText } from "./clearable.js"
 import {
   assertUpdateFields,
   atLeastOneUpdateFieldMessage,
@@ -145,9 +146,7 @@ const updateTagFields = {
       description: "New non-negative Huly platform color index."
     })
   ),
-  description: Schema.optional(Schema.String.annotations({
-    description: "New tag description."
-  })),
+  description: Schema.optional(clearableText("New tag description.")),
   category: Schema.optional(
     TagCategoryIdentifier.annotations({
       description: "New category ID or label within targetClass."

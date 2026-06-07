@@ -1,5 +1,6 @@
 import { JSONSchema, Schema } from "effect"
 
+import { clearableText } from "./clearable.js"
 import type { CardId, CardSpaceId, Count, ListTotal, MasterTagId } from "./shared.js"
 import {
   assertUpdateFields,
@@ -173,9 +174,7 @@ export const UpdateCardParamsSchema = Schema.Struct({
   title: Schema.optional(NonEmptyString.annotations({
     description: "New card title"
   })),
-  content: Schema.optional(Schema.String.annotations({
-    description: "New card content (markdown supported)"
-  }))
+  content: Schema.optional(clearableText("New card content (markdown supported)."))
 }).pipe(
   Schema.filter((params) =>
     hasAtLeastOneDefined(params, UPDATE_CARD_FIELDS) ? undefined : atLeastOneUpdateFieldMessage(UPDATE_CARD_FIELDS)

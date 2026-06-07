@@ -659,6 +659,17 @@ describe("spaces operations", () => {
       expect(captureUpdate.operations).toEqual({ private: true, description: "" })
     }))
 
+  it.effect("updateSpace clears description when set to null", () =>
+    Effect.gen(function*() {
+      const captureUpdate: MockConfig["captureUpdate"] = {}
+
+      yield* updateSpace({ space: spaceIdentifier("space-1"), description: null }).pipe(
+        Effect.provide(createTestLayer({ spaces: [makeSpace()], captureUpdate }))
+      )
+
+      expect(captureUpdate.operations).toEqual({ description: "" })
+    }))
+
   it.effect("updateSpace can send all safe metadata fields", () =>
     Effect.gen(function*() {
       const captureUpdate: MockConfig["captureUpdate"] = {}

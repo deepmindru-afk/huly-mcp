@@ -102,6 +102,18 @@ const testRestrictedSyntaxSelectors = [
   ...schemaPrimitiveBanSelectors
 ]
 
+const nonPropertyTestRestrictedSyntaxSelectors = [
+  ...testRestrictedSyntaxSelectors,
+  {
+    selector: "ImportDeclaration[source.value='fast-check']",
+    message: "Property-based tests must live in *.property.test.ts files."
+  },
+  {
+    selector: "CallExpression[callee.object.name='fc'][callee.property.name='property']",
+    message: "Move fc.property tests to a *.property.test.ts file."
+  }
+]
+
 export default [
   {
     ignores: ["**/dist", "**/build", "**/*.md", "**/.reference"]
@@ -264,6 +276,14 @@ export default [
       "functional/immutable-data": "off",
       // Override: keep Date, mock and double-assertion bans; drop the general `as T` ban since test drivers need branded casts.
       "no-restricted-syntax": ["error", ...testRestrictedSyntaxSelectors]
+    }
+  },
+
+  {
+    files: ["test/**/*.test.ts", "test/**/*.spec.ts"],
+    ignores: ["test/**/*.property.test.ts", "test/**/*.property.spec.ts"],
+    rules: {
+      "no-restricted-syntax": ["error", ...nonPropertyTestRestrictedSyntaxSelectors]
     }
   }
 ]

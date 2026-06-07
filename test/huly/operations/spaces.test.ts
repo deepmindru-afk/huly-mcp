@@ -18,7 +18,6 @@ import type {
 } from "@hcengineering/core"
 import { toFindResult } from "@hcengineering/core"
 import { Effect, Exit, Layer } from "effect"
-import * as fc from "fast-check"
 import { expect } from "vitest"
 
 import {
@@ -48,15 +47,12 @@ import {
   listSpacePermissions,
   listSpaces,
   listSpaceTypes,
-  mergeUniqueSortedAccountUuids,
-  removeAccountUuids,
   removeSpaceMembers,
   setSpaceOwners,
   updateSpace
 } from "../../../src/huly/operations/spaces.js"
 import { testWorkbenchUrlConfig } from "../../../src/huly/url-builders.js"
 import { corePersonId } from "../../helpers/huly-sdk.js"
-import { propertyTestParameters } from "../../helpers/property.js"
 
 type GenericSpace = Space & Partial<Pick<TypedSpace, "type">> & {
   readonly roles?: Record<string, ReadonlyArray<AccountUuid> | undefined>
@@ -828,31 +824,4 @@ describe("spaces operations", () => {
       expect(exitCauseText(ambiguous)).toContain("PersonIdentifierAmbiguousError")
       expect(exitCauseText(nonEmployee)).toContain("PersonNotAnEmployeeError")
     }))
-})
-
-describe("space member set helpers", () => {
-  const accountUuidValue = fc.uuid().map(toAccountUuid)
-
-  it("mergeUniqueSortedAccountUuids is idempotent and sorted", () => {
-    fc.assert(
-      fc.property(fc.array(accountUuidValue), fc.array(accountUuidValue), (current, additions) => {
-        const merged = mergeUniqueSortedAccountUuids(current, additions)
-        expect(merged).toEqual([...new Set(merged)].sort())
-        expect(mergeUniqueSortedAccountUuids(merged, additions)).toEqual(merged)
-      }),
-      propertyTestParameters
-    )
-  })
-
-  it("removeAccountUuids removes only requested values and is idempotent", () => {
-    fc.assert(
-      fc.property(fc.array(accountUuidValue), fc.array(accountUuidValue), (current, removals) => {
-        const removed = removeAccountUuids(current, removals)
-        const removalSet = new Set(removals)
-        expect(removed.every((value) => !removalSet.has(value))).toBe(true)
-        expect(removeAccountUuids(removed, removals)).toEqual(removed)
-      }),
-      propertyTestParameters
-    )
-  })
 })

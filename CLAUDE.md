@@ -18,6 +18,7 @@ When setting up a new project from this one, ALL of these components must be cop
 5. **check-all** (`pnpm check-all`): build + typecheck + circular + lint (eslint + jscpd) + test. Gate for all work.
 6. **Effect testing** (`@effect/vitest`): Effect-aware test runner integration.
 7. **ESLint** (`@effect/eslint-plugin`, `eslint-plugin-functional`, `@effect/dprint`): formatting + lint.
+8. **Property test placement**: fast-check/property-based tests live in `*.property.test.ts` files only. ESLint must reject `fast-check` imports in ordinary `*.test.ts` files so generated tests stay discoverable and reviewable as a distinct test class.
 
 Missing any of these degrades the quality gate. Coverage and duplication detection are especially easy to forget.
 

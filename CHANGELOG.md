@@ -1,5 +1,11 @@
 # @firfi/huly-mcp
 
+## 0.22.2
+
+### Patch Changes
+
+- Align `titleRegex` and `nameRegex` with Huly SDK `$regex` semantics. Regex filters now pass through to Huly's backend `SIMILAR TO` implementation instead of using JavaScript regex post-filtering, with tool descriptions and integration coverage documenting whole-field, case-sensitive matching.
+
 ## 0.22.1
 
 ### Patch Changes

@@ -54,7 +54,7 @@ import {
 } from "./calendar-shared.js"
 import { clampLimit } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
-import { mergeUpdateEntries, requireUpdateFields } from "./update-guards.js"
+import { type DirectUpdateEntry, mergeUpdateEntries, requireUpdateFields } from "./update-guards.js"
 
 // Re-export recurring operations for barrel consumers
 export { createRecurringEvent, listEventInstances, listRecurringEvents } from "./calendar-recurring.js"
@@ -273,6 +273,12 @@ export const updateEvent = (
     }
 
     type UpdateEventField = typeof UPDATE_EVENT_FIELDS[number]
+    type UpdateEventEntries = {
+      readonly [Field in UpdateEventField]: Effect.Effect<
+        DirectUpdateEntry<UpdateEventField, DocumentUpdate<HulyEvent>, Field>,
+        HulyClientError
+      >
+    }
     const updateEntries = {
       title: Effect.succeed(params.title === undefined ? {} : { title: params.title }),
       description: Effect.gen(function*() {
@@ -303,8 +309,8 @@ export const updateEvent = (
             return visibility === undefined ? {} : { visibility }
           })()
       )
-    } satisfies Record<UpdateEventField, Effect.Effect<DocumentUpdate<HulyEvent>, HulyClientError>>
-    const updateOps = mergeUpdateEntries(yield* Effect.all(Object.values(updateEntries)))
+    } satisfies UpdateEventEntries
+    const updateOps: DocumentUpdate<HulyEvent> = mergeUpdateEntries(yield* Effect.all(Object.values(updateEntries)))
 
     if (Object.keys(updateOps).length > 0) {
       yield* client.updateDoc(

@@ -23,7 +23,7 @@ import {
   resolveCaseStatus,
   resolveCaseType
 } from "./test-management-shared.js"
-import { mergeUpdateEntries, requireUpdateFields } from "./update-guards.js"
+import { type DirectUpdateEntry, mergeUpdateEntries, requireUpdateFields } from "./update-guards.js"
 
 type UpdateTestCaseError =
   | HulyClientError
@@ -43,6 +43,13 @@ export const updateTestCase = (
     const tc = yield* findTestCase(client, project, params.testCase)
 
     type UpdateTestCaseField = typeof UPDATE_TEST_CASE_FIELDS[number]
+    type UpdateTestCaseEntries = {
+      readonly [Field in UpdateTestCaseField]: Effect.Effect<
+        DirectUpdateEntry<UpdateTestCaseField, DocumentUpdate<TestCase>, Field>,
+        HulyClientError | PersonNotFoundError,
+        HulyClient
+      >
+    }
     const updateEntries = {
       name: Effect.succeed(params.name === undefined ? {} : { name: params.name }),
       description: Effect.gen(function*() {
@@ -64,18 +71,13 @@ export const updateTestCase = (
       assignee: Effect.gen(function*() {
         if (params.assignee === undefined) return {}
         if (params.assignee === null) {
-          const unassignOps: DocumentUpdate<TestCase> = { assignee: null }
-          return unassignOps
+          return { assignee: null }
         }
         const person = yield* resolveAssignee(params.assignee)
-        const assignOps: DocumentUpdate<TestCase> = { assignee: toRef<Employee>(person._id) }
-        return assignOps
+        return { assignee: toRef<Employee>(person._id) }
       })
-    } satisfies Record<
-      UpdateTestCaseField,
-      Effect.Effect<DocumentUpdate<TestCase>, HulyClientError | PersonNotFoundError, HulyClient>
-    >
-    const ops = mergeUpdateEntries(yield* Effect.all(Object.values(updateEntries)))
+    } satisfies UpdateTestCaseEntries
+    const ops: DocumentUpdate<TestCase> = mergeUpdateEntries(yield* Effect.all(Object.values(updateEntries)))
 
     yield* client.updateDoc(testManagement.class.TestCase, project._id, tc._id, ops)
 

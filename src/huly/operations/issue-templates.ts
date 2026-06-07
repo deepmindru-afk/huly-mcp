@@ -73,7 +73,7 @@ import { findPersonByEmailOrName } from "./contacts-shared.js"
 import { findProject, priorityToString, stringToPriority, zeroAsUnset } from "./issues-shared.js"
 import { createIssue } from "./issues.js"
 import { toRef } from "./sdk-boundary.js"
-import { mergeUpdateEntries, requireUpdateFields } from "./update-guards.js"
+import { type DirectUpdateEntry, mergeUpdateEntries, requireUpdateFields } from "./update-guards.js"
 
 import { contact, tracker } from "../huly-plugins.js"
 import { type MarkupUrlConfig, optionalMarkdownToMarkup, optionalMarkupToMarkdown } from "./markup.js"
@@ -534,6 +534,12 @@ export const updateIssueTemplate = (
     const markupUrlConfig = client.markupUrlConfig
 
     type UpdateIssueTemplateField = typeof UPDATE_ISSUE_TEMPLATE_FIELDS[number]
+    type UpdateIssueTemplateEntries = {
+      readonly [Field in UpdateIssueTemplateField]: Effect.Effect<
+        DirectUpdateEntry<UpdateIssueTemplateField, DocumentUpdate<HulyIssueTemplate>, Field>,
+        HulyClientError | ComponentNotFoundError | PersonNotFoundError
+      >
+    }
     const updateEntries = {
       title: Effect.succeed(params.title === undefined ? {} : { title: params.title }),
       description: Effect.succeed(
@@ -564,11 +570,10 @@ export const updateIssueTemplate = (
         return { component: component._id }
       }),
       estimation: Effect.succeed(params.estimation === undefined ? {} : { estimation: params.estimation })
-    } satisfies Record<
-      UpdateIssueTemplateField,
-      Effect.Effect<DocumentUpdate<HulyIssueTemplate>, HulyClientError | ComponentNotFoundError | PersonNotFoundError>
-    >
-    const updateOps = mergeUpdateEntries(yield* Effect.all(Object.values(updateEntries)))
+    } satisfies UpdateIssueTemplateEntries
+    const updateOps: DocumentUpdate<HulyIssueTemplate> = mergeUpdateEntries(
+      yield* Effect.all(Object.values(updateEntries))
+    )
 
     yield* client.updateDoc(
       tracker.class.IssueTemplate,

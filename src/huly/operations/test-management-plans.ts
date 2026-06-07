@@ -44,7 +44,7 @@ import {
   findTestProject,
   resolveAssignee
 } from "./test-management-shared.js"
-import { mergeUpdateEntries, requireUpdateFields } from "./update-guards.js"
+import { type DirectUpdateEntry, mergeUpdateEntries, requireUpdateFields } from "./update-guards.js"
 
 type PlanOpError = HulyClientError | TestProjectNotFoundError
 type PlanMutateError = PlanOpError | TestPlanNotFoundError
@@ -143,6 +143,12 @@ export const updateTestPlan = (
     const project = yield* findTestProject(client, params.project)
     const plan = yield* findTestPlan(client, project, params.plan)
     type UpdateTestPlanField = typeof UPDATE_TEST_PLAN_FIELDS[number]
+    type UpdateTestPlanEntries = {
+      readonly [Field in UpdateTestPlanField]: Effect.Effect<
+        DirectUpdateEntry<UpdateTestPlanField, DocumentUpdate<TestPlan>, Field>,
+        HulyClientError
+      >
+    }
     const updateEntries = {
       name: Effect.succeed(params.name === undefined ? {} : { name: params.name }),
       description: Effect.gen(function*() {
@@ -158,8 +164,8 @@ export const updateTestPlan = (
           )
         }
       })
-    } satisfies Record<UpdateTestPlanField, Effect.Effect<DocumentUpdate<TestPlan>, HulyClientError>>
-    const ops = mergeUpdateEntries(yield* Effect.all(Object.values(updateEntries)))
+    } satisfies UpdateTestPlanEntries
+    const ops: DocumentUpdate<TestPlan> = mergeUpdateEntries(yield* Effect.all(Object.values(updateEntries)))
     yield* client.updateDoc(testManagement.class.TestPlan, project._id, plan._id, ops)
     return { id: TestPlanId.make(plan._id), updated: true }
   })

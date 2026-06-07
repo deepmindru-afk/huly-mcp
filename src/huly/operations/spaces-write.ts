@@ -25,7 +25,7 @@ import {
   updateSpaceDoc,
   type UpdateSpaceError
 } from "./spaces-shared.js"
-import { mergeUpdateEntries, requireUpdateFields } from "./update-guards.js"
+import { type DirectUpdateEntry, mergeUpdateEntries, requireUpdateFields } from "./update-guards.js"
 
 type MemberListMutation = (
   currentMembers: ReadonlyArray<HulyAccountUuid>,
@@ -50,18 +50,8 @@ const mutateSpaceMembers = (
 
 type UpdateSpaceField = typeof UPDATE_SPACE_FIELDS[number]
 
-type EmptyUpdateSpaceEntry = {
-  readonly [K in UpdateSpaceField]?: never
-}
-
-type UpdateSpaceEntry<K extends UpdateSpaceField> =
-  | EmptyUpdateSpaceEntry
-  | {
-    readonly [P in K]: Exclude<UpdateSpaceParams[P], undefined>
-  }
-
 type UpdateSpaceEntries = {
-  readonly [K in UpdateSpaceField]: UpdateSpaceEntry<K>
+  readonly [Field in UpdateSpaceField]: DirectUpdateEntry<UpdateSpaceField, DocumentUpdate<GenericSpace>, Field>
 }
 
 const buildUpdateSpaceOperations = (params: UpdateSpaceParams): DocumentUpdate<GenericSpace> => {

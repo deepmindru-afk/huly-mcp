@@ -65,7 +65,7 @@ import { findTeamspaceAndDocument } from "./documents.js"
 import { findProjectAndIssue } from "./issues-shared.js"
 import { clampLimit, findOneOrFail } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
-import { mergeUpdateEntries, requireUpdateFields } from "./update-guards.js"
+import { type DirectUpdateEntry, mergeUpdateEntries, requireUpdateFields } from "./update-guards.js"
 
 import { attachment, documentPlugin, tracker } from "../huly-plugins.js"
 
@@ -124,12 +124,6 @@ type AddDocumentAttachmentError =
   | InvalidContentTypeError
 
 // --- Helpers ---
-
-// SDK: DocumentUpdate<Attachment> doesn't allow clearing optional fields with empty string.
-// Huly API requires empty string to clear description (not undefined/null).
-const clearAttachmentDescription = (ops: DocumentUpdate<HulyAttachment>): void => {
-  Object.assign(ops, { description: "" })
-}
 
 const toAttachmentSummary = (att: HulyAttachment): AttachmentSummary => ({
   id: AttachmentId.make(att._id),
@@ -322,19 +316,26 @@ export const updateAttachment = (
     )
 
     type UpdateAttachmentField = typeof UPDATE_ATTACHMENT_FIELDS[number]
-    const descriptionOps: DocumentUpdate<HulyAttachment> = {}
-    if (params.description !== undefined) {
-      if (params.description === null) {
-        clearAttachmentDescription(descriptionOps)
-      } else {
-        descriptionOps.description = params.description
-      }
+    type UpdateAttachmentEntries = {
+      readonly [Field in UpdateAttachmentField]: DirectUpdateEntry<
+        UpdateAttachmentField,
+        DocumentUpdate<HulyAttachment>,
+        Field
+      >
     }
+    type UpdateAttachmentDescriptionEntry = UpdateAttachmentEntries["description"]
+    // Huly clears attachment descriptions with empty string; the SDK type does not model that path directly.
+    const clearAttachmentDescription = (): UpdateAttachmentDescriptionEntry => Object.assign({}, { description: "" })
+    const descriptionOps: UpdateAttachmentDescriptionEntry = params.description === undefined
+      ? {}
+      : params.description === null
+      ? clearAttachmentDescription()
+      : { description: params.description }
     const updateEntries = {
       description: descriptionOps,
       pinned: params.pinned === undefined ? {} : { pinned: params.pinned }
-    } satisfies Record<UpdateAttachmentField, DocumentUpdate<HulyAttachment>>
-    const updateOps = mergeUpdateEntries(Object.values(updateEntries))
+    } satisfies UpdateAttachmentEntries
+    const updateOps: DocumentUpdate<HulyAttachment> = mergeUpdateEntries(Object.values(updateEntries))
 
     yield* client.updateDoc(
       attachment.class.Attachment,

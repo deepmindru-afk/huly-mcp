@@ -43,7 +43,7 @@ import { batchGetEmailsForPersons, findPersonByEmail, findPersonById } from "./c
 import { toChannelProviderRef } from "./organization-channel-providers.js"
 import { clampLimit } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
-import { mergeUpdateEntries, requireUpdateFields } from "./update-guards.js"
+import { type DirectUpdateEntry, mergeUpdateEntries, requireUpdateFields } from "./update-guards.js"
 
 type ListOrganizationsError = HulyClientError
 type CreateOrganizationError = HulyClientError | PersonNotFoundError
@@ -259,6 +259,12 @@ export const updateOrganization = (
     }
 
     type UpdateOrganizationField = typeof UPDATE_ORGANIZATION_FIELDS[number]
+    type UpdateOrganizationEntries = {
+      readonly [Field in UpdateOrganizationField]: Effect.Effect<
+        DirectUpdateEntry<UpdateOrganizationField, DocumentUpdate<HulyOrganization>, Field>,
+        HulyClientError
+      >
+    }
     const updateEntries = {
       name: Effect.succeed(params.name === undefined ? {} : { name: params.name }),
       city: Effect.succeed(params.city === undefined ? {} : { city: params.city === null ? "" : params.city }),
@@ -281,8 +287,10 @@ export const updateOrganization = (
           )
         }
       })
-    } satisfies Record<UpdateOrganizationField, Effect.Effect<DocumentUpdate<HulyOrganization>, HulyClientError>>
-    const updateOps = mergeUpdateEntries(yield* Effect.all(Object.values(updateEntries)))
+    } satisfies UpdateOrganizationEntries
+    const updateOps: DocumentUpdate<HulyOrganization> = mergeUpdateEntries(
+      yield* Effect.all(Object.values(updateEntries))
+    )
 
     if (Object.keys(updateOps).length > 0) {
       yield* client.updateDoc(

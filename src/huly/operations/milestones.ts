@@ -27,7 +27,7 @@ import { MilestoneNotFoundError } from "../errors.js"
 import { findProject, findProjectAndIssue } from "./issues-shared.js"
 import { clampLimit, findByNameOrId } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
-import { mergeUpdateEntries, requireUpdateFields } from "./update-guards.js"
+import { type DirectUpdateEntry, mergeUpdateEntries, requireUpdateFields } from "./update-guards.js"
 
 import { tracker } from "../huly-plugins.js"
 import { optionalMarkdownToMarkup, optionalMarkupToMarkdown } from "./markup.js"
@@ -216,6 +216,12 @@ export const updateMilestone = (
     const markupUrlConfig = client.markupUrlConfig
 
     type UpdateMilestoneField = typeof UPDATE_MILESTONE_FIELDS[number]
+    type UpdateMilestoneEntries = {
+      readonly [Field in UpdateMilestoneField]: Effect.Effect<
+        DirectUpdateEntry<UpdateMilestoneField, DocumentUpdate<HulyMilestone>, Field>,
+        HulyClientError
+      >
+    }
     const updateEntries = {
       label: Effect.succeed(params.label === undefined ? {} : { label: params.label }),
       description: Effect.gen(function*() {
@@ -234,8 +240,8 @@ export const updateMilestone = (
       }),
       targetDate: Effect.succeed(params.targetDate === undefined ? {} : { targetDate: params.targetDate }),
       status: Effect.succeed(params.status === undefined ? {} : { status: stringToMilestoneStatus(params.status) })
-    } satisfies Record<UpdateMilestoneField, Effect.Effect<DocumentUpdate<HulyMilestone>, HulyClientError>>
-    const updateOps = mergeUpdateEntries(yield* Effect.all(Object.values(updateEntries)))
+    } satisfies UpdateMilestoneEntries
+    const updateOps: DocumentUpdate<HulyMilestone> = mergeUpdateEntries(yield* Effect.all(Object.values(updateEntries)))
 
     yield* client.updateDoc(
       tracker.class.Milestone,

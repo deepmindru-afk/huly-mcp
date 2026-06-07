@@ -1,14 +1,5 @@
 import type { Employee } from "@hcengineering/contact"
-import type {
-  AttachedData,
-  Class,
-  Data,
-  Doc,
-  DocumentQuery,
-  DocumentUpdate,
-  MarkupBlobRef,
-  Ref
-} from "@hcengineering/core"
+import type { AttachedData, Class, Data, Doc, DocumentQuery, MarkupBlobRef, Ref } from "@hcengineering/core"
 import { generateId, SortingOrder } from "@hcengineering/core"
 import { Effect } from "effect"
 
@@ -34,14 +25,10 @@ import type {
   ListTestSuitesResult,
   TestCaseSummary,
   TestProjectSummary,
-  TestSuiteSummary,
-  UpdateTestSuiteParams,
-  UpdateTestSuiteResult
+  TestSuiteSummary
 } from "../../domain/schemas/test-management-core.js"
-import { UPDATE_TEST_SUITE_FIELDS } from "../../domain/schemas/test-management-core.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import type {
-  NoUpdateFieldsError,
   PersonNotFoundError,
   TestCaseNotFoundError,
   TestProjectNotFoundError,
@@ -72,15 +59,14 @@ import {
   testCaseStatusToString,
   testCaseTypeToString
 } from "./test-management-shared.js"
-import { mergeUpdateEntries, requireUpdateFields } from "./update-guards.js"
 
 export { updateTestCase } from "./test-management-case-update.js"
+export { updateTestSuite } from "./test-management-suite-update.js"
 
 type ListTestProjectsError = HulyClientError
 type ListTestSuitesError = HulyClientError | TestProjectNotFoundError | TestSuiteNotFoundError
 type GetTestSuiteError = HulyClientError | TestProjectNotFoundError | TestSuiteNotFoundError
 type CreateTestSuiteError = HulyClientError | TestProjectNotFoundError | TestSuiteNotFoundError
-type UpdateTestSuiteError = HulyClientError | NoUpdateFieldsError | TestProjectNotFoundError | TestSuiteNotFoundError
 type DeleteTestSuiteError = HulyClientError | TestProjectNotFoundError | TestSuiteNotFoundError
 type ListTestCasesError = HulyClientError | TestProjectNotFoundError | TestSuiteNotFoundError | PersonNotFoundError
 type GetTestCaseError = HulyClientError | TestProjectNotFoundError | TestCaseNotFoundError
@@ -239,39 +225,6 @@ export const createTestSuite = (
     )
 
     return { id: TestSuiteId.make(suiteId), name: params.name, created: true }
-  })
-
-// --- Update Test Suite ---
-
-export const updateTestSuite = (
-  params: UpdateTestSuiteParams
-): Effect.Effect<UpdateTestSuiteResult, UpdateTestSuiteError, HulyClient> =>
-  Effect.gen(function*() {
-    yield* requireUpdateFields("update_test_suite", params, UPDATE_TEST_SUITE_FIELDS)
-
-    const client = yield* HulyClient
-    const project = yield* findTestProject(client, params.project)
-    const suite = yield* findTestSuite(client, project, params.suite)
-
-    type UpdateTestSuiteField = typeof UPDATE_TEST_SUITE_FIELDS[number]
-    const updateEntries = {
-      name: params.name === undefined ? {} : { name: params.name },
-      description: params.description === undefined
-        ? {}
-        : params.description === null
-        ? { $unset: { description: "" } }
-        : { description: params.description }
-    } satisfies Record<UpdateTestSuiteField, DocumentUpdate<TestSuite>>
-    const updateOps = mergeUpdateEntries(Object.values(updateEntries))
-
-    yield* client.updateDoc(
-      testManagement.class.TestSuite,
-      project._id,
-      suite._id,
-      updateOps
-    )
-
-    return { id: TestSuiteId.make(suite._id), updated: true }
   })
 
 // --- Delete Test Suite ---

@@ -36,7 +36,7 @@ import { listTotal } from "./counts.js"
 import { findProject, findProjectWithStatuses } from "./issues-shared.js"
 import { clampLimit } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
-import { mergeUpdateEntries, requireUpdateFields } from "./update-guards.js"
+import { type DirectUpdateEntry, mergeUpdateEntries, requireUpdateFields } from "./update-guards.js"
 
 type ListProjectsError = HulyClientError | HulyConnectionError
 type GetProjectError = ProjectNotFoundError | HulyClientError | HulyConnectionError
@@ -211,13 +211,16 @@ export const updateProject = (
     const { client, project } = yield* findProject(params.project)
 
     type UpdateProjectField = typeof UPDATE_PROJECT_FIELDS[number]
+    type UpdateProjectEntries = {
+      readonly [Field in UpdateProjectField]: DirectUpdateEntry<UpdateProjectField, DocumentUpdate<HulyProject>, Field>
+    }
     const updateEntries = {
       name: params.name === undefined ? {} : { name: params.name },
       description: params.description === undefined
         ? {}
         : { description: params.description === null ? "" : params.description }
-    } satisfies Record<UpdateProjectField, DocumentUpdate<HulyProject>>
-    const updateOps = mergeUpdateEntries(Object.values(updateEntries))
+    } satisfies UpdateProjectEntries
+    const updateOps: DocumentUpdate<HulyProject> = mergeUpdateEntries(Object.values(updateEntries))
 
     yield* client.updateDoc(
       tracker.class.Project,

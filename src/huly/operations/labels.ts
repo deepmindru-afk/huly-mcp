@@ -12,7 +12,7 @@ import type {
 } from "../../domain/schemas/labels.js"
 import { UPDATE_LABEL_FIELDS } from "../../domain/schemas/labels.js"
 import { IssueIdentifier, TagElementId } from "../../domain/schemas/shared.js"
-import { TagTargetClass } from "../../domain/schemas/tags.js"
+import { TagTargetClass, type UpdateTagParams } from "../../domain/schemas/tags.js"
 import type { HulyClient, HulyClientError } from "../client.js"
 import type {
   IssueNotFoundError,
@@ -83,11 +83,14 @@ export const updateLabel = (
     yield* requireUpdateFields("update_label", params, UPDATE_LABEL_FIELDS)
 
     type UpdateLabelField = typeof UPDATE_LABEL_FIELDS[number]
+    type UpdateLabelEntries = {
+      readonly [Field in UpdateLabelField]: UpdateTagParams[Field]
+    }
     const updateEntries = {
       title: params.title,
       color: params.color,
       description: params.description
-    } satisfies Record<UpdateLabelField, UpdateLabelParams[UpdateLabelField]>
+    } satisfies UpdateLabelEntries
     const result = yield* updateTag({
       targetClass: issueTargetClass,
       tag: params.label,

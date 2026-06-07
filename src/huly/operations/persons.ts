@@ -40,7 +40,14 @@ import { buildContactUrlFromConfig } from "../url-builders.js"
 import { batchGetEmailsForPersons, findPersonByEmail, findPersonById } from "./contacts-shared.js"
 import { clampLimit, escapeLikeWildcards } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
-import { mergeUpdateEntries, requireUpdateFields } from "./update-guards.js"
+import {
+  type CoveredUpdateEntry,
+  coveredUpdateEntry,
+  type DirectUpdateEntry,
+  type DirectUpdateSubsetEntry,
+  mergeCoveredUpdateEntries,
+  requireUpdateFields
+} from "./update-guards.js"
 
 type ListPersonsError = HulyClientError
 type GetPersonError = HulyClientError | PersonNotFoundError
@@ -251,7 +258,8 @@ export const updatePerson = (
       return yield* new PersonNotFoundError({ identifier: params.personId })
     }
 
-    const nameOps: DocumentUpdate<HulyPerson> = params.firstName !== undefined || params.lastName !== undefined
+    type PersonNameUpdateEntry = DirectUpdateSubsetEntry<"name", DocumentUpdate<HulyPerson>>
+    const nameOps: PersonNameUpdateEntry = params.firstName !== undefined || params.lastName !== undefined
       ? (() => {
         const { firstName: currentFirst, lastName: currentLast } = parseName(person.name)
         const newFirst = params.firstName ?? currentFirst
@@ -260,12 +268,21 @@ export const updatePerson = (
       })()
       : {}
     type UpdatePersonField = typeof UPDATE_PERSON_FIELDS[number]
+    type UpdatePersonEntries = {
+      readonly firstName: CoveredUpdateEntry<"firstName", PersonNameUpdateEntry>
+      readonly lastName: CoveredUpdateEntry<"lastName", PersonNameUpdateEntry>
+      readonly city: DirectUpdateEntry<UpdatePersonField, DocumentUpdate<HulyPerson>, "city">
+    }
     const updateEntries = {
-      firstName: params.firstName === undefined ? {} : nameOps,
-      lastName: params.lastName === undefined ? {} : nameOps,
+      firstName: coveredUpdateEntry("firstName", params.firstName === undefined ? {} : nameOps),
+      lastName: coveredUpdateEntry("lastName", params.lastName === undefined ? {} : nameOps),
       city: params.city === undefined ? {} : { city: params.city === null ? "" : params.city }
-    } satisfies Record<UpdatePersonField, DocumentUpdate<HulyPerson>>
-    const updateOps = mergeUpdateEntries(Object.values(updateEntries))
+    } satisfies UpdatePersonEntries
+    const updateOps: DocumentUpdate<HulyPerson> = mergeCoveredUpdateEntries([
+      updateEntries.firstName,
+      updateEntries.lastName,
+      coveredUpdateEntry("city", updateEntries.city)
+    ])
 
     yield* client.updateDoc(
       contact.class.Person,

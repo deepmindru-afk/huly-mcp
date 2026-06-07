@@ -58,7 +58,14 @@ import {
   stringToTestRunStatus,
   testRunStatusToString
 } from "./test-management-shared.js"
-import { mergeUpdateEntries, requireUpdateFields } from "./update-guards.js"
+import {
+  type CoveredUpdateEntry,
+  coveredUpdateEntry,
+  type DirectOrUnsetUpdateEntry,
+  type DirectUpdateEntry,
+  mergeCoveredUpdateEntries,
+  requireUpdateFields
+} from "./update-guards.js"
 
 type TestRunOpError = HulyClientError | TestProjectNotFoundError
 type TestRunMutateError = TestRunOpError | TestRunNotFoundError
@@ -169,12 +176,35 @@ export const updateTestRun = (
     const project = yield* findTestProject(client, params.project)
     const run = yield* findTestRun(client, project, params.run)
     type UpdateTestRunField = typeof UPDATE_TEST_RUN_FIELDS[number]
+    type UpdateTestRunEntries = {
+      readonly name: Effect.Effect<
+        CoveredUpdateEntry<
+          "name",
+          DirectUpdateEntry<UpdateTestRunField, DocumentUpdate<TestRun>, "name">
+        >,
+        HulyClientError
+      >
+      readonly description: Effect.Effect<
+        CoveredUpdateEntry<
+          "description",
+          DirectUpdateEntry<UpdateTestRunField, DocumentUpdate<TestRun>, "description">
+        >,
+        HulyClientError
+      >
+      readonly dueDate: Effect.Effect<
+        CoveredUpdateEntry<
+          "dueDate",
+          DirectOrUnsetUpdateEntry<UpdateTestRunField, DocumentUpdate<TestRun>, "dueDate">
+        >,
+        HulyClientError
+      >
+    }
     const updateEntries = {
-      name: Effect.succeed(params.name === undefined ? {} : { name: params.name }),
+      name: Effect.succeed(coveredUpdateEntry("name", params.name === undefined ? {} : { name: params.name })),
       description: Effect.gen(function*() {
-        if (params.description === undefined) return {}
-        if (params.description === null) return { description: null }
-        return {
+        if (params.description === undefined) return coveredUpdateEntry("description", {})
+        if (params.description === null) return coveredUpdateEntry("description", { description: null })
+        return coveredUpdateEntry("description", {
           description: yield* client.uploadMarkup(
             testManagement.class.TestRun,
             run._id,
@@ -182,17 +212,18 @@ export const updateTestRun = (
             params.description,
             "markdown"
           )
-        }
+        })
       }),
-      dueDate: Effect.succeed(
+      dueDate: Effect.succeed(coveredUpdateEntry(
+        "dueDate",
         params.dueDate === undefined
           ? {}
           : params.dueDate === null
           ? { $unset: { dueDate: "" } }
           : { dueDate: params.dueDate }
-      )
-    } satisfies Record<UpdateTestRunField, Effect.Effect<DocumentUpdate<TestRun>, HulyClientError>>
-    const ops = mergeUpdateEntries(yield* Effect.all(Object.values(updateEntries)))
+      ))
+    } satisfies UpdateTestRunEntries
+    const ops: DocumentUpdate<TestRun> = mergeCoveredUpdateEntries(yield* Effect.all(Object.values(updateEntries)))
     yield* client.updateDoc(testManagement.class.TestRun, project._id, run._id, ops)
     return { id: TestRunId.make(run._id), updated: true }
   })
@@ -291,23 +322,50 @@ export const updateTestResult = (
     const project = yield* findTestProject(client, params.project)
     const result = yield* findTestResult(client, project, params.result)
     type UpdateTestResultField = typeof UPDATE_TEST_RESULT_FIELDS[number]
+    type UpdateTestResultEntries = {
+      readonly status: Effect.Effect<
+        CoveredUpdateEntry<
+          "status",
+          DirectUpdateEntry<UpdateTestResultField, DocumentUpdate<TestResult>, "status">
+        >,
+        HulyClientError
+      >
+      readonly assignee: Effect.Effect<
+        CoveredUpdateEntry<
+          "assignee",
+          DirectOrUnsetUpdateEntry<UpdateTestResultField, DocumentUpdate<TestResult>, "assignee">
+        >,
+        HulyClientError | PersonNotFoundError,
+        HulyClient
+      >
+      readonly description: Effect.Effect<
+        CoveredUpdateEntry<
+          "description",
+          DirectUpdateEntry<UpdateTestResultField, DocumentUpdate<TestResult>, "description">
+        >,
+        HulyClientError
+      >
+    }
     const updateEntries = {
-      status: Effect.succeed(params.status === undefined ? {} : { status: resolveStatusOrUntested(params.status) }),
+      status: Effect.succeed(
+        coveredUpdateEntry(
+          "status",
+          params.status === undefined ? {} : { status: resolveStatusOrUntested(params.status) }
+        )
+      ),
       assignee: Effect.gen(function*() {
-        if (params.assignee === undefined) return {}
+        if (params.assignee === undefined) return coveredUpdateEntry("assignee", {})
         if (params.assignee === null) {
-          const unassignOps: DocumentUpdate<TestResult> = { $unset: { assignee: "" } }
-          return unassignOps
+          return coveredUpdateEntry("assignee", { $unset: { assignee: "" } })
         }
-        const assignOps: DocumentUpdate<TestResult> = {
+        return coveredUpdateEntry("assignee", {
           assignee: toRef<Employee>((yield* resolveAssignee(params.assignee))._id)
-        }
-        return assignOps
+        })
       }),
       description: Effect.gen(function*() {
-        if (params.description === undefined) return {}
-        if (params.description === null) return { description: null }
-        return {
+        if (params.description === undefined) return coveredUpdateEntry("description", {})
+        if (params.description === null) return coveredUpdateEntry("description", { description: null })
+        return coveredUpdateEntry("description", {
           description: yield* client.uploadMarkup(
             testManagement.class.TestResult,
             result._id,
@@ -315,13 +373,10 @@ export const updateTestResult = (
             params.description,
             "markdown"
           )
-        }
+        })
       })
-    } satisfies Record<
-      UpdateTestResultField,
-      Effect.Effect<DocumentUpdate<TestResult>, HulyClientError | PersonNotFoundError, HulyClient>
-    >
-    const ops = mergeUpdateEntries(yield* Effect.all(Object.values(updateEntries)))
+    } satisfies UpdateTestResultEntries
+    const ops: DocumentUpdate<TestResult> = mergeCoveredUpdateEntries(yield* Effect.all(Object.values(updateEntries)))
     yield* client.updateDoc(testManagement.class.TestResult, result.space, result._id, ops)
     return { id: TestResultId.make(result._id), updated: true }
   })

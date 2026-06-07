@@ -39,7 +39,7 @@ import {
   toResolvedTagElement,
   toTargetClassRef
 } from "./tags-shared.js"
-import { mergeUpdateEntries, requireUpdateFields } from "./update-guards.js"
+import { type DirectUpdateEntry, mergeUpdateEntries, requireUpdateFields } from "./update-guards.js"
 
 type ListTagsError = HulyClientError | TagCategoryNotFoundError
 type CreateTagError = HulyClientError | TagCategoryNotFoundError
@@ -65,6 +65,9 @@ const buildUpdateTagOperations = (
   params: UpdateTagParams
 ): Effect.Effect<DocumentUpdate<HulyTagElement>, HulyClientError | TagCategoryNotFoundError> =>
   Effect.gen(function*() {
+    type UpdateTagEntries = {
+      readonly [Field in UpdateTagField]: DirectUpdateEntry<UpdateTagField, DocumentUpdate<HulyTagElement>, Field>
+    }
     const updateEntries = {
       category: params.category === undefined
         ? {}
@@ -72,7 +75,7 @@ const buildUpdateTagOperations = (
       color: params.color === undefined ? {} : { color: params.color },
       description: params.description === undefined ? {} : { description: params.description },
       title: params.title === undefined ? {} : { title: params.title }
-    } satisfies Record<UpdateTagField, DocumentUpdate<HulyTagElement>>
+    } satisfies UpdateTagEntries
 
     return mergeUpdateEntries(Object.values(updateEntries))
   })

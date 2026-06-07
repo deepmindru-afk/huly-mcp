@@ -42,7 +42,7 @@ import { cardPlugin } from "../huly-plugins.js"
 import { listTotal, optionalCount } from "./counts.js"
 import { clampLimit, escapeLikeWildcards, findByNameOrId } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
-import { mergeUpdateEntries, requireUpdateFields } from "./update-guards.js"
+import { type DirectUpdateEntry, mergeUpdateEntries, requireUpdateFields } from "./update-guards.js"
 
 type ListCardSpacesError = HulyClientError
 
@@ -398,6 +398,12 @@ export const updateCard = (
     })
 
     type UpdateCardField = typeof UPDATE_CARD_FIELDS[number]
+    type UpdateCardEntries = {
+      readonly [Field in UpdateCardField]: Effect.Effect<
+        DirectUpdateEntry<UpdateCardField, DocumentUpdate<HulyCard>, Field>,
+        HulyClientError
+      >
+    }
     const updateEntries = {
       title: Effect.succeed(params.title === undefined ? {} : { title: params.title }),
       content: Effect.gen(function*() {
@@ -417,8 +423,8 @@ export const updateCard = (
         )
         return { content: contentMarkupRef }
       })
-    } satisfies Record<UpdateCardField, Effect.Effect<DocumentUpdate<HulyCard>, HulyClientError>>
-    const updateOps = mergeUpdateEntries(yield* Effect.all(Object.values(updateEntries)))
+    } satisfies UpdateCardEntries
+    const updateOps: DocumentUpdate<HulyCard> = mergeUpdateEntries(yield* Effect.all(Object.values(updateEntries)))
 
     if (Object.keys(updateOps).length > 0) {
       yield* client.updateDoc(

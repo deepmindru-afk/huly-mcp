@@ -42,19 +42,38 @@ const mockBanSelectors = [
 }])
 
 const schemaPrimitiveBanSelectors = [{
-  selector: "MemberExpression[object.name='Schema'][property.name='NonNegativeInt']",
+  selector: "MemberExpression[property.name='NonNegativeInt']",
   message:
-    "Use NonNegativeInteger from src/domain/schemas/shared.ts instead of Schema.NonNegativeInt. Domain numeric primitives are centralized in shared.ts."
+    "Use NonNegativeInteger from src/domain/schemas/shared.ts instead of NonNegativeInt. Domain numeric primitives are centralized in shared.ts."
 }, {
-  selector: "MemberExpression[object.name='Schema'][computed=true][property.value='NonNegativeInt']",
+  selector: "MemberExpression[computed=true][property.value='NonNegativeInt']",
   message:
-    "Use NonNegativeInteger from src/domain/schemas/shared.ts instead of Schema.NonNegativeInt. Domain numeric primitives are centralized in shared.ts."
+    "Use NonNegativeInteger from src/domain/schemas/shared.ts instead of NonNegativeInt. Domain numeric primitives are centralized in shared.ts."
+}, {
+  selector: "ObjectPattern Property[key.name='NonNegativeInt']",
+  message:
+    "Do not destructure NonNegativeInt. Use NonNegativeInteger from src/domain/schemas/shared.ts instead."
+}, {
+  selector: "ObjectPattern Property[computed=true][key.value='NonNegativeInt']",
+  message:
+    "Do not destructure NonNegativeInt. Use NonNegativeInteger from src/domain/schemas/shared.ts instead."
+}]
+
+const effectSchemaAliasBanSelectors = [{
+  selector: "ImportDeclaration[source.value='effect'] ImportSpecifier[imported.name='Schema']:not([local.name='Schema'])",
+  message:
+    "Do not alias Schema imports from effect. ESLint guards domain schema primitives through the canonical Schema identifier."
+}, {
+  selector: "ImportDeclaration[source.value='effect'] ImportNamespaceSpecifier",
+  message:
+    "Do not namespace-import effect. Import Schema by name so ESLint can enforce centralized domain schema primitives."
 }]
 
 const restrictedSyntaxSelectors = [
   doubleAssertionSelector,
   ...dateBanSelectors,
   ...mockBanSelectors,
+  ...effectSchemaAliasBanSelectors,
   ...schemaPrimitiveBanSelectors,
   {
     selector: "TSAsExpression:not([typeAnnotation.typeName.name='const'])",
@@ -67,6 +86,7 @@ const sharedSchemaRestrictedSyntaxSelectors = [
   doubleAssertionSelector,
   ...dateBanSelectors,
   ...mockBanSelectors,
+  ...effectSchemaAliasBanSelectors,
   {
     selector: "TSAsExpression:not([typeAnnotation.typeName.name='const'])",
     message:
@@ -78,6 +98,7 @@ const testRestrictedSyntaxSelectors = [
   doubleAssertionSelector,
   ...dateBanSelectors,
   ...mockBanSelectors,
+  ...effectSchemaAliasBanSelectors,
   ...schemaPrimitiveBanSelectors
 ]
 

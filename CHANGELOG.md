@@ -1,5 +1,11 @@
 # @firfi/huly-mcp
 
+## 0.22.1
+
+### Patch Changes
+
+- Update the locked `effect` dependency from 3.21.2 to 3.21.3.
+
 ## 0.22.0
 
 ### Minor Changes

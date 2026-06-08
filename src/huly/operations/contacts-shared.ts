@@ -1,7 +1,7 @@
 import type { Channel, Employee as HulyEmployee, Person as HulyPerson, SocialIdentity } from "@hcengineering/contact"
 import type { AccountUuid, Doc, Ref } from "@hcengineering/core"
 import { SocialIdType } from "@hcengineering/core"
-import { Effect, Schema } from "effect"
+import { Effect, Option, Schema } from "effect"
 
 import { Count, Email, type NonEmptyString, PersonName, type PersonRefInput } from "../../domain/schemas/shared.js"
 import type { HulyClient, HulyClientError } from "../client.js"
@@ -65,8 +65,9 @@ export const batchGetEmailsForPersons = <T extends Doc>(
     const emailMap = new Map<Ref<T>, Email>()
     for (const channel of channels) {
       const personId = toRef<T>(channel.attachedTo)
-      if (!emailMap.has(personId)) {
-        emailMap.set(personId, Email.make(channel.value))
+      const email = Schema.decodeUnknownOption(Email)(channel.value)
+      if (!emailMap.has(personId) && Option.isSome(email)) {
+        emailMap.set(personId, email.value)
       }
     }
     return emailMap

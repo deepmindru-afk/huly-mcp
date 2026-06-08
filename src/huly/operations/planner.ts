@@ -302,18 +302,7 @@ export const deleteTodo = (
     const client = yield* HulyClient
     const todo = yield* findTodo(client, params.locator)
     if (todo.attachedToClass === tracker.class.Issue && todo.attachedTo !== time.ids.NotAttached) {
-      if (client.removeCollection !== undefined) {
-        yield* client.removeCollection(
-          time.class.ProjectToDo,
-          todo.space,
-          toRef<HulyProjectToDo>(todo._id),
-          toRef<HulyIssue>(todo.attachedTo),
-          tracker.class.Issue,
-          "todos"
-        )
-      } else {
-        yield* client.removeDoc(time.class.ToDo, todo.space, todo._id)
-      }
+      yield* client.removeDoc(time.class.ProjectToDo, todo.space, toRef<HulyProjectToDo>(todo._id))
       yield* decrementIssueTodoCounter(client, todo)
     } else {
       yield* client.removeDoc(time.class.ToDo, todo.space, todo._id)
@@ -366,14 +355,20 @@ const removeWorkSlot = (
       )
     } else {
       yield* client.removeDoc(time.class.WorkSlot, slot.space, slot._id)
+      yield* decrementTodoWorkSlotCounter(client, slot)
     }
-    yield* client.updateDoc(
-      toRef<Class<WorkSlottedTodo>>(time.class.ToDo),
-      time.space.ToDos,
-      toRef<WorkSlottedTodo>(slot.attachedTo),
-      { $inc: { workslots: -1 } }
-    )
   })
+
+const decrementTodoWorkSlotCounter = (
+  client: HulyClient["Type"],
+  slot: HulyWorkSlot
+): Effect.Effect<void, HulyClientError> =>
+  client.updateDoc(
+    toRef<Class<WorkSlottedTodo>>(time.class.ToDo),
+    time.space.ToDos,
+    toRef<WorkSlottedTodo>(slot.attachedTo),
+    { $inc: { workslots: -1 } }
+  ).pipe(Effect.asVoid)
 
 export const unscheduleTodo = (
   params: UnscheduleTodoParams

@@ -1945,23 +1945,15 @@ if [ $? -eq 0 ]; then
       if [ $? -eq 0 ]; then
         assert_json_array_contains "list_todos(issue:$PLANNER_ISSUE_ID) includes issue todo" "$ISSUE_TODO_LIST_TEXT" "map(.id)" "$ISSUE_TODO_ID"
       fi
-      run_test "delete_todo(issue:$ISSUE_TODO_ID)" \
-        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_todo\",\"arguments\":{\"locator\":{\"todoId\":\"$ISSUE_TODO_ID\"}}},\"id\":2}"
-      for _ in $(seq 1 5); do
-        ISSUE_TODO_AFTER_DELETE_RESULT=$(call_tool \
-          "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_todos\",\"arguments\":{\"issue\":{\"project\":\"$PROJECT\",\"identifier\":\"$PLANNER_ISSUE_ID\"},\"limit\":10}},\"id\":2}")
-        ISSUE_TODO_AFTER_DELETE_TEXT=$(echo "$ISSUE_TODO_AFTER_DELETE_RESULT" | jq -r '.result.content[0].text // empty' 2>/dev/null)
-        ISSUE_TODO_AFTER_DELETE_PRESENT=$(echo "$ISSUE_TODO_AFTER_DELETE_TEXT" | jq -r --arg id "$ISSUE_TODO_ID" 'map(.id) | index($id) != null' 2>/dev/null)
-        if [ "$ISSUE_TODO_AFTER_DELETE_PRESENT" = "false" ]; then
-          break
-        fi
-        sleep 2
-      done
+      run_test "delete_issue(planner_todo:$PLANNER_ISSUE_ID)" \
+        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_issue\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$PLANNER_ISSUE_ID\"}},\"id\":2}"
+      if [ $? -eq 0 ]; then
+        run_expect_error "get_todo(issue:$ISSUE_TODO_ID after issue delete)" \
+          "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"get_todo\",\"arguments\":{\"locator\":{\"todoId\":\"$ISSUE_TODO_ID\"}}},\"id\":2}"
+      fi
     else
       skip_test "issue_planner_todo_lifecycle" "create_todo did not return a todoId"
     fi
-    run_test "delete_issue(planner_todo:$PLANNER_ISSUE_ID)" \
-      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_issue\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":\"$PLANNER_ISSUE_ID\"}}},\"id\":2}"
   else
     skip_test "issue_planner_todo_lifecycle" "create_issue did not return an identifier"
   fi

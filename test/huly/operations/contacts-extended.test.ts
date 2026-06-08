@@ -496,6 +496,56 @@ describe("Contacts Extended Coverage", () => {
         expect(result).toHaveLength(1)
         expect(result[0].email).toBe("first@example.com")
       }))
+
+    it.effect("omits invalid Huly email channel values from summaries", () =>
+      Effect.gen(function*() {
+        const person = createMockPerson({
+          _id: "person-invalid-email" as Ref<HulyPerson>,
+          name: "Invalid,Email"
+        })
+        const channel = createMockChannel({
+          attachedTo: "person-invalid-email" as Ref<Doc>,
+          value: ""
+        })
+
+        const testLayer = createTestLayer({
+          persons: [person],
+          channels: [channel]
+        })
+
+        const result = yield* listPersons({ limit: 10 }).pipe(Effect.provide(testLayer))
+
+        expect(result).toHaveLength(1)
+        expect(result[0].email).toBeUndefined()
+      }))
+
+    it.effect("uses the first valid email when an earlier Huly channel value is invalid", () =>
+      Effect.gen(function*() {
+        const person = createMockPerson({
+          _id: "person-later-valid-email" as Ref<HulyPerson>,
+          name: "Later,Valid"
+        })
+        const invalidChannel = createMockChannel({
+          _id: "ch-invalid" as Ref<Channel>,
+          attachedTo: "person-later-valid-email" as Ref<Doc>,
+          value: "not-an-email"
+        })
+        const validChannel = createMockChannel({
+          _id: "ch-valid" as Ref<Channel>,
+          attachedTo: "person-later-valid-email" as Ref<Doc>,
+          value: "later@example.com"
+        })
+
+        const testLayer = createTestLayer({
+          persons: [person],
+          channels: [invalidChannel, validChannel]
+        })
+
+        const result = yield* listPersons({ limit: 10 }).pipe(Effect.provide(testLayer))
+
+        expect(result).toHaveLength(1)
+        expect(result[0].email).toBe("later@example.com")
+      }))
   })
 
   describe("listPersons with nameSearch", () => {

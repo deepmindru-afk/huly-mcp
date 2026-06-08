@@ -956,7 +956,7 @@ describe("planner operations", () => {
       expect(captures.removeDoc?.objectId).toBe("todo-1")
     }))
 
-  it.effect("removes issue-attached ToDos through the parent issue collection", () =>
+  it.effect("removes issue-attached ToDos directly and updates the parent issue counter", () =>
     Effect.gen(function*() {
       const captures: Captures = {}
       const issue = makeIssue()
@@ -975,38 +975,9 @@ describe("planner operations", () => {
         }))
       )
 
-      expect(captures.removeCollection?.classId).toBe(time.class.ProjectToDo)
-      expect(captures.removeCollection?.objectId).toBe("todo-1")
-      expect(captures.removeCollection?.attachedTo).toBe("issue-1")
-      expect(captures.removeCollection?.attachedToClass).toBe(tracker.class.Issue)
-      expect(captures.removeCollection?.collection).toBe("todos")
-      expect(captures.removeDoc).toBeUndefined()
-      expect(captures.updateDoc?.classId).toBe(tracker.class.Issue)
-      expect(captures.updateDoc?.objectId).toBe("issue-1")
-      expect(captures.updateDoc?.operations).toEqual({ $inc: { todos: -1 } })
-    }))
-
-  it.effect("falls back to explicit parent counter updates when collection removal is unavailable", () =>
-    Effect.gen(function*() {
-      const captures: Captures = {}
-      const issue = makeIssue()
-
-      yield* deleteTodo({ locator: { todoId: todoId("todo-1") } }).pipe(
-        Effect.provide(createLayer({
-          issues: [issue],
-          todos: [
-            makeTodo({
-              attachedTo: issue._id,
-              attachedToClass: tracker.class.Issue,
-              attachedSpace: issue.space
-            })
-          ],
-          captures,
-          removeCollectionAvailable: false
-        }))
-      )
-
-      expect(captures.removeDoc?.classId).toBe(time.class.ToDo)
+      expect(captures.removeDoc?.classId).toBe(time.class.ProjectToDo)
+      expect(captures.removeDoc?.objectId).toBe("todo-1")
+      expect(captures.removeCollection).toBeUndefined()
       expect(captures.updateDoc?.classId).toBe(tracker.class.Issue)
       expect(captures.updateDoc?.objectId).toBe("issue-1")
       expect(captures.updateDoc?.operations).toEqual({ $inc: { todos: -1 } })
@@ -1025,9 +996,7 @@ describe("planner operations", () => {
       expect(captures.removeCollection?.attachedTo).toBe("todo-1")
       expect(captures.removeCollection?.attachedToClass).toBe(time.class.ToDo)
       expect(captures.removeCollection?.collection).toBe("workslots")
-      expect(captures.updateDoc?.classId).toBe(time.class.ToDo)
-      expect(captures.updateDoc?.objectId).toBe("todo-1")
-      expect(captures.updateDoc?.operations).toEqual({ $inc: { workslots: -1 } })
+      expect(captures.updateDoc).toBeUndefined()
     }))
 
   it.effect("falls back to direct work slot removal when collection removal is unavailable", () =>

@@ -11,6 +11,9 @@ Cloudflare Pages settings:
 - Production branch: `master`
 - Custom domain: `huly-mcp.dearlordylord.com`
 
+The repository root also includes `wrangler.toml` with `pages_build_output_dir = "./site"`
+so Git deployments publish this static homepage directory when the project root is the repo root.
+
 Custom domain DNS:
 
 ```text

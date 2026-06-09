@@ -108,7 +108,7 @@ export const plannerTools: ReadonlyArray<RegisteredTool> = [
   {
     name: "schedule_todo",
     description:
-      "Schedule a Planner ToDo by locator, creating a work slot. Prefer this over create_work_slot when you do not already know the raw todoId.",
+      "Schedule a Planner ToDo by raw todoId or human locator, creating a work slot with ToDo title, description, and visibility metadata.",
     category: CATEGORY,
     inputSchema: scheduleTodoParamsJsonSchema,
     handler: createEncodedToolHandler("schedule_todo", parseScheduleTodoParams, scheduleTodo, ScheduleTodoResultSchema)

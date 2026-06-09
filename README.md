@@ -492,8 +492,7 @@ SDK upgrade revisit:
 | `get_time_report` | Get time tracking report for a specific Huly issue. Shows total time, estimation, remaining time, and all time entries. |
 | `list_time_spend_reports` | List all time entries across issues. Supports filtering by project and date range. Returns entries sorted by date (newest first). |
 | `get_detailed_time_report` | Get detailed time breakdown for a project. Shows total time grouped by issue and by employee. Supports date range filtering. |
-| `list_work_slots` | List scheduled work slots. Shows planned time blocks attached to ToDos. Supports filtering by employee and date range. |
-| `create_work_slot` | Create a scheduled work slot when you already have a raw ToDo ID. If you only know the ToDo title, issue, or owner, use schedule_todo instead. |
+| `list_work_slots` | List scheduled work slots created by schedule_todo, Huly UI, or other clients. Shows planned time blocks attached to ToDos. Supports filtering by employee and date range. |
 | `start_timer` | Start a client-side timer on a Huly issue. Validates the issue exists and returns a start timestamp. Use log_time to record the elapsed time when done. |
 | `stop_timer` | Stop a client-side timer on a Huly issue. Returns the stop timestamp. Calculate elapsed time from start/stop timestamps and use log_time to record it. |
 
@@ -609,7 +608,7 @@ SDK upgrade revisit:
 | `complete_todo` | Complete a Planner ToDo by setting doneOn. Huly may trim future work slots and run issue automation when the ToDo is attached to an issue. |
 | `reopen_todo` | Reopen a completed Planner ToDo by clearing doneOn. Human locators search completed ToDos by default; raw todoId locators target that exact ToDo. |
 | `delete_todo` | Delete a Planner ToDo. This is destructive; deleting the last open issue ToDo can cause Huly classic issue status automation. |
-| `schedule_todo` | Schedule a Planner ToDo by locator, creating a work slot. Prefer this over create_work_slot when you do not already know the raw todoId. |
+| `schedule_todo` | Schedule a Planner ToDo by raw todoId or human locator, creating a work slot with ToDo title, description, and visibility metadata. |
 | `unschedule_todo` | Remove ToDo work slots. Pass either workSlotId to remove one slot, locator with scope=all, or locator with scope=future and optional from. |
 
 ### Processes

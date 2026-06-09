@@ -1067,11 +1067,6 @@ export {
 } from "./calendar.js"
 
 export {
-  type CreateWorkSlotParams,
-  createWorkSlotParamsJsonSchema,
-  CreateWorkSlotParamsSchema,
-  type CreateWorkSlotResult,
-  CreateWorkSlotResultSchema,
   type DetailedTimeReport,
   DetailedTimeReportSchema,
   type GetDetailedTimeReportParams,
@@ -1093,7 +1088,6 @@ export {
   LogTimeParamsSchema,
   type LogTimeResult,
   LogTimeResultSchema,
-  parseCreateWorkSlotParams,
   parseGetDetailedTimeReportParams,
   parseGetTimeReportParams,
   parseListTimeSpendReportsParams,

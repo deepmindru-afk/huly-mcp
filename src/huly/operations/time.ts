@@ -20,7 +20,6 @@ import {
 import { Clock, Effect } from "effect"
 
 import type {
-  CreateWorkSlotParams,
   DetailedTimeReport,
   GetDetailedTimeReportParams,
   GetTimeReportParams,
@@ -43,12 +42,7 @@ import {
   TodoId,
   WorkSlotId
 } from "../../domain/schemas/shared.js"
-import type {
-  CreateWorkSlotResult,
-  LogTimeResult,
-  StartTimerResult,
-  StopTimerResult
-} from "../../domain/schemas/time.js"
+import type { LogTimeResult, StartTimerResult, StopTimerResult } from "../../domain/schemas/time.js"
 import { isExistent } from "../../utils/assertions.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import type { IssueNotFoundError } from "../errors.js"
@@ -75,19 +69,25 @@ type GetTimeReportError = HulyClientError | ProjectNotFoundError | IssueNotFound
 type ListTimeSpendReportsError = HulyClientError | ProjectNotFoundError
 type GetDetailedTimeReportError = HulyClientError | ProjectNotFoundError
 type ListWorkSlotsError = HulyClientError
-type CreateWorkSlotError = HulyClientError
+type PlannerWorkSlotError = HulyClientError
 type StartTimerError = HulyClientError | ProjectNotFoundError | IssueNotFoundError
 type StopTimerError = HulyClientError | ProjectNotFoundError | IssueNotFoundError
 
-interface AddWorkSlotForTodoInput extends CreateWorkSlotParams {
-  // Public create_work_slot creates a bare slot by raw ToDo ID, so it has no user-facing title.
+interface WorkSlotCreationResult {
+  readonly slotId: WorkSlotId
+}
+
+interface AddWorkSlotForTodoInput {
+  readonly todoId: TodoId
+  readonly date: Timestamp
+  readonly dueDate: Timestamp
   readonly title: TodoTitle | ""
   // Markdown copied from the ToDo at scheduling time; empty string means no description.
   readonly description: string
   readonly visibility: TodoVisibility
 }
 
-interface CreateWorkSlotForTodoInput extends AddWorkSlotForTodoInput {
+interface PlannerWorkSlotInput extends AddWorkSlotForTodoInput {
   readonly title: TodoTitle
 }
 
@@ -393,7 +393,7 @@ export const listWorkSlots = (
 const addWorkSlotForTodo = (
   client: HulyClient["Type"],
   params: AddWorkSlotForTodoInput
-): Effect.Effect<CreateWorkSlotResult, CreateWorkSlotError> =>
+): Effect.Effect<WorkSlotCreationResult, PlannerWorkSlotError> =>
   Effect.gen(function*() {
     const slotId: Ref<HulyWorkSlot> = generateId()
 
@@ -429,17 +429,9 @@ const addWorkSlotForTodo = (
     return { slotId: WorkSlotId.make(slotId) }
   })
 
-export const createWorkSlot = (
-  params: CreateWorkSlotParams
-): Effect.Effect<CreateWorkSlotResult, CreateWorkSlotError, HulyClient> =>
-  Effect.gen(function*() {
-    const client = yield* HulyClient
-    return yield* addWorkSlotForTodo(client, { ...params, title: "", description: "", visibility: "public" })
-  })
-
 export const createPlannerWorkSlot = (
-  params: CreateWorkSlotForTodoInput
-): Effect.Effect<CreateWorkSlotResult, CreateWorkSlotError, HulyClient> =>
+  params: PlannerWorkSlotInput
+): Effect.Effect<WorkSlotCreationResult, PlannerWorkSlotError, HulyClient> =>
   Effect.gen(function*() {
     const client = yield* HulyClient
     return yield* addWorkSlotForTodo(client, params)

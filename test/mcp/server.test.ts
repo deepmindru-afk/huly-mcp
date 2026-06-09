@@ -371,7 +371,6 @@ describe("TOOL_DEFINITIONS", () => {
       expect(tools).toContain("list_time_spend_reports")
       expect(tools).toContain("get_detailed_time_report")
       expect(tools).toContain("list_work_slots")
-      expect(tools).toContain("create_work_slot")
       expect(tools).toContain("start_timer")
       expect(tools).toContain("stop_timer")
       expect(tools).toContain("fulltext_search")

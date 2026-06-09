@@ -16,7 +16,6 @@ import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.
 import type { IssueNotFoundError, ProjectNotFoundError } from "../../../src/huly/errors.js"
 import { toRef } from "../../../src/huly/operations/sdk-boundary.js"
 import {
-  createWorkSlot,
   getDetailedTimeReport,
   getTimeReport,
   listTimeSpendReports,
@@ -25,7 +24,7 @@ import {
   startTimer,
   stopTimer
 } from "../../../src/huly/operations/time.js"
-import { issueIdentifier, projectIdentifier, todoId } from "../../helpers/brands.js"
+import { issueIdentifier, projectIdentifier } from "../../helpers/brands.js"
 
 import { contact, time, tracker } from "../../../src/huly/huly-plugins.js"
 
@@ -1447,87 +1446,6 @@ describe("listWorkSlots", () => {
         expect(result[0].id).toBe("slot-2")
       }))
   })
-})
-
-describe("createWorkSlot", () => {
-  it.effect("creates a work slot", () =>
-    Effect.gen(function*() {
-      const captureAddCollection: MockConfig["captureAddCollection"] = {}
-
-      const addCollectionImpl: HulyClientOperations["addCollection"] = ((
-        _class: unknown,
-        _space: unknown,
-        _attachedTo: unknown,
-        _attachedToClass: unknown,
-        _collection: unknown,
-        attributes: unknown,
-        id?: unknown
-      ) => {
-        captureAddCollection.attributes = attributes as Record<string, unknown>
-        captureAddCollection.id = id as string
-        return Effect.succeed((id ?? "new-slot-id") as Ref<Doc>)
-      }) as HulyClientOperations["addCollection"]
-
-      const testLayer = HulyClient.testLayer({
-        addCollection: addCollectionImpl
-      })
-
-      const result = yield* createWorkSlot({
-        todoId: todoId("todo-123"),
-        date: 1000,
-        dueDate: 2000
-      }).pipe(Effect.provide(testLayer))
-
-      expect(result.slotId).toBeDefined()
-      expect(typeof result.slotId).toBe("string")
-      expect(result.slotId.length).toBeGreaterThan(0)
-      expect(captureAddCollection.attributes?.date).toBe(1000)
-      expect(captureAddCollection.attributes?.dueDate).toBe(2000)
-      expect(captureAddCollection.attributes?.allDay).toBe(false)
-      expect(captureAddCollection.attributes?.visibility).toBe("public")
-    }))
-
-  it.effect("passes correct class and space references", () =>
-    Effect.gen(function*() {
-      let capturedClass: unknown
-      let capturedSpace: unknown
-      let capturedAttachedTo: unknown
-      let capturedAttachedToClass: unknown
-      let capturedCollection: unknown
-
-      const addCollectionImpl: HulyClientOperations["addCollection"] = ((
-        _class: unknown,
-        space: unknown,
-        attachedTo: unknown,
-        attachedToClass: unknown,
-        collection: unknown,
-        _attributes: unknown,
-        id?: unknown
-      ) => {
-        capturedClass = _class
-        capturedSpace = space
-        capturedAttachedTo = attachedTo
-        capturedAttachedToClass = attachedToClass
-        capturedCollection = collection
-        return Effect.succeed((id ?? "new-slot-id") as Ref<Doc>)
-      }) as HulyClientOperations["addCollection"]
-
-      const testLayer = HulyClient.testLayer({
-        addCollection: addCollectionImpl
-      })
-
-      yield* createWorkSlot({
-        todoId: todoId("todo-abc"),
-        date: 5000,
-        dueDate: 6000
-      }).pipe(Effect.provide(testLayer))
-
-      expect(capturedClass).toBe(time.class.WorkSlot)
-      expect(capturedSpace).toBe(time.space.ToDos)
-      expect(capturedAttachedTo).toBe("todo-abc")
-      expect(capturedAttachedToClass).toBe(time.class.ToDo)
-      expect(capturedCollection).toBe("workslots")
-    }))
 })
 
 describe("startTimer", () => {

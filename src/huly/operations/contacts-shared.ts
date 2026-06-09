@@ -1,7 +1,7 @@
 import type { Channel, Employee as HulyEmployee, Person as HulyPerson, SocialIdentity } from "@hcengineering/contact"
 import type { AccountUuid, Doc, Ref } from "@hcengineering/core"
 import { SocialIdType } from "@hcengineering/core"
-import { Effect, Schema } from "effect"
+import { Effect, Option, Schema } from "effect"
 
 import { Count, Email, type NonEmptyString, PersonName, type PersonRefInput } from "../../domain/schemas/shared.js"
 import type { HulyClient, HulyClientError } from "../client.js"
@@ -48,7 +48,7 @@ export const findPersonByEmail = (
 export const batchGetEmailsForPersons = <T extends Doc>(
   client: HulyClient["Type"],
   personIds: Array<Ref<T>>
-): Effect.Effect<Map<string, string>, HulyClientError> =>
+): Effect.Effect<Map<Ref<T>, Email>, HulyClientError> =>
   Effect.gen(function*() {
     if (personIds.length === 0) {
       return new Map()
@@ -62,10 +62,12 @@ export const batchGetEmailsForPersons = <T extends Doc>(
       }
     )
 
-    const emailMap = new Map<string, string>()
+    const emailMap = new Map<Ref<T>, Email>()
     for (const channel of channels) {
-      if (!emailMap.has(channel.attachedTo)) {
-        emailMap.set(channel.attachedTo, channel.value)
+      const personId = toRef<T>(channel.attachedTo)
+      const email = Schema.decodeUnknownOption(Email)(channel.value)
+      if (!emailMap.has(personId) && Option.isSome(email)) {
+        emailMap.set(personId, email.value)
       }
     }
     return emailMap

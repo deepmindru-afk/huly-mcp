@@ -134,23 +134,6 @@ export const ListWorkSlotsParamsSchema = Schema.Struct({
 
 export type ListWorkSlotsParams = Schema.Schema.Type<typeof ListWorkSlotsParamsSchema>
 
-export const CreateWorkSlotParamsSchema = Schema.Struct({
-  todoId: TodoId.annotations({
-    description: "ToDo ID to attach the work slot to"
-  }),
-  date: Timestamp.annotations({
-    description: "Start date timestamp"
-  }),
-  dueDate: Timestamp.annotations({
-    description: "End date timestamp"
-  })
-}).annotations({
-  title: "CreateWorkSlotParams",
-  description: "Parameters for creating a work slot"
-})
-
-export type CreateWorkSlotParams = Schema.Schema.Type<typeof CreateWorkSlotParamsSchema>
-
 export const StartTimerParamsSchema = Schema.Struct({
   project: ProjectIdentifier.annotations({
     description: "Project identifier (e.g., 'HULY')"
@@ -199,7 +182,6 @@ export const getTimeReportParamsJsonSchema = JSONSchema.make(GetTimeReportParams
 export const listTimeSpendReportsParamsJsonSchema = JSONSchema.make(ListTimeSpendReportsParamsSchema)
 export const getDetailedTimeReportParamsJsonSchema = JSONSchema.make(GetDetailedTimeReportParamsSchema)
 export const listWorkSlotsParamsJsonSchema = JSONSchema.make(ListWorkSlotsParamsSchema)
-export const createWorkSlotParamsJsonSchema = JSONSchema.make(CreateWorkSlotParamsSchema)
 export const startTimerParamsJsonSchema = JSONSchema.make(StartTimerParamsSchema)
 export const stopTimerParamsJsonSchema = JSONSchema.make(StopTimerParamsSchema)
 
@@ -208,7 +190,6 @@ export const parseGetTimeReportParams = Schema.decodeUnknown(GetTimeReportParams
 export const parseListTimeSpendReportsParams = Schema.decodeUnknown(ListTimeSpendReportsParamsSchema)
 export const parseGetDetailedTimeReportParams = Schema.decodeUnknown(GetDetailedTimeReportParamsSchema)
 export const parseListWorkSlotsParams = Schema.decodeUnknown(ListWorkSlotsParamsSchema)
-export const parseCreateWorkSlotParams = Schema.decodeUnknown(CreateWorkSlotParamsSchema)
 export const parseStartTimerParams = Schema.decodeUnknown(StartTimerParamsSchema)
 export const parseStopTimerParams = Schema.decodeUnknown(StopTimerParamsSchema)
 
@@ -216,10 +197,6 @@ export const parseStopTimerParams = Schema.decodeUnknown(StopTimerParamsSchema)
 export interface LogTimeResult {
   readonly reportId: TimeSpendReportId
   readonly identifier: IssueIdentifier
-}
-
-export interface CreateWorkSlotResult {
-  readonly slotId: WorkSlotId
 }
 
 export interface StartTimerResult {
@@ -280,10 +257,6 @@ export const DetailedTimeReportSchema = Schema.Struct({
 export const LogTimeResultSchema = Schema.Struct({
   reportId: TimeSpendReportId,
   identifier: IssueIdentifier
-})
-
-export const CreateWorkSlotResultSchema = Schema.Struct({
-  slotId: WorkSlotId
 })
 
 export const StartTimerResultSchema = Schema.Struct({

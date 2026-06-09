@@ -5,7 +5,6 @@ import { expect } from "vitest"
 import {
   ActivityMessageWireSchema,
   AddReactionResultSchema,
-  CreateWorkSlotResultSchema,
   CreateWorkspaceResultSchema,
   ListMentionsResultSchema,
   ListReactionsResultSchema,
@@ -41,9 +40,6 @@ describe("branded output schemas", () => {
         reportId: "report-2",
         identifier: "HULY-2"
       })
-      const createdSlot = yield* Schema.decodeUnknown(CreateWorkSlotResultSchema)({
-        slotId: "slot-2"
-      })
       const stopped = yield* Schema.decodeUnknown(StopTimerResultSchema)({
         identifier: "HULY-3",
         stoppedAt: 1700000000000,
@@ -53,7 +49,6 @@ describe("branded output schemas", () => {
       expect(report.id).toBe("report-1")
       expect(slot.id).toBe("slot-1")
       expect(logged.reportId).toBe("report-2")
-      expect(createdSlot.slotId).toBe("slot-2")
       expect(stopped.reportId).toBe("report-3")
     }))
 

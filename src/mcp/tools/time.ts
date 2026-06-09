@@ -1,6 +1,4 @@
 import {
-  createWorkSlotParamsJsonSchema,
-  CreateWorkSlotResultSchema,
   DetailedTimeReportSchema,
   getDetailedTimeReportParamsJsonSchema,
   getTimeReportParamsJsonSchema,
@@ -10,7 +8,6 @@ import {
   ListWorkSlotsResultSchema,
   logTimeParamsJsonSchema,
   LogTimeResultSchema,
-  parseCreateWorkSlotParams,
   parseGetDetailedTimeReportParams,
   parseGetTimeReportParams,
   parseListTimeSpendReportsParams,
@@ -25,7 +22,6 @@ import {
   TimeReportSummarySchema
 } from "../../domain/schemas.js"
 import {
-  createWorkSlot,
   getDetailedTimeReport,
   getTimeReport,
   listTimeSpendReports,
@@ -94,7 +90,7 @@ export const timeTools: ReadonlyArray<RegisteredTool> = [
   {
     name: "list_work_slots",
     description:
-      "List scheduled work slots. Shows planned time blocks attached to ToDos. Supports filtering by employee and date range.",
+      "List scheduled work slots created by schedule_todo, Huly UI, or other clients. Shows planned time blocks attached to ToDos. Supports filtering by employee and date range.",
     category: CATEGORY,
     inputSchema: listWorkSlotsParamsJsonSchema,
     handler: createEncodedToolHandler(
@@ -102,18 +98,6 @@ export const timeTools: ReadonlyArray<RegisteredTool> = [
       parseListWorkSlotsParams,
       listWorkSlots,
       ListWorkSlotsResultSchema
-    )
-  },
-  {
-    name: "create_work_slot",
-    description: "Create a scheduled work slot. Attaches a time block to a ToDo for planning purposes.",
-    category: CATEGORY,
-    inputSchema: createWorkSlotParamsJsonSchema,
-    handler: createEncodedToolHandler(
-      "create_work_slot",
-      parseCreateWorkSlotParams,
-      createWorkSlot,
-      CreateWorkSlotResultSchema
     )
   },
   {

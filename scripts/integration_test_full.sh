@@ -1862,9 +1862,9 @@ if [ $? -eq 0 ]; then
       skip_test "unschedule_todo(workSlotId)" "schedule_todo did not return a workSlotId"
     fi
 
-    RAW_SLOT_TEXT=$(run_capture "create_work_slot($TODO_ID)" \
-      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_work_slot\",\"arguments\":{\"todoId\":\"$TODO_ID\",\"date\":1777027200000,\"dueDate\":1777030800000}},\"id\":2}")
-    RAW_SLOT_ID=$(echo "$RAW_SLOT_TEXT" | jq -r '.slotId // empty' 2>/dev/null)
+    RAW_SLOT_TEXT=$(run_capture "schedule_todo(raw_id:$TODO_ID)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"schedule_todo\",\"arguments\":{\"locator\":{\"todoId\":\"$TODO_ID\"},\"date\":1777027200000,\"dueDate\":1777030800000}},\"id\":2}")
+    RAW_SLOT_ID=$(echo "$RAW_SLOT_TEXT" | jq -r '.workSlotId // empty' 2>/dev/null)
     if [ -n "$RAW_SLOT_ID" ]; then
       UNSCHEDULE_RAW_SLOT_TEXT=$(run_capture "unschedule_todo(raw_workSlotId:$RAW_SLOT_ID)" \
         "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"unschedule_todo\",\"arguments\":{\"workSlotId\":\"$RAW_SLOT_ID\"}},\"id\":2}")
@@ -1872,7 +1872,7 @@ if [ $? -eq 0 ]; then
         assert_json_field_equals "unschedule_todo(raw_workSlotId:$RAW_SLOT_ID) removed one" "$UNSCHEDULE_RAW_SLOT_TEXT" ".removed" "1"
       fi
     else
-      skip_test "unschedule_todo(raw_workSlotId)" "create_work_slot did not return a slotId"
+      skip_test "unschedule_todo(raw_workSlotId)" "schedule_todo raw-id locator did not return a workSlotId"
     fi
 
     SCHEDULE_SCOPE_TEXT=$(run_capture "schedule_todo(scope_cleanup:$TODO_ID)" \

@@ -46,7 +46,25 @@ Known incomplete fixture:
   performed by the same account that later reads the inbox, so a one-member
   workspace leaves notification mutations skipped.
 
-Attempted SDK paths on the local self-host image:
+Manual setup that works:
+
+1. Open `http://localhost:8087`.
+2. Log in as the owner from `.env.local` (`agent@local.dev` in the default local fixture).
+3. Use the Huly UI to invite a workspace member.
+4. Open the invite link in a private/incognito browser session.
+5. Join as:
+
+   ```bash
+   HULY_TEST_ACTOR_EMAIL=actor@local.dev
+   HULY_TEST_ACTOR_PASSWORD=actor123
+   ```
+
+6. Confirm `list_workspace_members` returns both the owner and actor accounts.
+7. Create one cross-user notification by acting as `actor@local.dev` in the UI
+   (for example, assign/comment/mention the owner on an issue) before expecting
+   notification mutation checks to run.
+
+Attempted automation paths on the local self-host image:
 
 - `AccountClient.signUp(...)` can create a standalone local account such as
   `actor@local.dev`.
@@ -61,19 +79,17 @@ Attempted SDK paths on the local self-host image:
   account join/select the workspace; `selectWorkspace` returns `Forbidden` and
   `checkAutoJoin` returns `InternalServerError`.
 
-Until this is automated, complete notification-write integration coverage needs
-one host-side/admin bootstrap step that adds a second account to
-`test-workspace` as a normal `USER`. Once present, set these local-only values
-in `.env.local` so the harness can seed cross-user notifications in a future
-change:
+Once the actor account is present, set these local-only values in `.env.local`
+so future harness changes can seed cross-user notifications directly:
 
 ```bash
 HULY_TEST_ACTOR_EMAIL=actor@local.dev
 HULY_TEST_ACTOR_PASSWORD=actor123
 ```
 
-Do not mark the local setup as complete until a documented host-side command or
-script can create that second workspace member from a clean Huly deployment.
+Do not mark the local setup as fully automated until a documented host-side
+command or script can create that second workspace member from a clean Huly
+deployment.
 
 ## Running from a Container (e.g., Claude Code devcontainer)
 

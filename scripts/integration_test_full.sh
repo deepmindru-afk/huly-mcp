@@ -1995,7 +1995,7 @@ run_test "list_notification_settings" \
 # update_notification_provider_setting — all require existing notifications, skipped if none
 NOTIF_TEXT=$(run_capture_only \
   '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_notifications","arguments":{"limit":1}},"id":2}')
-NOTIF_ID=$(echo "$NOTIF_TEXT" | jq -r '.notifications[0].id // empty' 2>/dev/null)
+NOTIF_ID=$(echo "$NOTIF_TEXT" | jq -r '.[0].id // .notifications[0].id // empty' 2>/dev/null)
 if [ -n "$NOTIF_ID" ]; then
   GET_NOTIF_TEXT=$(run_capture "get_notification($NOTIF_ID)" \
     "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"get_notification\",\"arguments\":{\"notificationId\":\"$NOTIF_ID\"}},\"id\":2}"

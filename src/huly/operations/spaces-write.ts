@@ -9,7 +9,7 @@ import type {
   UpdateSpaceParams,
   UpdateSpaceResult
 } from "../../domain/schemas.js"
-import { UPDATE_SPACE_FIELDS } from "../../domain/schemas.js"
+import { DEFAULT_SPACE_OWNER_ENSURE_MEMBERS, UPDATE_SPACE_FIELDS } from "../../domain/schemas.js"
 import { AccountUuid, SpaceId } from "../../domain/schemas/shared.js"
 import { HulyClient } from "../client.js"
 import { clearTextAsEmptyString } from "./clear-field-updates.js"
@@ -96,7 +96,7 @@ export const setSpaceOwners = (
     const client = yield* HulyClient
     const space = yield* findSpace(client, params)
     const owners = (yield* resolveMembers(client, params.owners)).map(toAccountUuid)
-    const ensureMembers = params.ensureMembers ?? true
+    const ensureMembers = params.ensureMembers ?? DEFAULT_SPACE_OWNER_ENSURE_MEMBERS
     const nextMembers = ensureMembers
       ? mergeUniqueSortedAccountUuids(space.members, owners)
       : sortStrings(space.members)

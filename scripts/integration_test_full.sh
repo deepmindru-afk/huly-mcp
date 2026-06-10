@@ -2922,9 +2922,60 @@ fi
 echo ""
 
 ##############################
-# 20. USER STATUSES
+# 20. DRIVE
 ##############################
-echo "=== 20. User Statuses ==="
+echo "=== 20. Drive ==="
+run_capture_to_var DRIVES_TEXT "list_drives" \
+  '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_drives","arguments":{"limit":5}},"id":2}'
+
+DRIVE_ID=$(echo "$DRIVES_TEXT" | jq -r '.drives[0].id // empty' 2>/dev/null)
+
+if [ -n "$DRIVE_ID" ]; then
+  DRIVE_JSON=$(json_string "$DRIVE_ID")
+  DRIVE_TEST_FOLDER="/mcp-integration-$RUN_ID"
+  DRIVE_TEST_NESTED="$DRIVE_TEST_FOLDER/nested"
+  DRIVE_TEST_FILE="$DRIVE_TEST_NESTED/hello.txt"
+  DRIVE_TEST_FOLDER_JSON=$(json_string "$DRIVE_TEST_FOLDER")
+  DRIVE_TEST_NESTED_JSON=$(json_string "$DRIVE_TEST_NESTED")
+  DRIVE_TEST_FILE_JSON=$(json_string "$DRIVE_TEST_FILE")
+  DRIVE_TEST_DATA=$(printf 'Drive integration %s' "$RUN_ID" | base64 | tr -d '\n')
+  DRIVE_TEST_DATA_JSON=$(json_string "$DRIVE_TEST_DATA")
+
+  run_test "get_drive($DRIVE_ID)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"get_drive\",\"arguments\":{\"drive\":$DRIVE_JSON}},\"id\":2}"
+  run_test "list_drive_items(root)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_drive_items\",\"arguments\":{\"drive\":$DRIVE_JSON,\"path\":\"/\",\"limit\":10}},\"id\":2}"
+  run_capture_to_var DRIVE_FOLDER_TEXT "create_drive_folder($DRIVE_TEST_NESTED)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_drive_folder\",\"arguments\":{\"drive\":$DRIVE_JSON,\"path\":$DRIVE_TEST_NESTED_JSON}},\"id\":2}"
+  run_test "get_drive_item(folder)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"get_drive_item\",\"arguments\":{\"drive\":$DRIVE_JSON,\"path\":$DRIVE_TEST_FOLDER_JSON}},\"id\":2}"
+  run_capture_to_var DRIVE_UPLOAD_TEXT "upload_drive_file($DRIVE_TEST_FILE)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"upload_drive_file\",\"arguments\":{\"drive\":$DRIVE_JSON,\"path\":$DRIVE_TEST_FILE_JSON,\"contentType\":\"text/plain\",\"data\":$DRIVE_TEST_DATA_JSON}},\"id\":2}"
+  DRIVE_FILE_ID=$(echo "$DRIVE_UPLOAD_TEXT" | jq -r '.file.id // empty' 2>/dev/null)
+  if [ -n "$DRIVE_FILE_ID" ]; then
+    DRIVE_FILE_ID_JSON=$(json_string "$DRIVE_FILE_ID")
+    run_test "get_drive_item(file)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"get_drive_item\",\"arguments\":{\"drive\":$DRIVE_JSON,\"itemId\":$DRIVE_FILE_ID_JSON}},\"id\":2}"
+    run_test "list_drive_file_versions($DRIVE_FILE_ID)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_drive_file_versions\",\"arguments\":{\"drive\":$DRIVE_JSON,\"file\":$DRIVE_FILE_ID_JSON}},\"id\":2}"
+  else
+    skip_test "get_drive_item(file)" "upload_drive_file did not return a file id"
+    skip_test "list_drive_file_versions" "upload_drive_file did not return a file id"
+  fi
+else
+  skip_test "get_drive" "no Drive spaces found in workspace"
+  skip_test "list_drive_items" "no Drive spaces found in workspace"
+  skip_test "create_drive_folder" "no Drive spaces found in workspace"
+  skip_test "upload_drive_file" "no Drive spaces found in workspace"
+  skip_test "list_drive_file_versions" "no Drive spaces found in workspace"
+  skip_test "restore_drive_file_version" "no Drive spaces found in workspace"
+fi
+echo ""
+
+##############################
+# 21. USER STATUSES
+##############################
+echo "=== 21. User Statuses ==="
 run_capture_to_var USER_STATUSES_TEXT "list_user_statuses" \
   '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_user_statuses","arguments":{"limit":5}},"id":2}'
 

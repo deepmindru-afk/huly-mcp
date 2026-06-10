@@ -7,6 +7,7 @@ import {
   assertUpdateFields,
   atLeastOneUpdateFieldMessage,
   CalendarId,
+  DEFAULT_LIMIT,
   DurationMinutes,
   hasAtLeastOneDefined,
   hasMutuallyExclusiveFields,
@@ -140,7 +141,7 @@ export const ListSchedulesParamsSchema = Schema.Struct({
       "Optional schedule owner locator: employee/person ID, exact display name, or email. Omit to list schedules for all readable owners."
   })),
   limit: Schema.optional(LimitParam.annotations({
-    description: "Maximum number of schedules to return (default: 50)."
+    description: `Maximum number of schedules to return (default: ${DEFAULT_LIMIT}).`
   }))
 }).annotations({
   title: "ListSchedulesParams",

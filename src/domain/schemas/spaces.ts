@@ -7,6 +7,7 @@ import {
   assertUpdateFields,
   atLeastOneUpdateFieldMessage,
   Count,
+  DEFAULT_INCLUDE_ARCHIVED,
   DEFAULT_LIMIT,
   hasAtLeastOneDefined,
   LimitParam,
@@ -40,6 +41,7 @@ export const SpaceRoleAssignmentSchema = Schema.Struct({
   members: Schema.Array(AccountUuid)
 })
 export type SpaceRoleAssignment = Schema.Schema.Type<typeof SpaceRoleAssignmentSchema>
+export const DEFAULT_SPACE_OWNER_ENSURE_MEMBERS = true
 
 export const SpaceSummarySchema = Schema.Struct({
   id: SpaceId,
@@ -121,7 +123,7 @@ export type SpaceTypeDetail = Schema.Schema.Type<typeof SpaceTypeDetailSchema>
 export const ListSpacesParamsSchema = Schema.Struct({
   includeArchived: Schema.optional(Schema.Boolean.annotations({
     description:
-      "Include archived spaces in results. Defaults to false, so only active/non-archived spaces are returned."
+      `Include archived spaces in results. Defaults to ${DEFAULT_INCLUDE_ARCHIVED}, so only active/non-archived spaces are returned.`
   })),
   class: Schema.optional(SpaceClassFilter.annotations({
     description:
@@ -146,7 +148,7 @@ export const GetSpaceParamsSchema = Schema.Struct({
   }),
   includeArchived: Schema.optional(Schema.Boolean.annotations({
     description:
-      "Allow matching archived spaces by exact name. Defaults to false for name lookup. ID lookup can return archived spaces."
+      `Allow matching archived spaces by exact name. Defaults to ${DEFAULT_INCLUDE_ARCHIVED} for name lookup. ID lookup can return archived spaces.`
   })),
   class: Schema.optional(SpaceClassFilter.annotations({
     description: "Optional raw Huly space class ID used to disambiguate exact-name lookup."
@@ -271,7 +273,7 @@ export const SetSpaceOwnersParamsSchema = Schema.Struct({
       "Replacement owner list. Each entry may be an account UUID, exact email address, or exact person name. Pass [] to clear owners."
   }),
   ensureMembers: Schema.optional(Schema.Boolean.annotations({
-    description: "Also add each owner to members. Defaults to true."
+    description: `Also add each owner to members. Defaults to ${DEFAULT_SPACE_OWNER_ENSURE_MEMBERS}.`
   }))
 })
 export type SetSpaceOwnersParams = Schema.Schema.Type<typeof SetSpaceOwnersParamsSchema>

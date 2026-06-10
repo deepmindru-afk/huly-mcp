@@ -47,6 +47,16 @@ import {
   TeamspaceNotFoundError
 } from "./errors-documents.js"
 import {
+  DriveFileNotFoundError,
+  DriveFileVersionNotFoundError,
+  DriveIdentifierAmbiguousError,
+  DriveNotFoundError,
+  DriveParentNotFolderError,
+  DrivePathAmbiguousError,
+  DrivePathConflictError,
+  DrivePathNotFoundError
+} from "./errors-drive.js"
+import {
   AttachmentNotFoundError,
   BYTES_PER_MB,
   FileFetchError,
@@ -157,6 +167,14 @@ export {
   DocumentReferenceError,
   DocumentTextMultipleMatchesError,
   DocumentTextNotFoundError,
+  DriveFileNotFoundError,
+  DriveFileVersionNotFoundError,
+  DriveIdentifierAmbiguousError,
+  DriveNotFoundError,
+  DriveParentNotFolderError,
+  DrivePathAmbiguousError,
+  DrivePathConflictError,
+  DrivePathNotFoundError,
   EventNotFoundError,
   FileFetchError,
   FileNotFoundError,
@@ -339,7 +357,15 @@ export const HulyDomainError = Schema.Union(
   SpaceTypeIdentifierAmbiguousError,
   TodoNotFoundError,
   TodoIdentifierAmbiguousError,
-  TodoWorkSlotNotFoundError
+  TodoWorkSlotNotFoundError,
+  DriveNotFoundError,
+  DriveIdentifierAmbiguousError,
+  DrivePathNotFoundError,
+  DrivePathAmbiguousError,
+  DriveParentNotFolderError,
+  DriveFileNotFoundError,
+  DriveFileVersionNotFoundError,
+  DrivePathConflictError
 )
 
 /**

@@ -5,6 +5,7 @@ import {
   assertUpdateFields,
   atLeastOneUpdateFieldMessage,
   Count,
+  DEFAULT_LIMIT,
   Email,
   enumValuesDescription,
   hasAtLeastOneDefined,
@@ -43,7 +44,7 @@ export const OrganizationSummarySchema = Schema.Struct({
 export const ListOrganizationsParamsSchema = Schema.Struct({
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of organizations to return (default: 50)"
+      description: `Maximum number of organizations to return (default: ${DEFAULT_LIMIT})`
     })
   )
 }).annotations({

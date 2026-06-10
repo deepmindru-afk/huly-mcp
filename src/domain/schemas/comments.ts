@@ -1,6 +1,14 @@
 import { JSONSchema, Schema } from "effect"
 
-import { CommentId, IssueIdentifier, LimitParam, NonEmptyString, ProjectIdentifier, Timestamp } from "./shared.js"
+import {
+  CommentId,
+  DEFAULT_LIMIT,
+  IssueIdentifier,
+  LimitParam,
+  NonEmptyString,
+  ProjectIdentifier,
+  Timestamp
+} from "./shared.js"
 
 export const CommentSchema = Schema.Struct({
   id: CommentId,
@@ -26,7 +34,7 @@ export const ListCommentsParamsSchema = Schema.Struct({
   }),
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of comments to return (default: 50)"
+      description: `Maximum number of comments to return (default: ${DEFAULT_LIMIT})`
     })
   )
 }).annotations({

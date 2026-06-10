@@ -2,6 +2,9 @@ import { JSONSchema, Schema } from "effect"
 
 export const MAX_LIMIT = 200
 export const DEFAULT_LIMIT = 50
+export const DEFAULT_COLOR_INDEX = 0
+export const DEFAULT_INCLUDE_ARCHIVED = false
+export const DEFAULT_PRIVATE = false
 
 export const NonNegativeInteger = Schema.NonNegativeInt.annotations({
   identifier: "NonNegativeInteger",

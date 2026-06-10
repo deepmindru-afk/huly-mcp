@@ -1,6 +1,17 @@
 import { JSONSchema, Schema } from "effect"
 
-import { CardId, Count, DocId, LimitParam, ListTotal, MasterTagId, NonEmptyString, Timestamp } from "./shared.js"
+import {
+  CardId,
+  Count,
+  DEFAULT_LIMIT,
+  DocId,
+  LimitParam,
+  ListTotal,
+  MasterTagId,
+  MAX_LIMIT,
+  NonEmptyString,
+  Timestamp
+} from "./shared.js"
 
 export const ProcessId = DocId.pipe(Schema.brand("ProcessId"))
 export type ProcessId = Schema.Schema.Type<typeof ProcessId>
@@ -97,7 +108,7 @@ export const ListProcessesParamsSchema = Schema.Struct({
       "Optional master tag/card type ID or display label. Use this when you only want workflows attached to one Huly card/document type."
   })),
   limit: Schema.optional(LimitParam.annotations({
-    description: "Maximum number of process definitions to return (default: 50, maximum: 200)."
+    description: `Maximum number of process definitions to return (default: ${DEFAULT_LIMIT}, maximum: ${MAX_LIMIT}).`
   }))
 }).annotations({
   title: "ListProcessesParams",
@@ -129,7 +140,7 @@ export const ListExecutionsParamsSchema = Schema.Struct({
     description: "Optional execution status filter: active, done, or cancelled."
   })),
   limit: Schema.optional(LimitParam.annotations({
-    description: "Maximum number of executions to return (default: 50, maximum: 200)."
+    description: `Maximum number of executions to return (default: ${DEFAULT_LIMIT}, maximum: ${MAX_LIMIT}).`
   }))
 }).annotations({
   title: "ListExecutionsParams",

@@ -265,6 +265,20 @@ export const createCombinedToolHandler = <P, R>(
   operation: (params: P) => Effect.Effect<R, HulyDomainError, HulyClient | HulyStorageClient>
 ): RegisteredTool["handler"] => createHandler(toolName, provideCombinedClient, parse, operation)
 
+export const createEncodedCombinedToolHandler = <P, R>(
+  toolName: string,
+  parse: (input: unknown) => Effect.Effect<P, ParseResult.ParseError>,
+  operation: (params: P) => Effect.Effect<R, HulyDomainError, HulyClient | HulyStorageClient>,
+  outputSchema: Schema.Schema.AnyNoContext
+): RegisteredTool["handler"] =>
+  createHandler(
+    toolName,
+    provideCombinedClient,
+    parse,
+    operation,
+    (result) => encodeOutput(outputSchema, result)
+  )
+
 export const createWorkspaceToolHandler = <P, R>(
   toolName: string,
   parse: (input: unknown) => Effect.Effect<P, ParseResult.ParseError>,

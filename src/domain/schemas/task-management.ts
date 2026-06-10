@@ -178,7 +178,7 @@ export const CreateTaskTypeParamsSchema = Schema.Struct({
   name: NonEmptyString.annotations({ description: "Display name for the new issue/task type." }),
   templateTaskType: Schema.optional(TaskTypeRefSchema.annotations({
     description:
-      "Existing task type ID or display name to copy required Huly configuration from. Defaults to the first task type on the project type."
+      "Existing task type ID or display name to copy required Huly configuration from. Omit to copy from the first task type on the project type."
   }))
 })
 export type CreateTaskTypeParams = Schema.Schema.Type<typeof CreateTaskTypeParamsSchema>

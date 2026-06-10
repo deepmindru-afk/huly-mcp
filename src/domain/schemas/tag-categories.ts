@@ -3,6 +3,7 @@ import { JSONSchema, Schema } from "effect"
 import {
   assertUpdateFields,
   atLeastOneUpdateFieldMessage,
+  DEFAULT_LIMIT,
   hasAtLeastOneDefined,
   LimitParam,
   NonEmptyString,
@@ -10,6 +11,9 @@ import {
   TagCategoryIdentifier,
   withAtLeastOneRequired
 } from "./shared.js"
+
+export const DEFAULT_TAG_CATEGORY_TARGET_CLASS = "tracker:class:Issue"
+export const DEFAULT_TAG_CATEGORY_FLAG = false
 
 export const TagCategorySummarySchema = Schema.Struct({
   id: TagCategoryId,
@@ -27,12 +31,12 @@ export type TagCategorySummary = Schema.Schema.Type<typeof TagCategorySummarySch
 export const ListTagCategoriesParamsSchema = Schema.Struct({
   targetClass: Schema.optional(
     NonEmptyString.annotations({
-      description: "Filter by target class (e.g. 'tracker:class:Issue'). Defaults to all classes."
+      description: "Filter by target class (e.g. 'tracker:class:Issue'). Omit to include all classes."
     })
   ),
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of categories to return (default: 50)"
+      description: `Maximum number of categories to return (default: ${DEFAULT_LIMIT})`
     })
   )
 }).annotations({
@@ -48,12 +52,12 @@ export const CreateTagCategoryParamsSchema = Schema.Struct({
   }),
   targetClass: Schema.optional(
     NonEmptyString.annotations({
-      description: "Target class for this category (default: 'tracker:class:Issue')"
+      description: `Target class for this category (default: ${DEFAULT_TAG_CATEGORY_TARGET_CLASS})`
     })
   ),
   default: Schema.optional(
     Schema.Boolean.annotations({
-      description: "Whether this is a default category (default: false)"
+      description: `Whether this is a default category (default: ${DEFAULT_TAG_CATEGORY_FLAG})`
     })
   )
 }).annotations({

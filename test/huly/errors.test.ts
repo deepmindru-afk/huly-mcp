@@ -35,6 +35,14 @@ import {
   DocumentEditModeError,
   DocumentNotFoundError,
   DocumentReferenceError,
+  DriveFileNotFoundError,
+  DriveFileVersionNotFoundError,
+  DriveIdentifierAmbiguousError,
+  DriveNotFoundError,
+  DriveParentNotFolderError,
+  DrivePathAmbiguousError,
+  DrivePathConflictError,
+  DrivePathNotFoundError,
   EventNotFoundError,
   FileFetchError,
   FileNotFoundError,
@@ -917,6 +925,22 @@ describe("Huly Errors", () => {
               return `todo-ambiguous:${error.locator}:${error.matches}`
             case "TodoWorkSlotNotFoundError":
               return `todo-workslot:${error.workSlotId}`
+            case "DriveNotFoundError":
+              return `drive:${error.drive}`
+            case "DriveIdentifierAmbiguousError":
+              return `drive-ambiguous:${error.drive}:${error.matches.length}`
+            case "DrivePathNotFoundError":
+              return `drive-path:${error.drive}:${error.path}`
+            case "DrivePathAmbiguousError":
+              return `drive-path-ambiguous:${error.drive}:${error.path}:${error.candidates.length}`
+            case "DriveParentNotFolderError":
+              return `drive-parent-not-folder:${error.drive}:${error.path}:${error.parentPath}`
+            case "DriveFileNotFoundError":
+              return `drive-file:${error.drive}:${error.file}`
+            case "DriveFileVersionNotFoundError":
+              return `drive-version:${error.drive}:${error.file}:${error.version}`
+            case "DrivePathConflictError":
+              return `drive-path-conflict:${error.drive}:${error.path}:${error.existingKind}`
             default: {
               const _exhaustive: never = error
               return _exhaustive
@@ -1138,6 +1162,87 @@ describe("Huly Errors", () => {
           .toBe(
             "meeting-minutes:minutes-1"
           )
+        expect(matchError(new DriveNotFoundError({ drive: "Docs" }))).toBe("drive:Docs")
+        expect(new DriveNotFoundError({ drive: "Docs" }).message).toBe("Drive 'Docs' not found")
+        expect(matchError(
+          new DriveIdentifierAmbiguousError({
+            drive: "Docs",
+            matches: [{ id: "drive-1", name: "Docs" }, { id: "drive-2", name: "Docs" }]
+          })
+        )).toBe("drive-ambiguous:Docs:2")
+        expect(
+          new DriveIdentifierAmbiguousError({
+            drive: "Docs",
+            matches: [{ id: "drive-1", name: "Docs" }, { id: "drive-2", name: "Docs" }]
+          }).message
+        ).toBe("Drive 'Docs' is ambiguous; use an exact drive id. Matches: Docs (drive-1), Docs (drive-2)")
+        expect(matchError(new DrivePathNotFoundError({ drive: "Docs", path: "/missing" }))).toBe(
+          "drive-path:Docs:/missing"
+        )
+        expect(new DrivePathNotFoundError({ drive: "Docs", path: "/missing" }).message).toBe(
+          "Drive path '/missing' not found in drive 'Docs'"
+        )
+        expect(
+          matchError(
+            new DrivePathAmbiguousError({
+              drive: "Docs",
+              path: "/Specs",
+              candidates: [
+                { id: "folder-1", path: "/Specs", kind: "folder" },
+                { id: "file-1", path: "/Specs", kind: "file" }
+              ]
+            })
+          )
+        ).toBe("drive-path-ambiguous:Docs:/Specs:2")
+        expect(
+          new DrivePathAmbiguousError({
+            drive: "Docs",
+            path: "/Specs",
+            candidates: [
+              { id: "folder-1", path: "/Specs", kind: "folder" },
+              { id: "file-1", path: "/Specs", kind: "file" }
+            ]
+          }).message
+        ).toBe(
+          "Drive path '/Specs' in drive 'Docs' is ambiguous. Matches: /Specs (folder folder-1), /Specs (file file-1)"
+        )
+        expect(matchError(
+          new DriveParentNotFolderError({
+            drive: "Docs",
+            path: "/readme/child",
+            parentPath: "/readme"
+          })
+        )).toBe("drive-parent-not-folder:Docs:/readme/child:/readme")
+        expect(
+          new DriveParentNotFolderError({
+            drive: "Docs",
+            path: "/readme/child",
+            parentPath: "/readme"
+          }).message
+        ).toBe("Drive parent '/readme' for path '/readme/child' is not a folder in drive 'Docs'")
+        expect(matchError(new DriveFileNotFoundError({ drive: "Docs", file: "/missing.txt" }))).toBe(
+          "drive-file:Docs:/missing.txt"
+        )
+        expect(new DriveFileNotFoundError({ drive: "Docs", file: "/missing.txt" }).message).toBe(
+          "Drive file '/missing.txt' not found in drive 'Docs'"
+        )
+        expect(matchError(
+          new DriveFileVersionNotFoundError({
+            drive: "Docs",
+            file: "file-1",
+            version: "3"
+          })
+        )).toBe("drive-version:Docs:file-1:3")
+        expect(
+          new DriveFileVersionNotFoundError({
+            drive: "Docs",
+            file: "file-1",
+            version: "3"
+          }).message
+        ).toBe("Drive file version '3' for file 'file-1' not found in drive 'Docs'")
+        expect(new DrivePathConflictError({ drive: "Docs", path: "/x", existingKind: "file" }).message).toBe(
+          "Drive path '/x' already exists as a file in drive 'Docs'"
+        )
       }))
   })
 })

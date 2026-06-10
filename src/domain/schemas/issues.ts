@@ -8,6 +8,8 @@ import {
   ColorCode,
   ComponentIdentifier,
   Count,
+  DEFAULT_COLOR_INDEX,
+  DEFAULT_LIMIT,
   Email,
   enumValuesDescription,
   hasAtLeastOneDefined,
@@ -63,6 +65,7 @@ export const IssuePrioritySchema = Schema.transformOrFail(
 })
 
 export type IssuePriority = Schema.Schema.Type<typeof IssuePrioritySchema>
+export const DEFAULT_ISSUE_PRIORITY: IssuePriority = "no-priority"
 
 export const LabelSchema = Schema.Struct({
   title: NonEmptyString,
@@ -178,7 +181,7 @@ const ListIssuesParamsBase = Schema.Struct({
   })),
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of issues to return (default: 50)"
+      description: `Maximum number of issues to return (default: ${DEFAULT_LIMIT})`
     })
   )
 })
@@ -337,7 +340,7 @@ export const AddLabelParamsSchema = Schema.Struct({
   }),
   color: Schema.optional(
     ColorCode.annotations({
-      description: "Non-negative Huly platform color index (default: 0)"
+      description: `Non-negative Huly platform color index (default: ${DEFAULT_COLOR_INDEX})`
     })
   )
 }).annotations({

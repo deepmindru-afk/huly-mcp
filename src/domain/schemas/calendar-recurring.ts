@@ -6,6 +6,8 @@ import {
   CalendarAccessSchema,
   CalendarEventTitle,
   CalendarName,
+  DEFAULT_EVENT_ALL_DAY,
+  DEFAULT_EVENT_DURATION_DESCRIPTION,
   EventParticipantLocatorSchema,
   VisibilitySchema
 } from "./calendar.js"
@@ -18,6 +20,7 @@ import {
 } from "./recurrence-primitives.js"
 import {
   CalendarId,
+  DEFAULT_LIMIT,
   Email,
   enumValuesDescription,
   EventId,
@@ -29,6 +32,8 @@ import {
   withMutuallyExclusiveFields
 } from "./shared.js"
 import type { Timestamp as TimestampType } from "./shared.js"
+
+const DEFAULT_RECURRING_INSTANCE_PARTICIPANTS_INCLUDED = false
 
 export const RecurringFrequencyValues = [
   "SECONDLY",
@@ -212,7 +217,7 @@ export interface EventInstance {
 export const ListRecurringEventsParamsSchema = Schema.Struct({
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of recurring events to return (default: 50)"
+      description: `Maximum number of recurring events to return (default: ${DEFAULT_LIMIT})`
     })
   )
 }).annotations({
@@ -233,13 +238,14 @@ export const CreateRecurringEventParamsSchema = Schema.Struct({
     description: "First occurrence start date/time (timestamp)"
   }),
   dueDate: Schema.optional(Timestamp.annotations({
-    description: "First occurrence end date/time (timestamp). If not provided, defaults to startDate + 1 hour"
+    description:
+      `First occurrence end date/time (timestamp). If omitted, Huly MCP uses startDate + ${DEFAULT_EVENT_DURATION_DESCRIPTION}.`
   })),
   rules: Schema.NonEmptyArray(CreatableRecurringRuleSchema).annotations({
     description: "Recurring rules (RFC5545 RRULE format)"
   }),
   allDay: Schema.optional(Schema.Boolean.annotations({
-    description: "All-day event (default: false)"
+    description: `All-day event (default: ${DEFAULT_EVENT_ALL_DAY})`
   })),
   location: Schema.optional(Schema.String.annotations({
     description: "Event location"
@@ -301,11 +307,12 @@ export const ListEventInstancesParamsSchema = Schema.Struct({
   })),
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of instances to return (default: 50)"
+      description: `Maximum number of instances to return (default: ${DEFAULT_LIMIT})`
     })
   ),
   includeParticipants: Schema.optional(Schema.Boolean.annotations({
-    description: "Include full participant info (requires extra lookups, default: off)"
+    description:
+      `Include full participant info (requires extra lookups, default: ${DEFAULT_RECURRING_INSTANCE_PARTICIPANTS_INCLUDED})`
   }))
 }).annotations({
   title: "ListEventInstancesParams",

@@ -233,10 +233,10 @@ For a Smithery publish schema example, see [docs/SMITHERY_URL_PUBLISH.md](docs/S
 | `HULY_PASSWORD` | Auth* | Account password |
 | `HULY_TOKEN` | Auth* | API token (alternative to email/password) |
 | `HULY_WORKSPACE` | Yes | Workspace identifier |
-| `HULY_CONNECTION_TIMEOUT` | No | Connection timeout in ms (default: 30000) |
+| `HULY_CONNECTION_TIMEOUT` | No | Connection timeout in ms. Omit to use the package default. |
 | `MCP_TRANSPORT` | No | Transport type: `stdio` (default) or `http` |
 | `MCP_HTTP_PORT` | No | HTTP server port (falls back to `PORT`, then 3000) |
-| `MCP_HTTP_HOST` | No | HTTP server host (default: 127.0.0.1) |
+| `MCP_HTTP_HOST` | No | HTTP server host. Omit to bind to the package default loopback host. |
 | `MCP_AUTH_TOKEN` | No | Optional bearer token required by HTTP clients for `/mcp`. This protects the MCP endpoint only; it is not a Huly API token. |
 | `TOOLSETS` | No | Comma-separated tool categories to expose. If unset, all tools are exposed. Example: `issues,projects,search` |
 
@@ -271,7 +271,7 @@ Highest-value additions for coding agents:
 
 - Generic space follow-ups: role assignment mutations, role/permission definition writes, generic space creation, and module-specific wrappers above the shared space foundation.
 - SDK discovery phase 2: space types, roles, permissions, plugin configuration, sequence metadata, and richer tool hints.
-- Drive tools: drive spaces, folders, files, file versions, path traversal, moves, permissions, and comments/activity.
+- Drive follow-ups: drive create/update/delete, item move/rename/delete, adding new versions to existing files, permissions, and comments/activity.
 - Planner/ToDos: personal and project ToDo CRUD, scheduling, complete/reopen, priority, privacy/visibility, and document action items.
 - Recruiting: vacancies, candidates, applications, application statuses, recruiter assignment, reviews, opinions, skills, and related comments/attachments/activity.
 - Controlled documents and trainings: controlled document spaces/projects, review/approval workflows, templates, categories, snapshots/history, training assignments, attempts, scoring, and results.
@@ -283,7 +283,7 @@ Planned feature surfaces:
 - Controlled Documents / TraceX documents: controlled spaces/projects, controlled document CRUD, quality/technical docs, co-authors/reviewers/approvers, e-signature workflows, release/effective-date metadata, change control, training linkage, controlled-document comments, and snapshots/history.
 - Products and product versions: product spaces, members, descriptions, attachments, versions, version state transitions, and change-control links.
 - Trainings, questions, and assessments: training revisions, releases, requests, due dates, max attempts, question banks, answer options, correct-answer data, submissions, scoring, and reporting.
-- Drive: drives, folders, files, file versions, current-version selection, path traversal, moves, uploads, comments/activity, and permissions/members.
+- Drive: first slice covers listing/getting drives, path traversal/list/get items, idempotent folder creation, uploads with parent creation, version listing, and restoring existing versions. Remaining gaps are drive create/update/delete, item move/rename/delete, adding new versions to existing files, comments/activity, and permissions/members.
 - HR: departments, nested departments, staff mixins, managers, subscribers, team leads, request types, PTO/sick/overtime/remote requests, public holidays, and schedule/table reports.
 - Recruiting: vacancies, talents/candidates, applications, matches, reviews, verdicts/opinions, vacancy-company lists, skills, and recruiting-specific custom fields/relations.
 - Surveys and polls: survey CRUD, poll creation/attachment, survey question data, completion status, and results.
@@ -322,7 +322,7 @@ SDK upgrade revisit:
 <!-- AUTO-GENERATED from src/mcp/tools/ descriptions. Do not edit manually. Run `pnpm update-readme` to regenerate. -->
 ## Available Tools
 
-**`TOOLSETS` categories:** `projects`, `issues`, `comments`, `milestones`, `documents`, `storage`, `attachments`, `contacts`, `channels`, `calendar`, `time tracking`, `search`, `associations`, `activity`, `notifications`, `workspace`, `cards`, `custom-fields`, `labels`, `leads`, `planner`, `processes`, `sdk-discovery`, `spaces`, `tag-categories`, `tags`, `task-management`, `test-management`, `user-statuses`, `virtual-office`
+**`TOOLSETS` categories:** `projects`, `issues`, `comments`, `milestones`, `documents`, `storage`, `attachments`, `contacts`, `channels`, `calendar`, `time tracking`, `search`, `associations`, `activity`, `notifications`, `workspace`, `cards`, `custom-fields`, `drive`, `labels`, `leads`, `planner`, `processes`, `sdk-discovery`, `spaces`, `tag-categories`, `tags`, `task-management`, `test-management`, `user-statuses`, `virtual-office`
 
 ### Projects
 
@@ -562,7 +562,7 @@ SDK upgrade revisit:
 | `get_user_profile` | Get the current user's profile information including bio, location, and social links. |
 | `update_user_profile` | Update the current user's profile. Supports bio, city, country, website, social links, and public visibility. |
 | `update_guest_settings` | Update workspace guest settings. Control read-only guest access and guest sign-up permissions. |
-| `create_access_link` | Create a Huly workspace access link. Defaults to role GUEST. Supports anonymous reusable guest links by setting personalized=false with notBefore and expiration, and can restrict access to specific Huly space IDs via spaces. |
+| `create_access_link` | Create a Huly workspace access link. When role is omitted, role=GUEST. Supports anonymous reusable guest links by setting personalized=false with notBefore and expiration, and can restrict access to specific Huly space IDs via spaces. |
 | `get_regions` | Get available regions for workspace creation. Returns region codes and display names. |
 
 ### Cards
@@ -584,6 +584,19 @@ SDK upgrade revisit:
 | `list_custom_fields` | List custom field definitions in the workspace. Returns fields with their labels, types, and owner class info. Custom fields are created in the Huly UI on Card types, Issue types, or other classes. Use targetClass to filter fields for a specific class. |
 | `get_custom_field_values` | Read custom field values from a document. Pass the document's ID and class (from list_cards, list_issues, etc.). Returns all custom field values found on the document with their labels and types. |
 | `set_custom_field` | Set a custom field value on a document. Requires the document ID, class, field ID (from list_custom_fields), and value. Values are auto-parsed: numbers from numeric strings, booleans from 'true'/'false', strings as-is. |
+
+### Drive
+
+| Tool | Description |
+|------|-------------|
+| `list_drives` | List Huly Drive spaces. When includeArchived is omitted, includeArchived=undefined. Use this before path operations when you do not know the exact drive id or exact drive name. |
+| `get_drive` | Get one Huly Drive by exact drive id or exact drive name. If an exact name is ambiguous, the error includes candidate ids so the next call can use the id. |
+| `list_drive_items` | List children under a folder path in a Drive. Paths are POSIX-like and normalized to absolute; '/' lists the root. Duplicate same-parent titles fail with candidate ids instead of guessing. |
+| `get_drive_item` | Get one Drive folder or file by either exact itemId or path. Provide only one locator. File results include current version, size, MIME type, and download URL when available. |
+| `create_drive_folder` | Idempotently create a Drive folder path, creating missing parents like mkdir -p. Returns created=false when the full folder path already exists. |
+| `upload_drive_file` | Upload a file into Drive at a full path including filename. Provide exactly one source: filePath, fileUrl, or base64 data. By default createParents=true creates missing parent folders and reports them. |
+| `list_drive_file_versions` | List versions for a Drive file resolved by file id or file path. Marks the current version and includes blob id, size, MIME type, lastModified, and download URL. |
+| `restore_drive_file_version` | Restore an existing Drive file version by version id or numeric version. Idempotent when the requested version is already current and does not increment the file version counter. |
 
 ### Labels
 
@@ -608,7 +621,7 @@ SDK upgrade revisit:
 |------|-------------|
 | `list_todos` | List Huly Planner ToDos. Empty input returns up to 50 ToDos in planner order with all completion states. Use owner, issue, title, due date, priority, visibility, or completion filters to narrow results. |
 | `get_todo` | Get one Planner ToDo by raw todoId or by human locator such as issue + title + owner. Returns stable ToDo fields, owner, attachment context, description, labels count, and work slot count. |
-| `create_todo` | Create a Planner ToDo. Omit attachedTo for a personal ToDo, or pass attachedTo.type=issue with project and identifier for an issue action item. The owner defaults to the authenticated user. |
+| `create_todo` | Create a Planner ToDo. Omit attachedTo for a personal ToDo, or pass attachedTo.type=issue with project and identifier for an issue action item. Omit owner to use the authenticated user. |
 | `update_todo` | Update a Planner ToDo by human locator or raw todoId. Supports title, markdown description, owner, dueDate including null to clear, priority, and visibility. |
 | `complete_todo` | Complete a Planner ToDo by setting doneOn. Huly may trim future work slots and run issue automation when the ToDo is attached to an issue. |
 | `reopen_todo` | Reopen a completed Planner ToDo by clearing doneOn. Human locators search completed ToDos by default; raw todoId locators target that exact ToDo. |
@@ -639,7 +652,7 @@ SDK upgrade revisit:
 
 | Tool | Description |
 |------|-------------|
-| `list_spaces` | List generic Huly spaces across modules. Defaults to active/non-archived spaces. Returns raw space id, class, type, privacy, archived, autoJoin, member count, and owner count so module-specific tools can reuse the result. |
+| `list_spaces` | List generic Huly spaces across modules. When includeArchived is omitted, includeArchived=undefined. Returns raw space id, class, type, privacy, archived, autoJoin, member count, and owner count so module-specific tools can reuse the result. |
 | `get_space` | Get one generic Huly space by raw space _id or exact space name. Resolution tries _id first, then exact name. If a name matches multiple spaces, pass class and/or type to narrow; ambiguous errors include matching ids/classes/types. |
 | `list_space_types` | List configured Huly SpaceType records. Returns descriptor id, base class, target class, default members, autoJoin, and role count for discovering typed-space configuration. |
 | `get_space_type` | Get one Huly SpaceType by raw SpaceType _id or exact name, including descriptor metadata, role definitions, role permission ids/labels, and available permissions. |
@@ -653,7 +666,7 @@ SDK upgrade revisit:
 
 | Tool | Description |
 |------|-------------|
-| `list_tag_categories` | List tag/label categories in the workspace. Categories group labels (e.g., 'Priority Labels', 'Type Labels'). Optional targetClass filter (defaults to all). |
+| `list_tag_categories` | List tag/label categories in the workspace. Categories group labels (e.g., 'Priority Labels', 'Type Labels'). Omit targetClass to include all classes. |
 | `create_tag_category` | Create a new tag/label category. Idempotent: returns existing category if one with the same label and targetClass already exists (created=false). Defaults targetClass to tracker issues. |
 | `update_tag_category` | Update a tag/label category. Accepts category ID or label name. Only provided fields are modified. |
 | `delete_tag_category` | Permanently delete a tag/label category. Accepts category ID or label name. Labels in this category will be orphaned (not deleted). This action cannot be undone. |

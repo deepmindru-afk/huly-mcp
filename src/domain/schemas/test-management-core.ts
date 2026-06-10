@@ -4,6 +4,7 @@ import type { ListTotal, TestCaseId, TestProjectId, TestSuiteId } from "./shared
 import {
   assertUpdateFields,
   atLeastOneUpdateFieldMessage,
+  DEFAULT_LIMIT,
   enumValuesDescription,
   hasAtLeastOneDefined,
   LimitParam,
@@ -18,12 +19,14 @@ import {
 
 export const TestCaseTypeValues = ["functional", "performance", "regression", "security", "smoke", "usability"] as const
 export type TestCaseTypeStr = (typeof TestCaseTypeValues)[number]
+export const DEFAULT_TEST_CASE_TYPE: TestCaseTypeStr = "functional"
 export const TestCaseTypeSchema = Schema.Literal(...TestCaseTypeValues).annotations({
   description: `Test case type: ${enumValuesDescription(TestCaseTypeValues)}`
 })
 
 export const TestCasePriorityValues = ["low", "medium", "high", "urgent"] as const
 export type TestCasePriorityStr = (typeof TestCasePriorityValues)[number]
+export const DEFAULT_TEST_CASE_PRIORITY: TestCasePriorityStr = "medium"
 export const TestCasePrioritySchema = Schema.Literal(...TestCasePriorityValues).annotations({
   description: `Test case priority: ${enumValuesDescription(TestCasePriorityValues)}`
 })
@@ -36,6 +39,7 @@ export const TestCaseStatusValues = [
   "rejected"
 ] as const
 export type TestCaseStatusStr = (typeof TestCaseStatusValues)[number]
+export const DEFAULT_TEST_CASE_STATUS: TestCaseStatusStr = "draft"
 export const TestCaseStatusSchema = Schema.Literal(...TestCaseStatusValues).annotations({
   description: `Test case status: ${enumValuesDescription(TestCaseStatusValues)}`
 })
@@ -76,7 +80,7 @@ export interface TestCaseSummary {
 export const ListTestProjectsParamsSchema = Schema.Struct({
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of projects to return (default: 50)"
+      description: `Maximum number of projects to return (default: ${DEFAULT_LIMIT})`
     })
   )
 }).annotations({
@@ -97,7 +101,7 @@ export const ListTestSuitesParamsSchema = Schema.Struct({
   ),
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of suites to return (default: 50)"
+      description: `Maximum number of suites to return (default: ${DEFAULT_LIMIT})`
     })
   )
 }).annotations({
@@ -213,7 +217,7 @@ export const ListTestCasesParamsSchema = Schema.Struct({
   ),
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of test cases to return (default: 50)"
+      description: `Maximum number of test cases to return (default: ${DEFAULT_LIMIT})`
     })
   )
 }).annotations({
@@ -254,17 +258,17 @@ export const CreateTestCaseParamsSchema = Schema.Struct({
   ),
   type: Schema.optional(
     TestCaseTypeSchema.annotations({
-      description: "Test case type (default: functional)"
+      description: `Test case type (default: ${DEFAULT_TEST_CASE_TYPE})`
     })
   ),
   priority: Schema.optional(
     TestCasePrioritySchema.annotations({
-      description: "Test case priority (default: medium)"
+      description: `Test case priority (default: ${DEFAULT_TEST_CASE_PRIORITY})`
     })
   ),
   status: Schema.optional(
     TestCaseStatusSchema.annotations({
-      description: "Test case status (default: draft)"
+      description: `Test case status (default: ${DEFAULT_TEST_CASE_STATUS})`
     })
   ),
   assignee: Schema.optional(

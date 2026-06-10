@@ -13,6 +13,8 @@ import {
 } from "./shared.js"
 
 export const SDK_DISCOVERY_DEFAULT_LIMIT = 100
+export const DEFAULT_INCLUDE_INHERITED_ATTRIBUTES = true
+export const DEFAULT_CUSTOM_FIELDS_ONLY = false
 
 const KnownClassifierKindValues = ["class", "interface", "mixin"] as const
 const ClassifierKindValues = [...KnownClassifierKindValues, "unknown"] as const
@@ -239,7 +241,7 @@ export const GetHulyClassParamsSchema = Schema.Struct({
     description: "Exact Huly class, interface, or mixin ID returned by list_huly_classes"
   }),
   includeInheritedAttributes: Schema.optional(Schema.Boolean.annotations({
-    description: "Include attributes declared on parent classes. Defaults to true."
+    description: `Include attributes declared on parent classes. Defaults to ${DEFAULT_INCLUDE_INHERITED_ATTRIBUTES}.`
   }))
 }).annotations({
   title: "GetHulyClassParams",
@@ -262,7 +264,7 @@ export const ListHulyAttributesParamsSchema = Schema.Struct({
     description: "Case-insensitive substring match against attribute ID, name, label, owner class ID, or type target"
   })),
   customOnly: Schema.optional(Schema.Boolean.annotations({
-    description: "Only return attributes marked as custom fields. Defaults to false."
+    description: `Only return attributes marked as custom fields. Defaults to ${DEFAULT_CUSTOM_FIELDS_ONLY}.`
   })),
   limit: Schema.optional(LimitParam.annotations({
     description: sdkDiscoveryLimitDescription("attributes")

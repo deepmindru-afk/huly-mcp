@@ -7,6 +7,8 @@ import {
   atLeastOneUpdateFieldMessage,
   CardIdentifier,
   CardSpaceIdentifier,
+  DEFAULT_INCLUDE_ARCHIVED,
+  DEFAULT_LIMIT,
   hasAtLeastOneDefined,
   LimitParam,
   MasterTagIdentifier,
@@ -23,11 +25,11 @@ export interface CardSpaceSummary {
 
 export const ListCardSpacesParamsSchema = Schema.Struct({
   includeArchived: Schema.optional(Schema.Boolean.annotations({
-    description: "Include archived card spaces in results (default: false, showing only active)"
+    description: `Include archived card spaces in results (default: ${DEFAULT_INCLUDE_ARCHIVED}, showing only active)`
   })),
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of card spaces to return (default: 50)"
+      description: `Maximum number of card spaces to return (default: ${DEFAULT_LIMIT})`
     })
   )
 }).annotations({
@@ -89,7 +91,7 @@ const ListCardsParamsBase = Schema.Struct({
   })),
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of cards to return (default: 50)"
+      description: `Maximum number of cards to return (default: ${DEFAULT_LIMIT})`
     })
   )
 })

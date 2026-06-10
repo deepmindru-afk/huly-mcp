@@ -37,6 +37,8 @@ import type {
 import {
   AssociationName,
   AssociationRoleName,
+  DEFAULT_ASSOCIATION_AUTOMATION_ONLY,
+  DEFAULT_INCLUDE_SYSTEM_ASSOCIATIONS,
   DefaultRelationDirection,
   ListRelationsWarning
 } from "../../domain/schemas/generic-associations.js"
@@ -288,7 +290,7 @@ const matchesAssociationIdentifier = (association: HulyAssociation, identifier: 
 const associationFiltersFromParams = (
   params: Pick<ListAssociationsParams, "sourceClass" | "targetClass" | "includeSystem">
 ): AssociationFilters => ({
-  includeSystem: params.includeSystem === true,
+  includeSystem: params.includeSystem ?? DEFAULT_INCLUDE_SYSTEM_ASSOCIATIONS,
   sourceClass: params.sourceClass,
   targetClass: params.targetClass
 })
@@ -488,7 +490,7 @@ const createdAssociationSummaryInput = (
   nameA: params.sourceRole,
   nameB: params.targetRole,
   type: SDK_CARDINALITY[params.cardinality],
-  automationOnly: params.automationOnly ?? false
+  automationOnly: params.automationOnly ?? DEFAULT_ASSOCIATION_AUTOMATION_ONLY
 })
 
 export const createAssociation = (
@@ -516,11 +518,11 @@ export const createAssociation = (
           reason: `existing cardinality is ${cardinality(existing.type)}, requested ${params.cardinality}`
         })
       }
-      if (associationAutomationOnly(existing) !== (params.automationOnly ?? false)) {
+      if (associationAutomationOnly(existing) !== (params.automationOnly ?? DEFAULT_ASSOCIATION_AUTOMATION_ONLY)) {
         return yield* new AssociationConflictError({
           associationId: AssociationId.make(existing._id),
           reason: `existing automationOnly is ${associationAutomationOnly(existing)}, requested ${
-            params.automationOnly ?? false
+            params.automationOnly ?? DEFAULT_ASSOCIATION_AUTOMATION_ONLY
           }`
         })
       }
@@ -537,7 +539,7 @@ export const createAssociation = (
       nameA: params.sourceRole,
       nameB: params.targetRole,
       type: SDK_CARDINALITY[params.cardinality],
-      automationOnly: params.automationOnly ?? false
+      automationOnly: params.automationOnly ?? DEFAULT_ASSOCIATION_AUTOMATION_ONLY
     }
     const associationId = yield* client.createDoc<HulyAssociation>(
       core.class.Association,

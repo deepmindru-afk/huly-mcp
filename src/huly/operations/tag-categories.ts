@@ -15,10 +15,14 @@ import type {
   UpdateTagCategoryParams,
   UpdateTagCategoryResult
 } from "../../domain/schemas/tag-categories.js"
-import { UPDATE_TAG_CATEGORY_FIELDS } from "../../domain/schemas/tag-categories.js"
+import {
+  DEFAULT_TAG_CATEGORY_FLAG,
+  DEFAULT_TAG_CATEGORY_TARGET_CLASS,
+  UPDATE_TAG_CATEGORY_FIELDS
+} from "../../domain/schemas/tag-categories.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import { type NoUpdateFieldsError, TagCategoryNotFoundError } from "../errors.js"
-import { core, tags, tracker } from "../huly-plugins.js"
+import { core, tags } from "../huly-plugins.js"
 import { clampLimit } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
 import { type DirectUpdateEntry, mergeUpdateEntries, requireUpdateFields } from "./update-guards.js"
@@ -28,7 +32,7 @@ type CreateTagCategoryError = HulyClientError
 type UpdateTagCategoryError = HulyClientError | NoUpdateFieldsError | TagCategoryNotFoundError
 type DeleteTagCategoryError = HulyClientError | TagCategoryNotFoundError
 
-const issueClassRef = toRef<Class<Doc>>(tracker.class.Issue)
+const defaultTargetClassRef = toRef<Class<Doc>>(DEFAULT_TAG_CATEGORY_TARGET_CLASS)
 
 const findCategoryByIdOrLabel = (
   client: HulyClient["Type"],
@@ -97,7 +101,7 @@ export const createTagCategory = (
     const client = yield* HulyClient
     const targetClass = params.targetClass !== undefined
       ? toRef<Class<Doc>>(params.targetClass)
-      : issueClassRef
+      : defaultTargetClassRef
 
     const existing = yield* client.findOne<HulyTagCategory>(
       tags.class.TagCategory,
@@ -121,7 +125,7 @@ export const createTagCategory = (
       // Huly does NOT auto-populate tags[] when TagElements reference this category.
       // To find labels in a category, query TagElements by their `category` field instead.
       tags: [],
-      default: params.default ?? false
+      default: params.default ?? DEFAULT_TAG_CATEGORY_FLAG
     }
 
     yield* client.createDoc(

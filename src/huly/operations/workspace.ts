@@ -38,7 +38,11 @@ import type {
   WorkspaceMember,
   WorkspaceSummary
 } from "../../domain/schemas/workspace.js"
-import { UPDATE_GUEST_SETTINGS_FIELDS, UPDATE_USER_PROFILE_FIELDS } from "../../domain/schemas/workspace.js"
+import {
+  DEFAULT_ACCESS_LINK_ROLE,
+  UPDATE_GUEST_SETTINGS_FIELDS,
+  UPDATE_USER_PROFILE_FIELDS
+} from "../../domain/schemas/workspace.js"
 import type { InvalidPersonUuidError, NoUpdateFieldsError } from "../errors.js"
 import { WorkspaceClient, type WorkspaceClientError } from "../workspace-client.js"
 import { clampLimit } from "./query-helpers.js"
@@ -300,7 +304,7 @@ export const createAccessLink = (
 ): Effect.Effect<CreateAccessLinkResult, CreateAccessLinkError, WorkspaceClient> =>
   Effect.gen(function*() {
     const ops = yield* WorkspaceClient
-    const role = params.role ?? "GUEST"
+    const role = params.role ?? DEFAULT_ACCESS_LINK_ROLE
 
     const link = yield* ops.createAccessLink(toHulyAccountRole(role), toCreateAccessLinkOptions(params))
 

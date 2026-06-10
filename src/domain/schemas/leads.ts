@@ -1,7 +1,17 @@
 import { JSONSchema, ParseResult, Schema } from "effect"
 
 import type { ListTotal } from "./shared.js"
-import { DocId, LimitParam, NonEmptyString, PersonName, PersonRefInput, StatusName, Timestamp } from "./shared.js"
+import {
+  DEFAULT_INCLUDE_ARCHIVED,
+  DEFAULT_LIMIT,
+  DocId,
+  LimitParam,
+  NonEmptyString,
+  PersonName,
+  PersonRefInput,
+  StatusName,
+  Timestamp
+} from "./shared.js"
 
 // --- Lead IDs ---
 // Upstream Huly reference:
@@ -100,11 +110,11 @@ export type LeadDetail = Schema.Schema.Type<typeof LeadDetailSchema>
 
 export const ListFunnelsParamsSchema = Schema.Struct({
   includeArchived: Schema.optional(Schema.Boolean.annotations({
-    description: "Include archived funnels in results (default: false, showing only active)"
+    description: `Include archived funnels in results (default: ${DEFAULT_INCLUDE_ARCHIVED}, showing only active)`
   })),
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of funnels to return (default: 50)"
+      description: `Maximum number of funnels to return (default: ${DEFAULT_LIMIT})`
     })
   )
 }).annotations({
@@ -129,7 +139,7 @@ const ListLeadsParamsBase = Schema.Struct({
   })),
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of leads to return (default: 50)"
+      description: `Maximum number of leads to return (default: ${DEFAULT_LIMIT})`
     })
   )
 })

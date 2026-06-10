@@ -17,6 +17,7 @@ import type {
   SetCustomFieldResult,
   UnknownCustomFieldTypeDetails
 } from "../../domain/schemas/custom-fields.js"
+import { CUSTOM_FIELDS_DEFAULT_LIMIT } from "../../domain/schemas/custom-fields.js"
 import { CustomFieldId, ObjectClassName } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import { CustomFieldNotFoundError, CustomFieldObjectNotFoundError } from "../errors-custom-fields.js"
@@ -29,8 +30,6 @@ import { toRef } from "./sdk-boundary.js"
 type ListCustomFieldsError = HulyClientError
 type GetCustomFieldValuesError = HulyClientError | CustomFieldObjectNotFoundError
 type SetCustomFieldError = HulyClientError | CustomFieldNotFoundError | CustomFieldObjectNotFoundError
-
-const DEFAULT_LIMIT = 200
 
 type JsonMap = Record<string, unknown>
 
@@ -231,7 +230,7 @@ export const listCustomFields = (
 ): Effect.Effect<Array<CustomFieldInfo>, ListCustomFieldsError, HulyClient> =>
   Effect.gen(function*() {
     const client = yield* HulyClient
-    const limit = clampLimit(params.limit ?? DEFAULT_LIMIT)
+    const limit = clampLimit(params.limit ?? CUSTOM_FIELDS_DEFAULT_LIMIT)
 
     const query: Record<string, unknown> = { isCustom: true }
     if (params.targetClass !== undefined) {

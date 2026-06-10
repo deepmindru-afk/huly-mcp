@@ -22,7 +22,7 @@ export const tagCategoryTools: ReadonlyArray<RegisteredTool> = [
   {
     name: "list_tag_categories",
     description:
-      "List tag/label categories in the workspace. Categories group labels (e.g., 'Priority Labels', 'Type Labels'). Optional targetClass filter (defaults to all).",
+      "List tag/label categories in the workspace. Categories group labels (e.g., 'Priority Labels', 'Type Labels'). Omit targetClass to include all classes.",
     category: CATEGORY,
     inputSchema: listTagCategoriesParamsJsonSchema,
     handler: createToolHandler(

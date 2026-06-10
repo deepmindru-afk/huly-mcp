@@ -16,6 +16,7 @@ import {
   spaceMemberMutationParamsJsonSchema,
   updateSpaceParamsJsonSchema
 } from "../../domain/schemas.js"
+import { DEFAULT_INCLUDE_ARCHIVED } from "../../domain/schemas/shared.js"
 import {
   addSpaceMembers,
   getSpace,
@@ -35,7 +36,7 @@ export const spaceTools: ReadonlyArray<RegisteredTool> = [
   {
     name: "list_spaces",
     description:
-      "List generic Huly spaces across modules. Defaults to active/non-archived spaces. Returns raw space id, class, type, privacy, archived, autoJoin, member count, and owner count so module-specific tools can reuse the result.",
+      `List generic Huly spaces across modules. When includeArchived is omitted, includeArchived=${DEFAULT_INCLUDE_ARCHIVED}. Returns raw space id, class, type, privacy, archived, autoJoin, member count, and owner count so module-specific tools can reuse the result.`,
     category: CATEGORY,
     inputSchema: listSpacesParamsJsonSchema,
     handler: createToolHandler("list_spaces", parseListSpacesParams, listSpaces)

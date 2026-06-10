@@ -4,6 +4,7 @@ import { clearableText } from "./clearable.js"
 import {
   assertUpdateFields,
   atLeastOneUpdateFieldMessage,
+  DEFAULT_LIMIT,
   enumValuesDescription,
   hasAtLeastOneDefined,
   IssueIdentifier,
@@ -60,7 +61,7 @@ export const ListMilestonesParamsSchema = Schema.Struct({
   }),
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of milestones to return (default: 50)"
+      description: `Maximum number of milestones to return (default: ${DEFAULT_LIMIT})`
     })
   )
 }).annotations({

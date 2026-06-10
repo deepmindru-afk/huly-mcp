@@ -4,6 +4,7 @@ import {
   ActivityMessageId,
   ChannelIdentifier,
   Count,
+  DEFAULT_LIMIT,
   DocId,
   DocumentIdentifier,
   EmojiCode,
@@ -90,7 +91,7 @@ export const ListActivityParamsSchema = Schema.Struct({
   })),
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of activity messages to return (default: 50)"
+      description: `Maximum number of activity messages to return (default: ${DEFAULT_LIMIT})`
     })
   )
 }).pipe(
@@ -157,7 +158,7 @@ export const ListReactionsParamsSchema = Schema.Struct({
   }),
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of reactions to return (default: 50)"
+      description: `Maximum number of reactions to return (default: ${DEFAULT_LIMIT})`
     })
   )
 }).annotations({
@@ -192,7 +193,7 @@ export type UnsaveMessageParams = Schema.Schema.Type<typeof UnsaveMessageParamsS
 export const ListSavedMessagesParamsSchema = Schema.Struct({
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of saved messages to return (default: 50)"
+      description: `Maximum number of saved messages to return (default: ${DEFAULT_LIMIT})`
     })
   )
 }).annotations({
@@ -205,7 +206,7 @@ export type ListSavedMessagesParams = Schema.Schema.Type<typeof ListSavedMessage
 export const ListMentionsParamsSchema = Schema.Struct({
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of mentions to return (default: 50)"
+      description: `Maximum number of mentions to return (default: ${DEFAULT_LIMIT})`
     })
   )
 }).annotations({
@@ -219,7 +220,7 @@ const activityLimitJsonSchema = {
   type: "integer",
   minimum: 1,
   maximum: MAX_LIMIT,
-  description: "Maximum number of activity messages to return (default: 50)"
+  description: `Maximum number of activity messages to return (default: ${DEFAULT_LIMIT})`
 }
 
 const targetStringJsonSchema = (description: string): object => ({

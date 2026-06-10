@@ -5,6 +5,7 @@ import {
   CardIdentifier,
   CardSpaceIdentifier,
   Count,
+  DEFAULT_LIMIT,
   DocId,
   DocumentIdentifier,
   enumValuesDescription,
@@ -18,6 +19,9 @@ import {
   TeamspaceIdentifier,
   Timestamp
 } from "./shared.js"
+
+export const DEFAULT_INCLUDE_SYSTEM_ASSOCIATIONS = false
+export const DEFAULT_ASSOCIATION_AUTOMATION_ONLY = false
 
 export const AssociationIdentifier = NonEmptyString.pipe(Schema.brand("AssociationIdentifier"))
 export type AssociationIdentifier = Schema.Schema.Type<typeof AssociationIdentifier>
@@ -177,10 +181,10 @@ export const ListAssociationsParamsSchema = Schema.Struct({
     description: "Only return associations whose relation create/delete path has been validated and allowlisted"
   })),
   includeSystem: Schema.optional(Schema.Boolean.annotations({
-    description: "Include internal/system associations. Defaults to false."
+    description: `Include internal/system associations. Defaults to ${DEFAULT_INCLUDE_SYSTEM_ASSOCIATIONS}.`
   })),
   limit: Schema.optional(LimitParam.annotations({
-    description: "Maximum number of associations to return (default: 50)"
+    description: `Maximum number of associations to return (default: ${DEFAULT_LIMIT})`
   }))
 }).annotations({
   title: "ListAssociationsParams",
@@ -210,7 +214,7 @@ const CreateAssociationParamsSchema = Schema.Struct({
   cardinality: CardinalitySchema,
   automationOnly: Schema.optional(Schema.Boolean.annotations({
     description:
-      "Whether Huly automation-only UI paths should own relation writes for this association. Defaults to false."
+      `Whether Huly automation-only UI paths should own relation writes for this association. Defaults to ${DEFAULT_ASSOCIATION_AUTOMATION_ONLY}.`
   })),
   ifExists: Schema.optional(AssociationIfExistsSchema.annotations({
     description:
@@ -265,7 +269,7 @@ const ListRelationsParamsBaseSchema = Schema.Struct({
     description: relationDirectionDescription
   })),
   limit: Schema.optional(LimitParam.annotations({
-    description: "Maximum number of relations to return (default: 50)"
+    description: `Maximum number of relations to return (default: ${DEFAULT_LIMIT})`
   }))
 }).annotations({
   title: "ListRelationsParams",

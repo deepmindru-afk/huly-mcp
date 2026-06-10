@@ -4,6 +4,9 @@ import type { DocumentId, ListTotal, TeamspaceId, UrlString } from "./shared.js"
 import {
   assertUpdateFields,
   atLeastOneUpdateFieldMessage,
+  DEFAULT_INCLUDE_ARCHIVED,
+  DEFAULT_LIMIT,
+  DEFAULT_PRIVATE,
   DocumentIdentifier,
   hasAtLeastOneDefined,
   LimitParam,
@@ -11,6 +14,9 @@ import {
   TeamspaceIdentifier,
   withAtLeastOneRequired
 } from "./shared.js"
+
+const DEFAULT_REPLACE_ALL = false
+const DEFAULT_INCLUDE_COMMENT_REPLIES = false
 
 // No codec needed — internal type, not used for runtime validation
 export interface TeamspaceSummary {
@@ -23,11 +29,11 @@ export interface TeamspaceSummary {
 
 export const ListTeamspacesParamsSchema = Schema.Struct({
   includeArchived: Schema.optional(Schema.Boolean.annotations({
-    description: "Include archived teamspaces in results (default: false, showing only active)"
+    description: `Include archived teamspaces in results (default: ${DEFAULT_INCLUDE_ARCHIVED}, showing only active)`
   })),
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of teamspaces to return (default: 50)"
+      description: `Maximum number of teamspaces to return (default: ${DEFAULT_LIMIT})`
     })
   )
 }).annotations({
@@ -66,7 +72,7 @@ const ListDocumentsParamsBase = Schema.Struct({
   })),
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of documents to return (default: 50)"
+      description: `Maximum number of documents to return (default: ${DEFAULT_LIMIT})`
     })
   )
 })
@@ -177,7 +183,8 @@ const EditDocumentParamsBase = Schema.Struct({
     description: "Replacement text. Empty string deletes the matched text. Required when old_text is provided."
   })),
   replace_all: Schema.optional(Schema.Boolean.annotations({
-    description: "Replace all occurrences of old_text (default: false). Only used with old_text/new_text."
+    description:
+      `Replace all occurrences of old_text (default: ${DEFAULT_REPLACE_ALL}). Only used with old_text/new_text.`
   }))
 })
 
@@ -258,7 +265,7 @@ export const CreateTeamspaceParamsSchema = Schema.Struct({
     description: "Teamspace description"
   })),
   private: Schema.optional(Schema.Boolean.annotations({
-    description: "Whether the teamspace is private (default: false)"
+    description: `Whether the teamspace is private (default: ${DEFAULT_PRIVATE})`
   }))
 }).annotations({
   title: "CreateTeamspaceParams",
@@ -341,7 +348,7 @@ export const ListInlineCommentsParamsSchema = Schema.Struct({
     description: "Document title or ID"
   }),
   includeReplies: Schema.optional(Schema.Boolean.annotations({
-    description: "Include thread reply messages for each inline comment (default: false)"
+    description: `Include thread reply messages for each inline comment (default: ${DEFAULT_INCLUDE_COMMENT_REPLIES})`
   }))
 }).annotations({
   title: "ListInlineCommentsParams",

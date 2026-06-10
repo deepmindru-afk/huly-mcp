@@ -24,7 +24,7 @@ import type {
 } from "../../domain/schemas/calendar-recurring.js"
 import { RecurringRuleSchema } from "../../domain/schemas/calendar-recurring.js"
 import type { Participant } from "../../domain/schemas/calendar.js"
-import { CalendarEventTitle } from "../../domain/schemas/calendar.js"
+import { CalendarEventTitle, DEFAULT_EVENT_ALL_DAY } from "../../domain/schemas/calendar.js"
 import { Email, EventId, PersonId, Timestamp, TimeZoneId } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import type { CalendarNotAccessibleError, PersonIdentifierAmbiguousError, PersonNotFoundError } from "../errors.js"
@@ -146,7 +146,7 @@ export const createRecurringEvent = (
       description: markupRefAsDescription(descriptionRef),
       date: params.startDate,
       dueDate,
-      allDay: params.allDay ?? false,
+      allDay: params.allDay ?? DEFAULT_EVENT_ALL_DAY,
       calendar: calendarRef,
       participants: participantRefs,
       access: stringToAccess(params.access ?? "owner"),

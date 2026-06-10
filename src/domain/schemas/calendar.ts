@@ -6,6 +6,7 @@ import {
   assertUpdateFields,
   atLeastOneUpdateFieldMessage,
   CalendarId,
+  DEFAULT_LIMIT,
   Email,
   EmptyParamsSchema,
   enumValuesDescription,
@@ -54,6 +55,12 @@ export const VisibilitySchema = Schema.Literal(...VisibilityValues).annotations(
 export type Visibility = Schema.Schema.Type<typeof VisibilitySchema>
 
 export type WritableCalendarAccess = "writer" | "owner"
+export const DEFAULT_EVENT_ALL_DAY = false
+export const DEFAULT_EVENT_DURATION_DESCRIPTION = "1 hour"
+const SECONDS_PER_MINUTE = 60
+const MINUTES_PER_HOUR = 60
+const MS_PER_SECOND = 1000
+export const DEFAULT_EVENT_DURATION_MS = SECONDS_PER_MINUTE * MINUTES_PER_HOUR * MS_PER_SECOND
 
 const CalendarAccessValues = ["freeBusyReader", "reader", "writer", "owner"] as const
 export type CalendarAccess = typeof CalendarAccessValues[number]
@@ -178,7 +185,7 @@ export const ListEventsParamsSchema = Schema.Struct({
   })),
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of events to return (default: 50)"
+      description: `Maximum number of events to return (default: ${DEFAULT_LIMIT})`
     })
   )
 }).annotations({
@@ -217,10 +224,10 @@ export const CreateEventParamsSchema = Schema.Struct({
     description: "Start date/time (timestamp)"
   }),
   dueDate: Schema.optional(Timestamp.annotations({
-    description: "End date/time (timestamp). If not provided, defaults to date + 1 hour"
+    description: `End date/time (timestamp). If omitted, Huly MCP uses date + ${DEFAULT_EVENT_DURATION_DESCRIPTION}.`
   })),
   allDay: Schema.optional(Schema.Boolean.annotations({
-    description: "All-day event (default: false)"
+    description: `All-day event (default: ${DEFAULT_EVENT_ALL_DAY})`
   })),
   location: Schema.optional(Schema.String.annotations({
     description: "Event location"

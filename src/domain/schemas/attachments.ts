@@ -5,6 +5,7 @@ import {
   assertUpdateFields,
   atLeastOneUpdateFieldMessage,
   AttachmentId,
+  DEFAULT_LIMIT,
   DocId,
   DocumentIdentifier,
   hasAtLeastOneDefined,
@@ -18,6 +19,8 @@ import {
   TeamspaceIdentifier,
   withAtLeastOneRequired
 } from "./shared.js"
+
+const DEFAULT_ATTACHMENT_PINNED = false
 
 // No codec needed — internal type, not used for runtime validation
 export interface AttachmentSummary {
@@ -52,7 +55,7 @@ export const ListAttachmentsParamsSchema = Schema.Struct({
   }),
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of attachments to return (default: 50)"
+      description: `Maximum number of attachments to return (default: ${DEFAULT_LIMIT})`
     })
   )
 }).annotations({
@@ -93,7 +96,7 @@ const FileSourceFields = {
     description: "Attachment description"
   })),
   pinned: Schema.optional(Schema.Boolean.annotations({
-    description: "Whether to pin the attachment (default: false)"
+    description: `Whether to pin the attachment (default: ${DEFAULT_ATTACHMENT_PINNED})`
   }))
 }
 

@@ -67,12 +67,16 @@ export const TodoVisibilitySchema = Schema.Literal(...TodoVisibilityValues).anno
 export type TodoVisibility = Schema.Schema.Type<typeof TodoVisibilitySchema>
 
 export const TodoCompletionStateValues = ["open", "completed", "all"] as const
+const DEFAULT_TODO_COMPLETION_STATE: typeof TodoCompletionStateValues[number] = "all"
 export const TodoCompletionStateSchema = Schema.Literal(...TodoCompletionStateValues).annotations({
   title: "TodoCompletionState",
   description:
     "Local MCP filter over Huly doneOn: open means doneOn is null, completed means doneOn is set, all applies no doneOn filter."
 })
 export type TodoCompletionState = Schema.Schema.Type<typeof TodoCompletionStateSchema>
+export const DEFAULT_TODO_PRIORITY: TodoPriority = "no-priority"
+export const DEFAULT_PERSONAL_TODO_VISIBILITY: TodoVisibility = "private"
+export const DEFAULT_ISSUE_TODO_VISIBILITY: TodoVisibility = "public"
 
 export const IssueTodoLocatorSchema = Schema.Struct({
   project: ProjectIdentifier.annotations({
@@ -159,7 +163,7 @@ export const ListTodosParamsSchema = Schema.Struct({
     description: "Only ToDos due at or before this timestamp."
   })),
   completionState: Schema.optional(TodoCompletionStateSchema.annotations({
-    description: "Completion filter. Default: all."
+    description: `Completion filter. Default: ${DEFAULT_TODO_COMPLETION_STATE}.`
   })),
   priority: Schema.optional(TodoPrioritySchema),
   visibility: Schema.optional(TodoVisibilitySchema),
@@ -195,10 +199,11 @@ export const CreateTodoParamsSchema = Schema.Struct({
     description: "Due date as Unix timestamp in milliseconds."
   })),
   priority: Schema.optional(TodoPrioritySchema.annotations({
-    description: "Priority. Default: no-priority."
+    description: `Priority. Default: ${DEFAULT_TODO_PRIORITY}.`
   })),
   visibility: Schema.optional(TodoVisibilitySchema.annotations({
-    description: "Visibility. Default: private for personal ToDos, public for issue ToDos."
+    description:
+      `Visibility. Default: ${DEFAULT_PERSONAL_TODO_VISIBILITY} for personal ToDos, ${DEFAULT_ISSUE_TODO_VISIBILITY} for issue ToDos.`
   })),
   attachedTo: Schema.optional(TodoAttachmentInputSchema.annotations({
     description: "Attachment target. If omitted, creates a personal ToDo."

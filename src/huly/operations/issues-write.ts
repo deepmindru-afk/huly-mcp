@@ -22,6 +22,7 @@ import { Effect, Schema } from "effect"
 
 import type { CreateIssueParams, DeleteIssueParams } from "../../domain/schemas.js"
 import type { CreateIssueResult, DeleteIssueResult } from "../../domain/schemas/issues.js"
+import { DEFAULT_ISSUE_PRIORITY } from "../../domain/schemas/issues.js"
 import { IssueId, IssueIdentifier, type ProjectIdentifier } from "../../domain/schemas/shared.js"
 import type { HulyClient, HulyClientError } from "../client.js"
 import type { IssueNotFoundError, PersonNotFoundError, ProjectNotFoundError } from "../errors.js"
@@ -85,7 +86,7 @@ const requireUpdatedSequence = (
  * Creates issue with:
  * - Title (required)
  * - Description (optional, markdown supported)
- * - Priority (optional, defaults to no-priority)
+ * - Priority (optional, uses DEFAULT_ISSUE_PRIORITY when omitted)
  * - Status (optional, uses project default)
  * - Assignee (optional, by email or name)
  */
@@ -175,7 +176,7 @@ export const createIssue = (
         )
         : null
 
-    const priority = stringToPriority(params.priority || "no-priority")
+    const priority = stringToPriority(params.priority ?? DEFAULT_ISSUE_PRIORITY)
     const identifier = `${project.identifier}-${sequence}`
 
     const issueData: AttachedData<HulyIssue> = {

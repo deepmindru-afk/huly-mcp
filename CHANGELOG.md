@@ -1,5 +1,17 @@
 # @firfi/huly-mcp
 
+## 0.26.0
+
+### Minor Changes
+
+- Add reversible notification controls for unread/archive/context state.
+
+  This release adds `mark_notification_unread`, `unarchive_notification`, and
+  `hide_notification_context`, plus hidden-context listing support through
+  `list_notification_contexts.includeHidden`. It also expands notification
+  integration coverage so reversible notification mutations run against a real
+  two-member local Huly fixture when available.
+
 ## 0.25.0
 
 ### Minor Changes

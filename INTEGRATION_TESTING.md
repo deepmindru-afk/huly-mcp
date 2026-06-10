@@ -32,6 +32,49 @@ set -a && source .env.local && set +a
 # If unset, the suite uses the first conversation returned by list_direct_messages.
 ```
 
+## Local Workspace Bootstrap Status
+
+The current local fixture is not a complete from-scratch test bootstrap. The
+checked-in instructions start Huly and point the suite at an existing
+`test-workspace`, but they do not yet create every data condition needed for
+zero-skip integration coverage.
+
+Known incomplete fixture:
+
+- A second workspace member is needed to deterministically test notification
+  write tools. Huly does not normally create inbox notifications for actions
+  performed by the same account that later reads the inbox, so a one-member
+  workspace leaves notification mutations skipped.
+
+Attempted SDK paths on the local self-host image:
+
+- `AccountClient.signUp(...)` can create a standalone local account such as
+  `actor@local.dev`.
+- `AccountClient.assignWorkspace(...)` with the workspace owner token returns
+  `Forbidden`; it appears to require service/admin privileges.
+- `AccountClient.createInviteLink(...)` with the workspace owner token returns
+  `Forbidden`.
+- `AccountClient.createAccessLink(...)` succeeds, but consuming the returned
+  token through `signUpJoin`, `joinByToken`, `checkAutoJoin`, or `checkJoin`
+  returns `InternalServerError` on the current local image.
+- Temporarily enabling `allowGuestSignUp` as the owner does not let the actor
+  account join/select the workspace; `selectWorkspace` returns `Forbidden` and
+  `checkAutoJoin` returns `InternalServerError`.
+
+Until this is automated, complete notification-write integration coverage needs
+one host-side/admin bootstrap step that adds a second account to
+`test-workspace` as a normal `USER`. Once present, set these local-only values
+in `.env.local` so the harness can seed cross-user notifications in a future
+change:
+
+```bash
+HULY_TEST_ACTOR_EMAIL=actor@local.dev
+HULY_TEST_ACTOR_PASSWORD=actor123
+```
+
+Do not mark the local setup as complete until a documented host-side command or
+script can create that second workspace member from a clean Huly deployment.
+
 ## Running from a Container (e.g., Claude Code devcontainer)
 
 When the test environment runs inside a container, `localhost:8087` is unreachable. Huly's `/config.json` also returns internal URLs pointing to `localhost:8087` (`ACCOUNTS_URL`, `COLLABORATOR_URL`, etc.), so simply changing `HULY_URL` isn't enough.

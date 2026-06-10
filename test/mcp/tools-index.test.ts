@@ -70,6 +70,17 @@ describe("CATEGORY_NAMES", () => {
       expect(names.has("list_device_preferences")).toBe(true)
       expect(names.has("list_office_defaults")).toBe(true)
     }))
+
+  it.effect("registers issue #102 closeout tools in their owning categories", () =>
+    Effect.gen(function*() {
+      expect(TOOL_DEFINITIONS.list_document_snapshots.category).toBe("documents")
+      expect(TOOL_DEFINITIONS.get_document_snapshot.category).toBe("documents")
+      expect(TOOL_DEFINITIONS.list_project_target_preferences.category).toBe("projects")
+      expect(TOOL_DEFINITIONS.upsert_project_target_preference.category).toBe("projects")
+      expect(TOOL_DEFINITIONS.list_related_issue_targets.category).toBe("issues")
+      expect(TOOL_DEFINITIONS.set_related_issue_target.category).toBe("issues")
+      expect(TOOL_DEFINITIONS.delete_related_issue_space_target.category).toBe("issues")
+    }))
 })
 
 describe("toolRegistry", () => {

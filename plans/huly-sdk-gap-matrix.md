@@ -60,7 +60,7 @@ Current high-level MCP categories:
 | View / saved filtered views | `.reference/platform/models/view/src/index.ts`: `FilteredView`, `Viewlet`, actions, view preferences | No saved-view tools; list tools accept ad hoc filters | Saved filtered views, user view preferences, viewlet descriptors, reusable filters/sorts/groups |
 | Workbench tabs/widgets/apps | `.reference/platform/models/workbench/src/index.ts`: `Application`, `ApplicationNavModel`, `HiddenApplication`, `Widget`, `WidgetPreference`, `WorkbenchTab` | No workbench UI state tools | List/hide apps, tabs, widgets, widget prefs. Mostly UI state, lower MCP priority |
 | Preference model | `.reference/platform/models/preference`; many modules store preferences | No generic preference tools | User preferences discovery/update for modules with preference-backed settings |
-| Document preferences and history | Installed `@hcengineering/document`; `node_modules/@hcengineering/document/types/types.d.ts` still exposes stale `SavedDocument extends Preference` plus `DocumentSnapshot`. Current platform source removed the `SavedDocument` model in hcengineering/platform#10124 and replaced document stars with rating-backed `DocReaction` / `ReactionKind.Star` | Document tools cover teamspaces, document CRUD, content edit, inline comments, relations, and deletion; no snapshot/history tools | List/read document snapshots/history before considering restore semantics. Do not implement `SavedDocument` as SDK parity unless the platform model is restored; current document stars belong to the Rating / reputation row |
+| Document preferences and history | Installed `@hcengineering/document`; `node_modules/@hcengineering/document/types/types.d.ts` still exposes stale `SavedDocument extends Preference` plus `DocumentSnapshot`. Current platform source removed the `SavedDocument` model in hcengineering/platform#10124 and replaced document stars with rating-backed `DocReaction` / `ReactionKind.Star` | Document tools cover teamspaces, document CRUD, content edit, inline comments, relations, deletion, and read-only snapshot/history list/get. | Snapshot restore remains deferred until restore semantics are proven. Do not implement `SavedDocument` as SDK parity unless the platform model is restored; current document stars belong to the Rating / reputation row |
 
 ## Installed SDK Packages With Partial MCP Coverage
 
@@ -74,12 +74,12 @@ Current high-level MCP categories:
 | `@hcengineering/chunter` | Partial | Group DMs, channel membership, join/leave, pin/star/archive semantics, message attachments/translation |
 | `@hcengineering/contact` | Partial | Person channels/social identities, employee invite/kick/reinvite, merge contacts, contact statuses |
 | `@hcengineering/core` | Partial | Attribute/enum writes, role assignment mutations, role/permission definition writes, generic space creation, collaborators, sequences |
-| `@hcengineering/document` | Partial | Snapshots/history, backlinks, notes, structured action items/tables, PDF/export, advanced document relationships |
+| `@hcengineering/document` | Partial | Snapshot restore, backlinks, notes, structured action items/tables, PDF/export, advanced document relationships |
 | `@hcengineering/notification` | Partial | Mute contexts, notification type settings, collaborators |
 | `@hcengineering/tags` | SDK-level covered; module wrappers partial | Module-specific wrappers for tag-backed concepts such as recruiting skills, board labels, controlled-doc labels, and contact tags |
 | `@hcengineering/task` | Partial | Generic task/project abstractions beyond tracker, reusable task workflows |
 | `@hcengineering/time` | Partial | ToDo/action item lifecycle, personal planner, visibility, schedule reports |
-| `@hcengineering/tracker` | Strong but partial | GitHub pull-request task type/sync details, PDF export, saved views, some workflow automation behavior |
+| `@hcengineering/tracker` | Strong but partial | GitHub pull-request task type/sync details, PDF export, saved views beyond ProjectTargetPreference, tracker-local Document support type, and broader workflow automation behavior |
 
 ## Highest-Value Additions For LLM Agents
 

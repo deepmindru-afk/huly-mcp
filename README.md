@@ -299,9 +299,9 @@ Planned feature surfaces:
 - Notifications and activity: browser/push subscription internals, provider defaults, UI presenter/viewlet metadata, and activity control/extension metadata.
 - Attachments and media: previews/preview metadata and friendly wrappers for additional object types beyond issue/document.
 - Core schema and workspace administration: attribute/property create/update/delete/hide, enum CRUD/options, sequence management, role assignment mutations, role/permission definition writes, generic space creation, global space admins, integrations registry, invite settings, role capability settings, and workspace setting metadata.
-- Integrations: GitHub repository/project mappings and sync metadata, Google Calendar connect/configure/sync controls, Bitrix entity/field mappings and sync status, Gmail/email channel messages, Telegram messages, Huly Mail/Mail plugin behavior, AI assistant integration state, and AI bot configuration if server-side APIs expose stable behavior.
+- Integrations: GitHub repository/project mappings and sync metadata (deferred), Google Calendar connect/configure/sync controls, Bitrix entity/field mappings and sync status, Gmail/email channel messages, Telegram messages, Huly Mail/Mail plugin behavior, AI assistant integration state, and AI bot configuration if server-side APIs expose stable behavior.
 - Templates, rating, support, billing, analytics, views, workbench, and preferences: message templates/categories/fields, document/person rating data blocked by unpublished `@hcengineering/rating` SDK package (#90), support conversations, billing tier/status discovery, onboarding channels, saved filtered views, user view preferences, tabs/widgets/apps, and module preference discovery/update.
-- Document-specific gaps: document snapshots/history, backlinks, notes, structured action items/tables, PDF/export, advanced document relationships, and document printing/export once SDK support is safe.
+- Document-specific gaps: snapshot restore, backlinks, notes, structured action items/tables, PDF/export, advanced document relationships, and document printing/export once SDK support is safe.
 
 MCP resource roadmap:
 
@@ -328,6 +328,8 @@ SDK upgrade revisit:
 
 | Tool | Description |
 |------|-------------|
+| `list_project_target_preferences` | List low-level per-project tracker target preference records. These Huly ProjectTargetPreference records are attached to projects and used by tracker UI/workflows to remember target-related preference props. Omit project to list recent preferences across projects, or pass a project identifier to inspect one project's preference. Props are SDK-open key/value payloads. |
+| `upsert_project_target_preference` | Create or update the low-level ProjectTargetPreference record for a project. This refreshes usedOn and merges SDK-open target preference props by key. Use for tracker SDK parity or advanced administration; ordinary project and issue workflows usually do not need this tool. |
 | `list_projects` | List all Huly projects. Returns projects sorted by name. Supports filtering by archived status. |
 | `get_project` | Get full details of a Huly project including its statuses. Returns project name, description, archived flag, default status, and all available statuses. |
 | `list_statuses` | List all issue statuses for a Huly project with workflow category and default info. Returns status name, category, and isDefault. Use this to discover valid statuses before creating or updating issues. |
@@ -367,6 +369,9 @@ SDK upgrade revisit:
 | `list_issue_relations` | List all relations of an issue. Returns blockedBy (issues blocking this one), blocks (issues this one blocks), relations (bidirectional issue links), and documents (linked documents with title/teamspace). |
 | `link_document_to_issue` | Link a Huly document to an issue. The link appears in the issue's Relations panel in the UI. Idempotent: no-op if the document is already linked. Use list_issue_relations to see linked documents. |
 | `unlink_document_from_issue` | Remove a document link from an issue. Idempotent: no-op if the document is not linked. |
+| `list_related_issue_targets` | List rules that choose the default destination project for related issues. A spaceRule says related issues from one space default to targetProject. A classRule says related issues for one object class default to targetProject. targetProject is a project identifier, or null for no default destination project. |
+| `set_related_issue_target` | Set the default destination project for related issues from a space or object class. For space, creates or updates a spaceRule. For objectClass, only updates an existing classRule; this tool never creates classRule targets. Pass targetProject as a project identifier, or null to clear the default destination project. |
+| `delete_related_issue_space_target` | Delete the spaceRule that chooses the default destination project for related issues from one space. This only deletes spaceRule targets; classRule deletion is intentionally unsupported because class rules may be model-provided. |
 
 ### Comments
 
@@ -392,6 +397,8 @@ SDK upgrade revisit:
 
 | Tool | Description |
 |------|-------------|
+| `list_document_snapshots` | List version-history snapshots for one Huly document. A snapshot is a saved point-in-time copy from the document's change history. Resolve the document by teamspace plus document title or ID. Returns snapshotId, documentId, teamspaceId, title, parentDocumentId, and timestamps; markdown content is intentionally omitted. Use get_document_snapshot with snapshotId when reading content. |
+| `get_document_snapshot` | Get one point-in-time Huly document history snapshot and return markdown content. Resolve the document by teamspace plus document title or ID; resolve the snapshot by snapshotId, exact snapshot title, or exact createdOn timestamp. Prefer snapshotId from list_document_snapshots when titles or dates may collide. Restore is out of scope. |
 | `list_teamspaces` | List all Huly document teamspaces. Returns teamspaces sorted by name. Supports filtering by archived status. |
 | `get_teamspace` | Get details for a Huly document teamspace including document count. Finds by name or ID, including archived teamspaces. |
 | `create_teamspace` | Create a new Huly document teamspace. Idempotent: returns existing teamspace if one with the same name exists. |

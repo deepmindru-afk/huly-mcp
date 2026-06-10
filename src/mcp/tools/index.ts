@@ -12,6 +12,7 @@ import { commentTools } from "./comments.js"
 import { contactTools } from "./contacts.js"
 import { customFieldTools } from "./custom-fields.js"
 import { deletionTools } from "./deletion.js"
+import { documentSnapshotTools } from "./document-snapshots.js"
 import { documentTools } from "./documents.js"
 import { driveTools } from "./drive.js"
 import { genericAssociationTools } from "./generic-associations.js"
@@ -22,6 +23,7 @@ import { milestoneTools } from "./milestones.js"
 import { notificationTools } from "./notifications.js"
 import { plannerTools } from "./planner.js"
 import { processTools } from "./processes.js"
+import { projectTargetPreferenceTools } from "./project-target-preferences.js"
 import { projectTools } from "./projects.js"
 import type { RegisteredTool, ToolDefinition } from "./registry.js"
 import {
@@ -32,6 +34,7 @@ import {
   requiresArgumentsObject,
   resolveAnnotations
 } from "./registry.js"
+import { relatedIssueTargetTools } from "./related-issue-targets.js"
 import { sdkDiscoveryTools } from "./sdk-discovery.js"
 import { searchTools } from "./search.js"
 import { spaceTools } from "./spaces.js"
@@ -48,7 +51,9 @@ import { workspaceTools } from "./workspace.js"
 
 const allTools: ReadonlyArray<RegisteredTool> = [
   ...projectTools,
+  ...projectTargetPreferenceTools,
   ...issueTools,
+  ...relatedIssueTargetTools,
   ...labelTools,
   ...tagTools,
   ...tagCategoryTools,
@@ -57,6 +62,7 @@ const allTools: ReadonlyArray<RegisteredTool> = [
   ...deletionTools,
   ...milestoneTools,
   ...documentTools,
+  ...documentSnapshotTools,
   ...driveTools,
   ...genericAssociationTools,
   ...spaceTools,

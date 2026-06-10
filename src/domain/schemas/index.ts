@@ -268,6 +268,25 @@ export {
 } from "./projects.js"
 
 export {
+  type ListProjectTargetPreferencesParams,
+  listProjectTargetPreferencesParamsJsonSchema,
+  ListProjectTargetPreferencesParamsSchema,
+  type ListProjectTargetPreferencesResult,
+  parseListProjectTargetPreferencesParams,
+  parseUpsertProjectTargetPreferenceParams,
+  type ProjectTargetPreference,
+  ProjectTargetPreferenceId,
+  type ProjectTargetPreferenceProperty,
+  ProjectTargetPreferencePropertySchema,
+  ProjectTargetPreferenceSchema,
+  TrackerPreferencePropertyKey,
+  type UpsertProjectTargetPreferenceParams,
+  upsertProjectTargetPreferenceParamsJsonSchema,
+  UpsertProjectTargetPreferenceParamsSchema,
+  type UpsertProjectTargetPreferenceResult
+} from "./project-target-preferences.js"
+
+export {
   type CreateIssueStatusParams,
   createIssueStatusParamsJsonSchema,
   CreateIssueStatusParamsSchema,
@@ -511,6 +530,29 @@ export {
 } from "./issues.js"
 
 export {
+  type DeleteRelatedIssueSpaceTargetParams,
+  deleteRelatedIssueSpaceTargetParamsJsonSchema,
+  DeleteRelatedIssueSpaceTargetParamsSchema,
+  type DeleteRelatedIssueSpaceTargetResult,
+  type ListRelatedIssueTargetsParams,
+  listRelatedIssueTargetsParamsJsonSchema,
+  ListRelatedIssueTargetsParamsSchema,
+  type ListRelatedIssueTargetsResult,
+  parseDeleteRelatedIssueSpaceTargetParams,
+  parseListRelatedIssueTargetsParams,
+  parseSetRelatedIssueTargetParams,
+  type RelatedIssueTarget,
+  RelatedIssueTargetId,
+  type RelatedIssueTargetRule,
+  RelatedIssueTargetRuleSchema,
+  RelatedIssueTargetSchema,
+  type SetRelatedIssueTargetParams,
+  setRelatedIssueTargetParamsJsonSchema,
+  SetRelatedIssueTargetParamsSchema,
+  type SetRelatedIssueTargetResult
+} from "./related-issue-targets.js"
+
+export {
   type Component,
   ComponentSchema,
   type ComponentSummary,
@@ -710,6 +752,27 @@ export {
   DOCUMENT_NATIVE_REFERENCE_LINK_USAGE,
   DOCUMENT_NATIVE_REFERENCE_TOOL_USAGE
 } from "./document-native-references.js"
+
+export {
+  DocumentMarkdown,
+  type DocumentSnapshot,
+  DocumentSnapshotId,
+  DocumentSnapshotIdentifier,
+  DocumentSnapshotSchema,
+  type DocumentSnapshotSummary,
+  DocumentSnapshotSummarySchema,
+  DocumentSnapshotTitle,
+  type GetDocumentSnapshotParams,
+  getDocumentSnapshotParamsJsonSchema,
+  GetDocumentSnapshotParamsSchema,
+  type GetDocumentSnapshotResult,
+  type ListDocumentSnapshotsParams,
+  listDocumentSnapshotsParamsJsonSchema,
+  ListDocumentSnapshotsParamsSchema,
+  type ListDocumentSnapshotsResult,
+  parseGetDocumentSnapshotParams,
+  parseListDocumentSnapshotsParams
+} from "./document-snapshots.js"
 
 export {
   type CreateDocumentParams,

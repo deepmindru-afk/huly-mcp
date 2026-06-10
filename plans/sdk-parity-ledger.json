@@ -370,19 +370,11 @@
       "package": "@hcengineering/document",
       "status": "covered",
       "matrixLocation": "Document preferences and history",
-      "rationale": "Current document tools cover non-controlled document teamspaces and document CRUD/content operations.",
+      "rationale": "Current document tools cover non-controlled document teamspaces, document CRUD/content operations, and read-only snapshot/history listing plus markdown retrieval. Snapshot restore and document PDF/export remain deferred.",
       "exports": [
         "Document",
+        "DocumentSnapshot",
         "Teamspace"
-      ]
-    },
-    {
-      "package": "@hcengineering/document",
-      "status": "gap",
-      "matrixLocation": "Document preferences and history",
-      "rationale": "Document snapshots/history are represented in the matrix but not yet first-class MCP tools.",
-      "exports": [
-        "DocumentSnapshot"
       ]
     },
     {
@@ -513,7 +505,7 @@
       "package": "@hcengineering/tracker",
       "status": "covered",
       "matrixLocation": "`@hcengineering/tracker` package row",
-      "rationale": "Current project, issue, component, milestone, issue-template, status, relation, and time-reporting tools cover core tracker resources.",
+      "rationale": "Current project, issue, component, milestone, issue-template, status, relation, related-issue target, project target preference, and time-reporting tools cover core tracker resources. GitHub sync metadata, PDF export, saved views, and broader workflow automation remain deferred.",
       "exports": [
         "Component",
         "Issue",
@@ -521,17 +513,9 @@
         "IssueTemplate",
         "Milestone",
         "Project",
+        "ProjectTargetPreference",
         "RelatedIssueTarget",
         "TimeSpendReport"
-      ]
-    },
-    {
-      "package": "@hcengineering/tracker",
-      "status": "gap",
-      "matrixLocation": "`@hcengineering/tracker` package row",
-      "rationale": "Tracker preference/saved-view and workflow automation behavior remains partial in the matrix.",
-      "exports": [
-        "ProjectTargetPreference"
       ]
     },
     {

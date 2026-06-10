@@ -1,5 +1,13 @@
 # @firfi/huly-mcp
 
+## 0.27.0
+
+### Minor Changes
+
+- Add safe typed MCP surfaces for Huly notification preferences, object notification subscriptions, generic object collaborators, activity messages and replies, saved attachments, attachment media subclasses, and drawings.
+
+  This release closes the installed-SDK parity gap while keeping rating/star tools deferred until a typed published `@hcengineering/rating` package is available. It also strengthens the new schemas with branded domain values for attachment filenames, byte sizes, URLs, drawing content, activity markup, and notification metadata.
+
 ## 0.26.0
 
 ### Minor Changes

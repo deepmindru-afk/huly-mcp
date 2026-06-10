@@ -1,6 +1,16 @@
 import { JSONSchema, Schema } from "effect"
 
-import { CustomFieldId, DocId, enumValuesDescription, LimitParam, NonEmptyString, ObjectClassName } from "./shared.js"
+import {
+  CustomFieldId,
+  DocId,
+  enumValuesDescription,
+  LimitParam,
+  MAX_LIMIT,
+  NonEmptyString,
+  ObjectClassName
+} from "./shared.js"
+
+export const CUSTOM_FIELDS_DEFAULT_LIMIT = MAX_LIMIT
 
 export const ListCustomFieldsParamsSchema = Schema.Struct({
   targetClass: Schema.optional(
@@ -11,7 +21,7 @@ export const ListCustomFieldsParamsSchema = Schema.Struct({
   ),
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of fields to return (default: 200)"
+      description: `Maximum number of fields to return (default: ${CUSTOM_FIELDS_DEFAULT_LIMIT})`
     })
   )
 }).annotations({

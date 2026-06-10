@@ -5,6 +5,7 @@ import type { ContactProvider, PersonName, UrlString } from "./shared.js"
 import {
   assertUpdateFields,
   atLeastOneUpdateFieldMessage,
+  DEFAULT_LIMIT,
   Email,
   hasAtLeastOneDefined,
   LimitParam,
@@ -59,7 +60,7 @@ const ListPersonsParamsBase = Schema.Struct({
   })),
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of persons to return (default: 50)"
+      description: `Maximum number of persons to return (default: ${DEFAULT_LIMIT})`
     })
   )
 })
@@ -172,7 +173,7 @@ export type DeletePersonParams = Schema.Schema.Type<typeof DeletePersonParamsSch
 export const ListEmployeesParamsSchema = Schema.Struct({
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of employees to return (default: 50)"
+      description: `Maximum number of employees to return (default: ${DEFAULT_LIMIT})`
     })
   )
 }).annotations({

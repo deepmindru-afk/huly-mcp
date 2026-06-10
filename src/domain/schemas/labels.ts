@@ -5,6 +5,8 @@ import {
   assertUpdateFields,
   atLeastOneUpdateFieldMessage,
   ColorCode,
+  DEFAULT_COLOR_INDEX,
+  DEFAULT_LIMIT,
   hasAtLeastOneDefined,
   LimitParam,
   NonEmptyString,
@@ -34,7 +36,7 @@ export const ListLabelsParamsSchema = Schema.Struct({
   ),
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of labels to return (default: 50)"
+      description: `Maximum number of labels to return (default: ${DEFAULT_LIMIT})`
     })
   )
 }).annotations({
@@ -50,7 +52,7 @@ export const CreateLabelParamsSchema = Schema.Struct({
   }),
   color: Schema.optional(
     ColorCode.annotations({
-      description: "Non-negative Huly platform color index (default: 0)"
+      description: `Non-negative Huly platform color index (default: ${DEFAULT_COLOR_INDEX})`
     })
   ),
   description: Schema.optional(Schema.String.annotations({

@@ -3,6 +3,7 @@ import {
   CreateAccessLinkResultSchema,
   createWorkspaceParamsJsonSchema,
   CreateWorkspaceResultSchema,
+  DEFAULT_ACCESS_LINK_ROLE,
   DeleteWorkspaceResultSchema,
   emptyParamsJsonSchema,
   getRegionsParamsJsonSchema,
@@ -162,7 +163,7 @@ export const workspaceTools: ReadonlyArray<RegisteredTool> = [
   {
     name: "create_access_link",
     description:
-      "Create a Huly workspace access link. Defaults to role GUEST. Supports anonymous reusable guest links by setting personalized=false with notBefore and expiration, and can restrict access to specific Huly space IDs via spaces.",
+      `Create a Huly workspace access link. When role is omitted, role=${DEFAULT_ACCESS_LINK_ROLE}. Supports anonymous reusable guest links by setting personalized=false with notBefore and expiration, and can restrict access to specific Huly space IDs via spaces.`,
     category: CATEGORY,
     inputSchema: createAccessLinkParamsJsonSchema,
     handler: createEncodedWorkspaceToolHandler(

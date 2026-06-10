@@ -5,6 +5,7 @@ import {
   AccountId,
   assertUpdateFields,
   atLeastOneUpdateFieldMessage,
+  DEFAULT_LIMIT,
   Email,
   EmptyParamsSchema,
   enumValuesDescription,
@@ -88,7 +89,7 @@ export interface UserProfile {
 export const ListWorkspaceMembersParamsSchema = Schema.Struct({
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of members to return (default: 50)"
+      description: `Maximum number of members to return (default: ${DEFAULT_LIMIT})`
     })
   )
 }).annotations({
@@ -115,7 +116,7 @@ export type UpdateMemberRoleParams = Schema.Schema.Type<typeof UpdateMemberRoleP
 export const ListWorkspacesParamsSchema = Schema.Struct({
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of workspaces to return (default: 50)"
+      description: `Maximum number of workspaces to return (default: ${DEFAULT_LIMIT})`
     })
   )
 }).annotations({
@@ -226,6 +227,7 @@ export type UpdateGuestSettingsParams = Schema.Schema.Type<typeof UpdateGuestSet
 assertUpdateFields<UpdateGuestSettingsParams>()([], UPDATE_GUEST_SETTINGS_FIELDS)
 
 const MAX_UNIX_SECONDS_TIMESTAMP = 9_999_999_999
+export const DEFAULT_ACCESS_LINK_ROLE: AccountRole = "GUEST"
 
 const UnixSecondsTimestamp = Schema.Number.pipe(
   Schema.int(),
@@ -240,7 +242,7 @@ const UnixSecondsTimestamp = Schema.Number.pipe(
 const AccessLinkCommonParamsSchema = Schema.Struct({
   role: Schema.optional(
     AccountRoleSchema.annotations({
-      description: "Workspace role granted by the link. Defaults to GUEST."
+      description: `Workspace role granted by the link. Defaults to ${DEFAULT_ACCESS_LINK_ROLE}.`
     })
   ),
   firstName: Schema.optional(
@@ -280,7 +282,7 @@ const PersonalizedAccessLinkParamsSchema = Schema.Struct({
   ),
   personalized: Schema.optional(
     Schema.Literal(true).annotations({
-      description: "Whether the link is bound to one person. Defaults to Huly's personalized-link behavior."
+      description: "Whether the link is bound to one person. Omit to use Huly's personalized-link behavior."
     })
   )
 })

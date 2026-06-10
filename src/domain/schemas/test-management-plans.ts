@@ -4,6 +4,7 @@ import type { Count, ListTotal, TestPlanId, TestPlanItemId, TestResultId, TestRu
 import {
   assertUpdateFields,
   atLeastOneUpdateFieldMessage,
+  DEFAULT_LIMIT,
   enumValuesDescription,
   hasAtLeastOneDefined,
   LimitParam,
@@ -21,7 +22,7 @@ import {
 import { TestRunStatusSchema, type TestRunStatusStr, TestRunStatusValues } from "./test-management-core.js"
 
 const projectField = TestProjectIdentifier.annotations({ description: "Test project ID or name" })
-const limitField = LimitParam.annotations({ description: "Max items to return (default: 50)" })
+const limitField = LimitParam.annotations({ description: `Max items to return (default: ${DEFAULT_LIMIT})` })
 const planField = TestPlanIdentifier.annotations({ description: "Test plan ID or name" })
 const runField = TestRunIdentifier.annotations({ description: "Test run ID or name" })
 const resultField = TestResultIdentifier.annotations({ description: "Test result ID or name" })
@@ -261,7 +262,7 @@ export const CreateTestResultParamsSchema = Schema.Struct({
   project: projectField,
   run: runField,
   testCase: TestCaseIdentifier.annotations({ description: "Test case ID or name" }),
-  name: Schema.optional(NonEmptyString.annotations({ description: "Result name (defaults to test case name)" })),
+  name: Schema.optional(NonEmptyString.annotations({ description: "Result name. Omit to use the test case name." })),
   status: Schema.optional(statusField),
   assignee: Schema.optional(assigneeField)
 }).annotations({ title: "CreateTestResultParams", description: "Create a test result in a run" })

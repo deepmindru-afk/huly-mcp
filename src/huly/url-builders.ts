@@ -16,6 +16,7 @@
  *
  * @module
  */
+import type { DriveId, DriveItemId } from "../domain/schemas/drive.js"
 import type { DocumentId, OrganizationId, PersonId } from "../domain/schemas/shared.js"
 import { UrlString, WorkspaceUrlSlug } from "../domain/schemas/shared.js"
 
@@ -88,3 +89,31 @@ export const buildContactUrlFromConfig = (
   config: WorkbenchUrlConfig,
   id: OrganizationId | PersonId
 ): UrlString => buildContactUrl(config.baseUrl, config.workspaceUrlSlug, id)
+
+const buildDriveUrl = (
+  baseUrl: UrlString,
+  workspaceUrlSlug: WorkspaceUrlSlug,
+  id: DriveId
+): UrlString => {
+  const trimmedBase = baseUrl.replace(/\/+$/, "")
+  return UrlString.make(`${trimmedBase}/workbench/${workspaceUrlSlug}/drive/${id}`)
+}
+
+export const buildDriveUrlFromConfig = (config: WorkbenchUrlConfig, id: DriveId): UrlString =>
+  buildDriveUrl(config.baseUrl, config.workspaceUrlSlug, id)
+
+const buildDriveItemUrl = (
+  baseUrl: UrlString,
+  workspaceUrlSlug: WorkspaceUrlSlug,
+  kind: "folder" | "file",
+  id: DriveItemId
+): UrlString => {
+  const trimmedBase = baseUrl.replace(/\/+$/, "")
+  return UrlString.make(`${trimmedBase}/workbench/${workspaceUrlSlug}/drive/${kind}/${id}`)
+}
+
+export const buildDriveItemUrlFromConfig = (
+  config: WorkbenchUrlConfig,
+  kind: "folder" | "file",
+  id: DriveItemId
+): UrlString => buildDriveItemUrl(config.baseUrl, config.workspaceUrlSlug, kind, id)

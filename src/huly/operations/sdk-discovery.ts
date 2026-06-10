@@ -12,7 +12,12 @@ import type {
   ListHulyEnumsParams,
   ListHulyEnumsResult
 } from "../../domain/schemas/sdk-discovery.js"
-import { HulyDiscoveryCount, SDK_DISCOVERY_DEFAULT_LIMIT } from "../../domain/schemas/sdk-discovery.js"
+import {
+  DEFAULT_CUSTOM_FIELDS_ONLY,
+  DEFAULT_INCLUDE_INHERITED_ATTRIBUTES,
+  HulyDiscoveryCount,
+  SDK_DISCOVERY_DEFAULT_LIMIT
+} from "../../domain/schemas/sdk-discovery.js"
 import { NonEmptyString, ObjectClassName } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import { HulyClassNotFoundError } from "../errors-sdk-discovery.js"
@@ -120,7 +125,7 @@ const fetchAttributes = (
 ): Effect.Effect<ReadonlyArray<AnyAttribute>, HulyClientError> => {
   const query: StrictDocumentQuery<AnyAttribute> = {
     ...(params.class === undefined ? {} : { attributeOf: toRef<Class<Obj>>(params.class) }),
-    ...(params.customOnly === true ? { isCustom: true } : {})
+    ...((params.customOnly ?? DEFAULT_CUSTOM_FIELDS_ONLY) ? { isCustom: true } : {})
   }
 
   return client.findAll<AnyAttribute>(
@@ -252,7 +257,7 @@ export const getHulyClass = (
 ): Effect.Effect<GetHulyClassResult, SdkDiscoveryError, HulyClient> =>
   Effect.gen(function*() {
     const client = yield* HulyClient
-    const includeInheritedAttributes = params.includeInheritedAttributes ?? true
+    const includeInheritedAttributes = params.includeInheritedAttributes ?? DEFAULT_INCLUDE_INHERITED_ATTRIBUTES
     const cls = yield* resolveClass(client, params.class)
     const ancestors = yield* resolveAncestors(client, cls)
     const ancestorIds = ancestors.map((ancestor) => ObjectClassName.make(String(ancestor._id)))

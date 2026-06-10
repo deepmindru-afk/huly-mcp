@@ -9,6 +9,7 @@ import {
   ComponentIdentifier,
   ComponentLabel,
   Count,
+  DEFAULT_LIMIT,
   hasAtLeastOneDefined,
   IssueTemplateChildId,
   IssueTemplateId,
@@ -23,6 +24,8 @@ import {
   Timestamp,
   withAtLeastOneRequired
 } from "./shared.js"
+
+export const DEFAULT_INCLUDE_TEMPLATE_CHILDREN = true
 
 // --- Child template schemas ---
 
@@ -112,7 +115,7 @@ export const ListIssueTemplatesParamsSchema = Schema.Struct({
   }),
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of templates to return (default: 50)"
+      description: `Maximum number of templates to return (default: ${DEFAULT_LIMIT})`
     })
   )
 }).annotations({
@@ -193,7 +196,7 @@ export const CreateIssueFromTemplateParamsSchema = Schema.Struct({
     description: "Initial status (uses project default if not specified)"
   })),
   includeChildren: Schema.optional(Schema.Boolean.annotations({
-    description: "Whether to create sub-issues from template children (default: true)"
+    description: `Whether to create sub-issues from template children (default: ${DEFAULT_INCLUDE_TEMPLATE_CHILDREN})`
   }))
 }).annotations({
   title: "CreateIssueFromTemplateParams",

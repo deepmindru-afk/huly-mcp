@@ -7,7 +7,14 @@ import { JSONSchema, Schema } from "effect"
 
 import type { MessageSummary } from "./channels.js"
 import type { ChannelId, ListTotal } from "./shared.js"
-import { DirectMessageIdentifier, LimitParam, MessageId, NonEmptyString, PersonRefInput } from "./shared.js"
+import {
+  DEFAULT_LIMIT,
+  DirectMessageIdentifier,
+  LimitParam,
+  MessageId,
+  NonEmptyString,
+  PersonRefInput
+} from "./shared.js"
 
 // --- List DM Messages Params ---
 
@@ -18,7 +25,7 @@ export const ListDmMessagesParamsSchema = Schema.Struct({
   }),
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of messages to return (default: 50)"
+      description: `Maximum number of messages to return (default: ${DEFAULT_LIMIT})`
     })
   )
 }).annotations({

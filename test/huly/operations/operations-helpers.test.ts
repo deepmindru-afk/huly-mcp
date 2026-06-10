@@ -11,7 +11,7 @@ import {
 } from "@hcengineering/tracker"
 import { Effect } from "effect"
 import { expect } from "vitest"
-import { NonEmptyString, NonNegativeNumber } from "../../../src/domain/schemas/shared.js"
+import { DEFAULT_LIMIT, NonEmptyString, NonNegativeNumber } from "../../../src/domain/schemas/shared.js"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
 import type { IssueNotFoundError, ProjectNotFoundError } from "../../../src/huly/errors.js"
 import { contact, core, task, tracker } from "../../../src/huly/huly-plugins.js"
@@ -329,8 +329,8 @@ describe("operations helpers", () => {
   })
 
   describe("clampLimit", () => {
-    it("uses default 50 when undefined", () => {
-      expect(clampLimit(undefined)).toBe(50)
+    it("uses DEFAULT_LIMIT when undefined", () => {
+      expect(clampLimit(undefined)).toBe(DEFAULT_LIMIT)
     })
 
     it("uses provided value when under max", () => {

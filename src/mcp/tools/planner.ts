@@ -63,7 +63,7 @@ export const plannerTools: ReadonlyArray<RegisteredTool> = [
   {
     name: "create_todo",
     description:
-      "Create a Planner ToDo. Omit attachedTo for a personal ToDo, or pass attachedTo.type=issue with project and identifier for an issue action item. The owner defaults to the authenticated user.",
+      "Create a Planner ToDo. Omit attachedTo for a personal ToDo, or pass attachedTo.type=issue with project and identifier for an issue action item. Omit owner to use the authenticated user.",
     category: CATEGORY,
     inputSchema: createTodoParamsJsonSchema,
     handler: createEncodedToolHandler("create_todo", parseCreateTodoParams, createTodo, CreateTodoResultSchema)

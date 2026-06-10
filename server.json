@@ -57,7 +57,7 @@
         },
         {
           "name": "HULY_CONNECTION_TIMEOUT",
-          "description": "Connection timeout in milliseconds (default: 30000)",
+          "description": "Connection timeout in milliseconds. Omit to use the package default.",
           "isRequired": false,
           "format": "string",
           "isSecret": false

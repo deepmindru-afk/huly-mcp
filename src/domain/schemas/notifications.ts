@@ -2,6 +2,8 @@ import { JSONSchema, Schema } from "effect"
 
 import type { Count, ListTotal, NotificationTypeId } from "./shared.js"
 import {
+  DEFAULT_INCLUDE_ARCHIVED,
+  DEFAULT_LIMIT,
   DocId,
   LimitParam,
   NotificationContextId,
@@ -9,6 +11,9 @@ import {
   NotificationProviderId,
   ObjectClassName
 } from "./shared.js"
+
+const DEFAULT_UNREAD_ONLY = false
+const DEFAULT_PINNED_CONTEXTS_ONLY = false
 
 // No codec needed — internal type, not used for runtime validation
 export interface NotificationSummary {
@@ -65,17 +70,17 @@ export interface NotificationTypeSetting {
 export const ListNotificationsParamsSchema = Schema.Struct({
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of notifications to return (default: 50)"
+      description: `Maximum number of notifications to return (default: ${DEFAULT_LIMIT})`
     })
   ),
   includeArchived: Schema.optional(
     Schema.Boolean.annotations({
-      description: "Include archived notifications in results (default: false)"
+      description: `Include archived notifications in results (default: ${DEFAULT_INCLUDE_ARCHIVED})`
     })
   ),
   unreadOnly: Schema.optional(
     Schema.Boolean.annotations({
-      description: "Return only unread notifications (default: false)"
+      description: `Return only unread notifications (default: ${DEFAULT_UNREAD_ONLY})`
     })
   )
 }).annotations({
@@ -158,12 +163,12 @@ export type GetNotificationContextParams = Schema.Schema.Type<typeof GetNotifica
 export const ListNotificationContextsParamsSchema = Schema.Struct({
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of contexts to return (default: 50)"
+      description: `Maximum number of contexts to return (default: ${DEFAULT_LIMIT})`
     })
   ),
   pinnedOnly: Schema.optional(
     Schema.Boolean.annotations({
-      description: "Return only pinned contexts (default: false)"
+      description: `Return only pinned contexts (default: ${DEFAULT_PINNED_CONTEXTS_ONLY})`
     })
   )
 }).annotations({
@@ -194,7 +199,7 @@ export type PinNotificationContextParams = Schema.Schema.Type<typeof PinNotifica
 export const ListNotificationSettingsParamsSchema = Schema.Struct({
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of settings to return (default: 50)"
+      description: `Maximum number of settings to return (default: ${DEFAULT_LIMIT})`
     })
   )
 }).annotations({

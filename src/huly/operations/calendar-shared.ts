@@ -23,6 +23,7 @@ import type {
   Visibility,
   WritableCalendarAccess
 } from "../../domain/schemas/calendar.js"
+import { DEFAULT_EVENT_DURATION_MS } from "../../domain/schemas/calendar.js"
 import type { CalendarId } from "../../domain/schemas/shared.js"
 import { PersonId, PersonName } from "../../domain/schemas/shared.js"
 import type { HulyClient, HulyClientError } from "../client.js"
@@ -95,10 +96,7 @@ export const stringToAccess = (access: CalendarAccess): AccessLevel => STRING_TO
 
 // --- Constants ---
 
-const SECONDS_PER_MINUTE = 60
-const MINUTES_PER_HOUR = 60
-const MS_PER_SECOND = 1000
-export const ONE_HOUR_MS = SECONDS_PER_MINUTE * MINUTES_PER_HOUR * MS_PER_SECOND
+export const ONE_HOUR_MS = DEFAULT_EVENT_DURATION_MS
 
 // --- Helpers ---
 

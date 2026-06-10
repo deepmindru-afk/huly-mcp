@@ -27,6 +27,11 @@ import type {
   TestProjectSummary,
   TestSuiteSummary
 } from "../../domain/schemas/test-management-core.js"
+import {
+  DEFAULT_TEST_CASE_PRIORITY,
+  DEFAULT_TEST_CASE_STATUS,
+  DEFAULT_TEST_CASE_TYPE
+} from "../../domain/schemas/test-management-core.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import type {
   PersonNotFoundError,
@@ -35,14 +40,7 @@ import type {
   TestSuiteNotFoundError
 } from "../errors.js"
 import { testManagement } from "../test-management-classes.js"
-import {
-  type TestCase,
-  TestCasePriority,
-  TestCaseStatus,
-  TestCaseType,
-  type TestProject,
-  type TestSuite
-} from "../test-management-types.js"
+import { type TestCase, type TestProject, type TestSuite } from "../test-management-types.js"
 import { listTotal } from "./counts.js"
 import { clampLimit } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
@@ -323,9 +321,9 @@ export const createTestCase = (
       ? toRef<Employee>((yield* resolveAssignee(params.assignee))._id)
       : null
 
-    const typeEnum = params.type !== undefined ? resolveCaseType(params.type) : TestCaseType.Functional
-    const priorityEnum = params.priority !== undefined ? resolveCasePriority(params.priority) : TestCasePriority.Medium
-    const statusEnum = params.status !== undefined ? resolveCaseStatus(params.status) : TestCaseStatus.Draft
+    const typeEnum = resolveCaseType(params.type ?? DEFAULT_TEST_CASE_TYPE)
+    const priorityEnum = resolveCasePriority(params.priority ?? DEFAULT_TEST_CASE_PRIORITY)
+    const statusEnum = resolveCaseStatus(params.status ?? DEFAULT_TEST_CASE_STATUS)
 
     const descRef: MarkupBlobRef | null = params.description !== undefined && params.description.trim() !== ""
       ? yield* client.uploadMarkup(

@@ -34,7 +34,12 @@ import type {
   UnscheduleTodoResult,
   UpdateTodoParams
 } from "../../domain/schemas/planner.js"
-import { UPDATE_TODO_FIELDS } from "../../domain/schemas/planner.js"
+import {
+  DEFAULT_ISSUE_TODO_VISIBILITY,
+  DEFAULT_PERSONAL_TODO_VISIBILITY,
+  DEFAULT_TODO_PRIORITY,
+  UPDATE_TODO_FIELDS
+} from "../../domain/schemas/planner.js"
 import { Count, SpaceId, Timestamp, TodoId } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import type { HulyDomainError, NoUpdateFieldsError, TodoWorkSlotNotFoundError } from "../errors.js"
@@ -122,8 +127,8 @@ const createPersonalTodo = (
     workslots: 0,
     title: params.title,
     description,
-    priority: stringToTodoPriority(params.priority ?? "no-priority"),
-    visibility: stringToTodoVisibility(params.visibility ?? "private"),
+    priority: stringToTodoPriority(params.priority ?? DEFAULT_TODO_PRIORITY),
+    visibility: stringToTodoVisibility(params.visibility ?? DEFAULT_PERSONAL_TODO_VISIBILITY),
     user: owner,
     doneOn: null,
     rank
@@ -153,8 +158,8 @@ const createIssueTodo = (
     workslots: 0,
     title: params.title,
     description,
-    priority: stringToTodoPriority(params.priority ?? "no-priority"),
-    visibility: stringToTodoVisibility(params.visibility ?? "public"),
+    priority: stringToTodoPriority(params.priority ?? DEFAULT_TODO_PRIORITY),
+    visibility: stringToTodoVisibility(params.visibility ?? DEFAULT_ISSUE_TODO_VISIBILITY),
     user: owner,
     doneOn: null,
     attachedSpace: issue.space,

@@ -16,6 +16,7 @@ import type {
   VirtualOfficeDimension
 } from "./shared.js"
 import {
+  DEFAULT_LIMIT,
   DocId,
   EmptyParamsSchema,
   enumValuesDescription,
@@ -213,7 +214,7 @@ export interface OfficeDefaultsSummary {
 
 const ListOfficeFloorsParamsSchema = Schema.Struct({
   limit: Schema.optional(LimitParam.annotations({
-    description: "Maximum number of floors to return (default: 50)."
+    description: `Maximum number of floors to return (default: ${DEFAULT_LIMIT}).`
   }))
 }).annotations({
   title: "ListOfficeFloorsParams",
@@ -236,7 +237,7 @@ export const ListOfficeRoomsParamsSchema = Schema.Struct({
     description: "Optional floor ID filter."
   })),
   limit: Schema.optional(LimitParam.annotations({
-    description: "Maximum number of rooms to return (default: 50)."
+    description: `Maximum number of rooms to return (default: ${DEFAULT_LIMIT}).`
   }))
 }).annotations({
   title: "ListOfficeRoomsParams",
@@ -294,7 +295,7 @@ export const ListMeetingMinutesParamsSchema = Schema.Struct({
     description: "Created-on upper bound timestamp."
   })),
   limit: Schema.optional(LimitParam.annotations({
-    description: "Maximum number of meeting notes/transcript records (minutes) to return (default: 50)."
+    description: `Maximum number of meeting notes/transcript records (minutes) to return (default: ${DEFAULT_LIMIT}).`
   }))
 }).annotations({
   title: "ListMeetingMinutesParams",

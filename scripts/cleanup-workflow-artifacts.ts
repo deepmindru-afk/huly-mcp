@@ -9,6 +9,8 @@ const core = require("@hcengineering/core").default as typeof import("@hcenginee
 const task = require("@hcengineering/task").default as typeof import("@hcengineering/task").default
 const tracker = require("@hcengineering/tracker").default as typeof import("@hcengineering/tracker").default
 
+const DEFAULT_PROJECT_TYPE_NAME = "Classic"
+
 interface Args {
   readonly taskTypeNames: ReadonlyArray<string>
   readonly taskTypePrefixes: ReadonlyArray<string>
@@ -35,7 +37,7 @@ Options:
   --status-name <name>          Exact status name to remove
   --status-prefix <prefix>      Status name prefix to remove
   --issue-title-prefix <prefix> Delete matching issues when they use matched workflow artifacts
-  --project-type <id-or-name>   Project type to clean; defaults to Classic
+  --project-type <id-or-name>   Project type to clean; omit to use ${DEFAULT_PROJECT_TYPE_NAME}
   --delete-test-issues          Delete matching issues before workflow cleanup
   --dry-run                     Print planned changes without writing
 `
@@ -170,7 +172,7 @@ const uniqueProjectStatuses = (statuses: ReadonlyArray<ProjectStatus>): Array<Pr
 const isClassicProjectType = (projectType: ProjectType): boolean =>
   projectType._id === tracker.ids.ClassingProjectType
   || projectType.classic
-  || normalize(projectType.name) === "classic"
+  || normalize(projectType.name) === normalize(DEFAULT_PROJECT_TYPE_NAME)
 
 const resolveProjectType = (
   projectTypes: ReadonlyArray<ProjectType>,
@@ -184,7 +186,7 @@ const resolveProjectType = (
   if (selected.length !== 1 || selected[0] === undefined) {
     throw new Error(
       projectTypeRef === undefined
-        ? "Could not select Classic project type unambiguously; pass --project-type."
+        ? `Could not select ${DEFAULT_PROJECT_TYPE_NAME} project type unambiguously; pass --project-type.`
         : `Project type '${projectTypeRef}' did not resolve to exactly one project type.`
     )
   }

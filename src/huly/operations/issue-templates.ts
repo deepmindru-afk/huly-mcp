@@ -43,7 +43,11 @@ import type {
   RemoveTemplateChildResult,
   UpdateIssueTemplateResult
 } from "../../domain/schemas/issue-templates.js"
-import { UPDATE_ISSUE_TEMPLATE_FIELDS } from "../../domain/schemas/issue-templates.js"
+import {
+  DEFAULT_INCLUDE_TEMPLATE_CHILDREN,
+  UPDATE_ISSUE_TEMPLATE_FIELDS
+} from "../../domain/schemas/issue-templates.js"
+import { DEFAULT_ISSUE_PRIORITY } from "../../domain/schemas/issues.js"
 import {
   ComponentLabel,
   Count,
@@ -74,6 +78,7 @@ import { findComponentByIdOrLabel } from "./components.js"
 import { findPersonByEmailOrName } from "./contacts-shared.js"
 import { findProject, priorityToString, stringToPriority, zeroAsUnset } from "./issues-shared.js"
 import { createIssue } from "./issues.js"
+import { clampLimit } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
 import { type DirectUpdateEntry, mergeUpdateEntries, requireUpdateFields } from "./update-guards.js"
 
@@ -260,7 +265,7 @@ const buildTemplateChild = (
       id: generateId<HulyIssue>(),
       title: input.title,
       description: optionalMarkdownToMarkup(input.description, markupUrlConfig, ""),
-      priority: stringToPriority(input.priority || "no-priority"),
+      priority: stringToPriority(input.priority ?? DEFAULT_ISSUE_PRIORITY),
       assignee: assigneeRef,
       component: componentRef,
       estimation: input.estimation ?? 0
@@ -275,7 +280,7 @@ export const listIssueTemplates = (
   Effect.gen(function*() {
     const { client, project } = yield* findProject(params.project)
 
-    const limit = Math.min(params.limit ?? 50, 200)
+    const limit = clampLimit(params.limit)
 
     const templates = yield* client.findAll<HulyIssueTemplate>(
       tracker.class.IssueTemplate,
@@ -377,7 +382,7 @@ export const createIssueTemplate = (
       })
       : null
 
-    const priority = stringToPriority(params.priority || "no-priority")
+    const priority = stringToPriority(params.priority ?? DEFAULT_ISSUE_PRIORITY)
 
     // Build children from input if provided
     const children: Array<HulyIssueTemplateChild> = []
@@ -475,7 +480,7 @@ export const createIssueFromTemplate = (
     }
 
     // Create sub-issues from template children if includeChildren is not false
-    const includeChildren = params.includeChildren !== false
+    const includeChildren = params.includeChildren ?? DEFAULT_INCLUDE_TEMPLATE_CHILDREN
     if (includeChildren && template.children.length > 0) {
       for (const child of template.children) {
         // Create child as top-level issue via createIssue (no parentIssue).

@@ -7,6 +7,8 @@ import {
   atLeastOneUpdateFieldMessage,
   ColorCode,
   Count,
+  DEFAULT_COLOR_INDEX,
+  DEFAULT_LIMIT,
   DocId,
   hasAtLeastOneDefined,
   LimitParam,
@@ -103,7 +105,7 @@ export const ListTagsParamsSchema = Schema.Struct({
   })),
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of tags to return (default: 50)."
+      description: `Maximum number of tags to return (default: ${DEFAULT_LIMIT}).`
     })
   )
 }).annotations({
@@ -119,7 +121,7 @@ export const CreateTagParamsSchema = Schema.Struct({
   }),
   color: Schema.optional(
     ColorCode.annotations({
-      description: "Non-negative Huly platform color index (default: 0)."
+      description: `Non-negative Huly platform color index (default: ${DEFAULT_COLOR_INDEX}).`
     })
   ),
   description: Schema.optional(Schema.String.annotations({
@@ -204,7 +206,7 @@ export const AttachTagParamsSchema = Schema.Struct({
   color: Schema.optional(
     ColorCode.annotations({
       description:
-        "Non-negative Huly platform color index for a newly created tag definition (default: 0). Ignored when the tag already exists."
+        `Non-negative Huly platform color index for a newly created tag definition (default: ${DEFAULT_COLOR_INDEX}). Ignored when the tag already exists.`
     })
   ),
   category: Schema.optional(

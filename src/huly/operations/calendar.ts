@@ -27,7 +27,12 @@ import type {
   UpdateEventParams,
   UpdateEventResult
 } from "../../domain/schemas/calendar.js"
-import { CalendarEventTitle, CalendarName, UPDATE_EVENT_FIELDS } from "../../domain/schemas/calendar.js"
+import {
+  CalendarEventTitle,
+  CalendarName,
+  DEFAULT_EVENT_ALL_DAY,
+  UPDATE_EVENT_FIELDS
+} from "../../domain/schemas/calendar.js"
 import { CalendarId, Email, EventId, PersonId, Timestamp, TimeZoneId } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import type {
@@ -254,7 +259,7 @@ export const createEvent = (
       description: markupRefAsDescription(descriptionRef),
       date: params.date,
       dueDate,
-      allDay: params.allDay ?? false,
+      allDay: params.allDay ?? DEFAULT_EVENT_ALL_DAY,
       calendar: calendarRef,
       participants: participantRefs,
       access: stringToAccess(params.access ?? "owner"),

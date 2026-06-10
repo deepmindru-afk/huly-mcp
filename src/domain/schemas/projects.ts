@@ -4,6 +4,9 @@ import type { ListTotal } from "./shared.js"
 import {
   assertUpdateFields,
   atLeastOneUpdateFieldMessage,
+  DEFAULT_INCLUDE_ARCHIVED,
+  DEFAULT_LIMIT,
+  DEFAULT_PRIVATE,
   hasAtLeastOneDefined,
   LimitParam,
   NonEmptyString,
@@ -27,11 +30,11 @@ export type ProjectSummary = Schema.Schema.Type<typeof ProjectSummarySchema>
 
 export const ListProjectsParamsSchema = Schema.Struct({
   includeArchived: Schema.optional(Schema.Boolean.annotations({
-    description: "Include archived projects in results (default: false, showing only active)"
+    description: `Include archived projects in results (default: ${DEFAULT_INCLUDE_ARCHIVED}, showing only active)`
   })),
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of projects to return (default: 50)"
+      description: `Maximum number of projects to return (default: ${DEFAULT_LIMIT})`
     })
   )
 }).annotations({
@@ -73,7 +76,9 @@ export const CreateProjectParamsSchema = Schema.Struct({
     description: "Unique project identifier, 1-5 uppercase alphanumeric chars starting with letter (e.g., 'HULY', 'QA')"
   }),
   description: Schema.optional(Schema.String.annotations({ description: "Project description" })),
-  private: Schema.optional(Schema.Boolean.annotations({ description: "Whether project is private (default: false)" }))
+  private: Schema.optional(Schema.Boolean.annotations({
+    description: `Whether project is private (default: ${DEFAULT_PRIVATE})`
+  }))
 }).annotations({ title: "CreateProjectParams", description: "Parameters for creating a project" })
 export type CreateProjectParams = Schema.Schema.Type<typeof CreateProjectParamsSchema>
 

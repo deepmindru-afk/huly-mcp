@@ -244,7 +244,7 @@ const markdown = await client.fetchMarkup(
   - `status` (string, optional): Status filter - "open", "done", "canceled", or status name
   - `assignee` (string, optional): Assignee email or person name
   - `milestone` (string, optional): Milestone label
-  - `limit` (number, optional, default: 50, max: 200): Maximum results
+  - `limit` (number, optional, uses shared `DEFAULT_LIMIT` when omitted, max from shared `MAX_LIMIT`): Maximum results
 - Returns: Array of issue summaries with `identifier`, `title`, `status`, `assignee`, `priority`, `modifiedOn`
 
 **Tool: get_issue**
@@ -262,9 +262,9 @@ const markdown = await client.fetchMarkup(
   - `project` (string, required): Project identifier
   - `title` (string, required): Issue title
   - `description` (string, optional): Markdown description
-  - `priority` (string, optional): Priority - "urgent", "high", "medium", "low" (default: "medium")
+  - `priority` (string, optional): Priority - "urgent", "high", "medium", "low"; omit to use the issue priority default
   - `assignee` (string, optional): Assignee email or name
-  - `status` (string, optional): Initial status (default: project's default status)
+  - `status` (string, optional): Initial status; omit to use the project's default status
   - `milestone` (string, optional): Milestone label
 - Returns: Created issue identifier (e.g., "HULY-123")
 
@@ -289,7 +289,7 @@ const markdown = await client.fetchMarkup(
   - `project` (string, required): Project identifier
   - `identifier` (string, required): Issue identifier or number
   - `label` (string, required): Label/tag name
-  - `color` (number, optional): Color code (0-9, default: 0)
+  - `color` (number, optional): Color code; omit to use the shared color default
 - Returns: Success confirmation
 
 ## Type Safety Strategy
@@ -508,9 +508,9 @@ HULY_PASSWORD=secret
 HULY_WORKSPACE=default             # Default workspace
 
 # Optional
-HULY_CONNECTION_TIMEOUT=30000      # Connection timeout in ms (default: 30000)
-MCP_TRANSPORT=stdio                # Transport mode: stdio | http | both (default: stdio)
-MCP_HTTP_PORT=3000                 # HTTP port if http transport (default: 3000)
+HULY_CONNECTION_TIMEOUT=30000      # Connection timeout in ms; omit to use the package default
+MCP_TRANSPORT=stdio                # Transport mode: stdio | http | both; omit to use the package default
+MCP_HTTP_PORT=3000                 # HTTP port if http transport; omit to use the package default
 ```
 
 ### Config File (Optional)

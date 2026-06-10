@@ -6,6 +6,9 @@ import {
   assertUpdateFields,
   atLeastOneUpdateFieldMessage,
   ChannelIdentifier,
+  DEFAULT_INCLUDE_ARCHIVED,
+  DEFAULT_LIMIT,
+  DEFAULT_PRIVATE,
   hasAtLeastOneDefined,
   LimitParam,
   MessageId,
@@ -73,12 +76,12 @@ const ListChannelsParamsBase = Schema.Struct({
   })),
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of channels to return (default: 50)"
+      description: `Maximum number of channels to return (default: ${DEFAULT_LIMIT})`
     })
   ),
   includeArchived: Schema.optional(
     Schema.Boolean.annotations({
-      description: "Include archived channels in results (default: false)"
+      description: `Include archived channels in results (default: ${DEFAULT_INCLUDE_ARCHIVED})`
     })
   )
 })
@@ -120,7 +123,7 @@ export const CreateChannelParamsSchema = Schema.Struct({
     description: "Channel topic/description"
   })),
   private: Schema.optional(Schema.Boolean.annotations({
-    description: "Whether channel is private (default: false)"
+    description: `Whether channel is private (default: ${DEFAULT_PRIVATE})`
   }))
 }).annotations({
   title: "CreateChannelParams",
@@ -176,7 +179,7 @@ export const ListChannelMessagesParamsSchema = Schema.Struct({
   }),
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of messages to return (default: 50)"
+      description: `Maximum number of messages to return (default: ${DEFAULT_LIMIT})`
     })
   )
 }).annotations({
@@ -242,7 +245,7 @@ export type DeleteChannelMessageParams = Schema.Schema.Type<typeof DeleteChannel
 export const ListDirectMessagesParamsSchema = Schema.Struct({
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of DM conversations to return (default: 50)"
+      description: `Maximum number of DM conversations to return (default: ${DEFAULT_LIMIT})`
     })
   )
 }).annotations({
@@ -274,7 +277,7 @@ export const ListThreadRepliesParamsSchema = Schema.Struct({
   }),
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of replies to return (default: 50)"
+      description: `Maximum number of replies to return (default: ${DEFAULT_LIMIT})`
     })
   )
 }).annotations({

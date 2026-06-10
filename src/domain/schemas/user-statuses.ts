@@ -1,6 +1,6 @@
 import { JSONSchema, Schema } from "effect"
 
-import { LimitParam, ListTotal, NonEmptyString, Timestamp } from "./shared.js"
+import { DEFAULT_LIMIT, LimitParam, ListTotal, MAX_LIMIT, NonEmptyString, Timestamp } from "./shared.js"
 
 export const UserStatusId = NonEmptyString.pipe(Schema.brand("UserStatusId"))
 export type UserStatusId = Schema.Schema.Type<typeof UserStatusId>
@@ -24,7 +24,7 @@ export const ListUserStatusesParamsSchema = Schema.Struct({
     description: "Optional Huly account UUID filter. Pass the exact account UUID from a user status row."
   })),
   limit: Schema.optional(LimitParam.annotations({
-    description: "Maximum number of user status records to return (default: 50, maximum: 200)."
+    description: `Maximum number of user status records to return (default: ${DEFAULT_LIMIT}, maximum: ${MAX_LIMIT}).`
   }))
 }).annotations({
   title: "ListUserStatusesParams",

@@ -7,6 +7,7 @@ import {
   ComponentId,
   ComponentIdentifier,
   ComponentLabel,
+  DEFAULT_LIMIT,
   hasAtLeastOneDefined,
   IssueIdentifier,
   LimitParam,
@@ -50,7 +51,7 @@ export const ListComponentsParamsSchema = Schema.Struct({
   }),
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of components to return (default: 50)"
+      description: `Maximum number of components to return (default: ${DEFAULT_LIMIT})`
     })
   )
 }).annotations({

@@ -2,6 +2,7 @@ import { JSONSchema, Schema } from "effect"
 
 import type { PersonName, PositiveNumber, Timestamp as TimestampBrand } from "./shared.js"
 import {
+  DEFAULT_LIMIT,
   IssueIdentifier,
   LimitParam,
   NonEmptyString,
@@ -85,7 +86,7 @@ export const ListTimeSpendReportsParamsSchema = Schema.Struct({
   })),
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of entries to return (default: 50)"
+      description: `Maximum number of entries to return (default: ${DEFAULT_LIMIT})`
     })
   )
 }).annotations({
@@ -124,7 +125,7 @@ export const ListWorkSlotsParamsSchema = Schema.Struct({
   })),
   limit: Schema.optional(
     LimitParam.annotations({
-      description: "Maximum number of slots to return (default: 50)"
+      description: `Maximum number of slots to return (default: ${DEFAULT_LIMIT})`
     })
   )
 }).annotations({

@@ -11,16 +11,13 @@
  * @module
  */
 import type { ChatMessage, DirectMessage as HulyDirectMessage } from "@hcengineering/chunter"
-import type { Employee as HulyEmployee } from "@hcengineering/contact"
 import {
   type AccountUuid as HulyAccountUuid,
   type AttachedData,
-  type Data,
   type DocumentUpdate,
   generateId,
   type Ref,
-  SortingOrder,
-  type Space
+  SortingOrder
 } from "@hcengineering/core"
 import { Clock, Effect } from "effect"
 
@@ -37,36 +34,29 @@ import type {
   UpdateDmMessageParams,
   UpdateDmMessageResult
 } from "../../domain/schemas/direct-messages.js"
-import {
-  ChannelId,
-  Count,
-  type DirectMessageIdentifier,
-  MessageId,
-  type PersonRefInput
-} from "../../domain/schemas/shared.js"
+import { ChannelId, type DirectMessageIdentifier, MessageId, type PersonRefInput } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import type { PersonIdentifierAmbiguousError, PersonNotAnEmployeeError, PersonNotFoundError } from "../errors.js"
-import {
-  CannotDirectMessageSelfError,
-  DirectMessageIdentifierAmbiguousError,
-  DirectMessageNotFoundError,
-  MessageNotFoundError
-} from "../errors.js"
+import { CannotDirectMessageSelfError, MessageNotFoundError } from "../errors.js"
 import { buildSocialIdToPersonNameMap } from "./channels.js"
 import { resolveEmployeeAccountUuid } from "./contacts-shared.js"
 import { listTotal, optionalCount } from "./counts.js"
+import {
+  createDirectMessageSpace,
+  findDirectMessage,
+  type FindDirectMessageError,
+  hasExactDirectMessageMembers,
+  sortedDirectMessageMembers
+} from "./direct-message-shared.js"
 import { markdownToMarkupString, markupToMarkdownString } from "./markup.js"
 import { clampLimit } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
 
-import { chunter, contact, core } from "../huly-plugins.js"
+import { chunter } from "../huly-plugins.js"
+
+export { findDirectMessage } from "./direct-message-shared.js"
 
 // --- Error Types ---
-
-type FindDirectMessageError =
-  | HulyClientError
-  | DirectMessageIdentifierAmbiguousError
-  | DirectMessageNotFoundError
 
 type ListDmMessagesError = FindDirectMessageError
 
@@ -86,86 +76,6 @@ type CreateDirectMessageError =
   | CannotDirectMessageSelfError
 
 // --- Helpers ---
-
-const sortedMemberPair = (first: HulyAccountUuid, second: HulyAccountUuid): Array<HulyAccountUuid> =>
-  [first, second].sort()
-
-const hasExactMembers = (dm: HulyDirectMessage, sortedMembers: ReadonlyArray<HulyAccountUuid>): boolean => {
-  const dmMembers = [...dm.members].sort()
-  return dmMembers.length === sortedMembers.length
-    && sortedMembers.every((member, index) => dmMembers[index] === member)
-}
-
-/**
- * Resolve a `dm` identifier to a Huly DirectMessage document.
- *
- * Resolution order:
- * 1. Treat the identifier as a DM `_id`. If a DM with that ref exists, return it.
- * 2. Treat the identifier as a participant display name. Look up Employees with
- *    that exact name to obtain candidate AccountUuids, then find the one-to-one
- *    DM whose members are exactly the authenticated account and one candidate.
- *
- * If neither lookup yields a hit, fail with `DirectMessageNotFoundError`.
- */
-export const findDirectMessage = (
-  identifier: DirectMessageIdentifier
-): Effect.Effect<
-  { client: HulyClient["Type"]; dm: HulyDirectMessage },
-  FindDirectMessageError,
-  HulyClient
-> =>
-  Effect.gen(function*() {
-    const client = yield* HulyClient
-
-    const byId = yield* client.findOne<HulyDirectMessage>(
-      chunter.class.DirectMessage,
-      { _id: toRef<HulyDirectMessage>(identifier) }
-    )
-
-    if (byId !== undefined) {
-      if (!byId.members.includes(client.getAccountUuid())) {
-        return yield* new DirectMessageNotFoundError({ identifier })
-      }
-      return { client, dm: byId }
-    }
-
-    const employees = yield* client.findAll<HulyEmployee>(
-      contact.mixin.Employee,
-      { name: identifier }
-    )
-
-    const accountUuid = client.getAccountUuid()
-    const accountUuids = [
-      ...new Set(
-        employees
-          .map((e) => e.personUuid)
-          .filter((u) => u !== undefined)
-          .filter((u) => u !== accountUuid)
-      )
-    ]
-
-    if (accountUuids.length === 0) {
-      return yield* new DirectMessageNotFoundError({ identifier })
-    }
-
-    const directMessages = yield* client.findAll<HulyDirectMessage>(
-      chunter.class.DirectMessage,
-      { members: accountUuid }
-    )
-
-    const memberPairs = accountUuids.map((candidate) => sortedMemberPair(accountUuid, candidate))
-    const matches = directMessages.filter((dm) => memberPairs.some((members) => hasExactMembers(dm, members)))
-
-    if (matches.length === 0) {
-      return yield* new DirectMessageNotFoundError({ identifier })
-    }
-
-    if (matches.length > 1) {
-      return yield* new DirectMessageIdentifierAmbiguousError({ identifier, matches: Count.make(matches.length) })
-    }
-
-    return { client, dm: matches[0] }
-  })
 
 const findDirectMessageMessage = (
   params: { dm: DirectMessageIdentifier; messageId: MessageId }
@@ -366,28 +276,13 @@ export const createDirectMessage = (
       { members: me }
     )
 
-    const members = sortedMemberPair(me, other)
-    const existing = existingDms.find((dm) => hasExactMembers(dm, members))
+    const members = sortedDirectMessageMembers(me, other)
+    const existing = existingDms.find((dm) => hasExactDirectMessageMembers(dm, members))
 
     if (existing !== undefined) {
       return { id: ChannelId.make(existing._id), created: false }
     }
 
-    const dmId: Ref<HulyDirectMessage> = generateId()
-    const dmData: Data<HulyDirectMessage> = {
-      name: "",
-      description: "",
-      private: true,
-      archived: false,
-      members
-    }
-
-    yield* client.createDoc(
-      chunter.class.DirectMessage,
-      toRef<Space>(core.space.Space),
-      dmData,
-      dmId
-    )
-
+    const dmId = yield* createDirectMessageSpace(client, members)
     return { id: ChannelId.make(dmId), created: true }
   })

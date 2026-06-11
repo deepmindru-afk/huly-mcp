@@ -17,7 +17,10 @@ import { expect } from "vitest"
 
 import {
   parseCreateDriveFolderParams,
+  parseCreateDriveParams,
   parseDeleteDriveItemParams,
+  parseDeleteDriveParams,
+  parseDriveMemberMutationParams,
   parseGetDriveItemParams,
   parseGetDriveParams,
   parseListDriveFileVersionsParams,
@@ -26,10 +29,12 @@ import {
   parseMoveDriveItemParams,
   parseRenameDriveItemParams,
   parseRestoreDriveFileVersionParams,
+  parseSetDriveOwnersParams,
+  parseUpdateDriveParams,
   parseUploadDriveFileParams,
   parseUploadDriveFileVersionParams
 } from "../../../src/domain/schemas.js"
-import { BlobId } from "../../../src/domain/schemas/shared.js"
+import { AccountUuid, BlobId } from "../../../src/domain/schemas/shared.js"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
 import { drive, type DriveSpace, type File, type FileVersion, type Folder } from "../../../src/huly/drive-sdk.js"
 import {
@@ -39,6 +44,7 @@ import {
   DriveIdentifierAmbiguousError,
   DriveInvalidItemOperationError,
   DriveInvalidMoveError,
+  DriveNotEmptyError,
   DriveNotFoundError,
   DriveParentNotFolderError,
   DrivePathAmbiguousError,
@@ -46,7 +52,10 @@ import {
   DrivePathNotFoundError
 } from "../../../src/huly/errors-drive.js"
 import {
+  addDriveMembers,
+  createDrive,
   createDriveFolder,
+  deleteDrive,
   deleteDriveItem,
   getDrive,
   getDriveItem,
@@ -54,12 +63,15 @@ import {
   listDriveItems,
   listDrives,
   moveDriveItem,
+  removeDriveMembers,
   renameDriveItem,
   restoreDriveFileVersion,
+  setDriveOwners,
+  updateDrive,
   uploadDriveFile,
   uploadDriveFileVersion
 } from "../../../src/huly/operations/drive.js"
-import { toRef } from "../../../src/huly/operations/sdk-boundary.js"
+import { toAccountUuid, toRef } from "../../../src/huly/operations/sdk-boundary.js"
 import { HulyStorageClient, type HulyStorageOperations } from "../../../src/huly/storage.js"
 import { testWorkbenchUrlConfig } from "../../../src/huly/url-builders.js"
 import { corePersonId, findResult } from "../../helpers/huly-sdk.js"
@@ -70,6 +82,7 @@ interface DriveState {
   readonly files: Array<File>
   readonly versions: Array<FileVersion>
   nextId: number
+  readonly updatedDrives?: Array<{ readonly id: string; readonly operations: DocumentUpdate<DriveSpace> }>
   readonly updatedFiles?: Array<{ readonly id: string; readonly operations: DocumentUpdate<File> }>
   readonly updatedFolders?: Array<{ readonly id: string; readonly operations: DocumentUpdate<Folder> }>
   readonly removedDocs?: Array<{ readonly classRef: string; readonly id: string }>
@@ -78,6 +91,8 @@ interface DriveState {
 }
 
 const personId = corePersonId("person-1")
+const accountA = toAccountUuid(AccountUuid.make("00000000-0000-4000-8000-000000000001"))
+const accountB = toAccountUuid(AccountUuid.make("00000000-0000-4000-8000-000000000002"))
 const driveSpace = (id = "drive-1", name = "Docs"): DriveSpace => ({
   _id: toRef<DriveSpace>(id),
   _class: drive.class.Drive,
@@ -86,6 +101,7 @@ const driveSpace = (id = "drive-1", name = "Docs"): DriveSpace => ({
   description: "Drive docs",
   private: false,
   archived: false,
+  autoJoin: false,
   members: [],
   owners: [],
   modifiedBy: personId,
@@ -191,6 +207,18 @@ const makeLayer = (state: DriveState): Layer.Layer<HulyClient | HulyStorageClien
     id?: Ref<T>
   ) => {
     const next = id ?? toRef<T>(`created-${state.nextId++}`)
+    if (classRef === drive.class.Drive) {
+      state.drives.push({
+        _id: next as unknown as Ref<DriveSpace>,
+        _class: drive.class.Drive,
+        space,
+        modifiedBy: personId,
+        modifiedOn: 0,
+        createdBy: personId,
+        createdOn: 0,
+        ...(attributes as unknown as Data<DriveSpace>)
+      })
+    }
     if (classRef === drive.class.FileVersion) {
       state.versions.push({
         _id: next as unknown as Ref<FileVersion>,
@@ -240,6 +268,15 @@ const makeLayer = (state: DriveState): Layer.Layer<HulyClient | HulyStorageClien
     objectId: Ref<T>,
     operations: DocumentUpdate<T>
   ) => {
+    if (classRef === drive.class.Drive) {
+      state.updatedDrives?.push({
+        id: String(objectId),
+        operations: operations as unknown as DocumentUpdate<DriveSpace>
+      })
+      const targetIndex = state.drives.findIndex((candidate) => String(candidate._id) === String(objectId))
+      const target = state.drives[targetIndex]
+      state.drives[targetIndex] = { ...target, ...(operations as unknown as Partial<DriveSpace>) }
+    }
     if (classRef === drive.class.File) {
       state.updatedFiles?.push({ id: String(objectId), operations: operations as unknown as DocumentUpdate<File> })
       const targetIndex = state.files.findIndex((candidate) => String(candidate._id) === String(objectId))
@@ -279,6 +316,10 @@ const makeLayer = (state: DriveState): Layer.Layer<HulyClient | HulyStorageClien
     objectId: Ref<T>
   ) => {
     state.removedDocs?.push({ classRef: String(classRef), id: String(objectId) })
+    if (classRef === drive.class.Drive) {
+      const index = state.drives.findIndex((candidate) => String(candidate._id) === String(objectId))
+      if (index >= 0) state.drives.splice(index, 1)
+    }
     if (classRef === drive.class.File) {
       const index = state.files.findIndex((candidate) => String(candidate._id) === String(objectId))
       if (index >= 0) state.files.splice(index, 1)
@@ -358,6 +399,219 @@ describe("drive operations", () => {
       expect(ambiguous).toBeInstanceOf(DriveIdentifierAmbiguousError)
       expect(notFound).toBeInstanceOf(DriveNotFoundError)
       expect(unfiltered.drives).toContainEqual(expect.objectContaining({ name: "(untitled)", ownersCount: 0 }))
+    }))
+
+  it.effect("creates a Drive idempotently and defaults caller membership", () =>
+    Effect.gen(function*() {
+      const state: DriveState = {
+        drives: [],
+        folders: [],
+        files: [],
+        versions: [],
+        nextId: 1
+      }
+
+      const params = yield* parseCreateDriveParams({ name: "Specs", private: true, autoJoin: true })
+      const created = yield* createDrive(params).pipe(Effect.provide(makeLayer(state)))
+      const repeated = yield* createDrive(params).pipe(Effect.provide(makeLayer(state)))
+
+      expect(created.created).toBe(true)
+      expect(created.drive).toMatchObject({ name: "Specs", private: true, autoJoin: true, membersCount: 1 })
+      expect(repeated.created).toBe(false)
+      expect(state.drives).toHaveLength(1)
+      expect(state.drives[0].members).toEqual(["00000000-0000-4000-8000-000000000000"])
+      expect(state.drives[0].owners).toEqual(["00000000-0000-4000-8000-000000000000"])
+    }))
+
+  it.effect("creates a Drive with explicit initial members and owners", () =>
+    Effect.gen(function*() {
+      const state: DriveState = {
+        drives: [],
+        folders: [],
+        files: [],
+        versions: [],
+        nextId: 1
+      }
+
+      const params = yield* parseCreateDriveParams({
+        name: "Team Drive",
+        members: [accountA],
+        owners: [accountB]
+      })
+      const created = yield* createDrive(params).pipe(Effect.provide(makeLayer(state)))
+
+      expect(created.created).toBe(true)
+      expect(created.drive).toMatchObject({ name: "Team Drive", membersCount: 2, ownersCount: 1 })
+      expect(state.drives[0].members).toEqual([accountA, accountB])
+      expect(state.drives[0].owners).toEqual([accountB])
+    }))
+
+  it.effect("updates Drive metadata with clearable description", () =>
+    Effect.gen(function*() {
+      const state: DriveState = {
+        drives: [driveSpace()],
+        folders: [],
+        files: [],
+        versions: [],
+        nextId: 1,
+        updatedDrives: []
+      }
+
+      const params = yield* parseUpdateDriveParams({
+        drive: "Docs",
+        name: "Knowledge",
+        description: null,
+        private: true,
+        archived: true,
+        autoJoin: true
+      })
+      const result = yield* updateDrive(params).pipe(Effect.provide(makeLayer(state)))
+
+      expect(result.drive).toMatchObject({ name: "Knowledge", private: true, archived: true, autoJoin: true })
+      expect(state.updatedDrives).toEqual([{
+        id: "drive-1",
+        operations: {
+          name: "Knowledge",
+          description: "",
+          private: true,
+          archived: true,
+          autoJoin: true
+        }
+      }])
+    }))
+
+  it.effect("updates only supplied Drive fields", () =>
+    Effect.gen(function*() {
+      const state: DriveState = {
+        drives: [driveSpace()],
+        folders: [],
+        files: [],
+        versions: [],
+        nextId: 1,
+        updatedDrives: []
+      }
+
+      const params = yield* parseUpdateDriveParams({
+        drive: "Docs",
+        autoJoin: true
+      })
+      const result = yield* updateDrive(params).pipe(Effect.provide(makeLayer(state)))
+
+      expect(result.drive).toMatchObject({ name: "Docs", autoJoin: true })
+      expect(state.updatedDrives).toEqual([{
+        id: "drive-1",
+        operations: {
+          autoJoin: true
+        }
+      }])
+    }))
+
+  it.effect("adds, removes, and replaces Drive members and owners idempotently", () =>
+    Effect.gen(function*() {
+      const state: DriveState = {
+        drives: [{ ...driveSpace(), members: [accountA], owners: [accountA] }],
+        folders: [],
+        files: [],
+        versions: [],
+        nextId: 1,
+        updatedDrives: []
+      }
+
+      const addParams = yield* parseDriveMemberMutationParams({ drive: "Docs", members: [accountB] })
+      const added = yield* addDriveMembers(addParams).pipe(Effect.provide(makeLayer(state)))
+      const addedAgain = yield* addDriveMembers(addParams).pipe(Effect.provide(makeLayer(state)))
+      const ownerParams = yield* parseSetDriveOwnersParams({ drive: "Docs", owners: [accountB] })
+      const owners = yield* setDriveOwners(ownerParams).pipe(Effect.provide(makeLayer(state)))
+      const removeParams = yield* parseDriveMemberMutationParams({ drive: "Docs", members: [accountA] })
+      const removed = yield* removeDriveMembers(removeParams).pipe(Effect.provide(makeLayer(state)))
+
+      expect(added.changed).toBe(true)
+      expect(added.members).toEqual([accountA, accountB])
+      expect(addedAgain.changed).toBe(false)
+      expect(owners).toMatchObject({ owners: [accountB], members: [accountA, accountB], changed: true })
+      expect(removed.members).toEqual([accountB])
+      expect(state.drives[0]).toMatchObject({ members: [accountB], owners: [accountB] })
+    }))
+
+  it.effect("adds replacement Drive owners to members when required", () =>
+    Effect.gen(function*() {
+      const state: DriveState = {
+        drives: [{ ...driveSpace(), members: [accountA], owners: [accountA] }],
+        folders: [],
+        files: [],
+        versions: [],
+        nextId: 1,
+        updatedDrives: []
+      }
+
+      const ownerParams = yield* parseSetDriveOwnersParams({ drive: "Docs", owners: [accountB] })
+      const owners = yield* setDriveOwners(ownerParams).pipe(Effect.provide(makeLayer(state)))
+
+      expect(owners).toMatchObject({ owners: [accountB], members: [accountA, accountB], changed: true })
+      expect(state.updatedDrives).toEqual([{
+        id: "drive-1",
+        operations: {
+          owners: [accountB],
+          members: [accountA, accountB]
+        }
+      }])
+    }))
+
+  it.effect("leaves Drive owners unchanged when replacement is already current", () =>
+    Effect.gen(function*() {
+      const state: DriveState = {
+        drives: [{ ...driveSpace(), members: [accountA], owners: [accountA] }],
+        folders: [],
+        files: [],
+        versions: [],
+        nextId: 1,
+        updatedDrives: []
+      }
+
+      const ownerParams = yield* parseSetDriveOwnersParams({
+        drive: "Docs",
+        owners: [accountA],
+        ensureMembers: false
+      })
+      const owners = yield* setDriveOwners(ownerParams).pipe(Effect.provide(makeLayer(state)))
+
+      expect(owners).toMatchObject({ owners: [accountA], members: [accountA], changed: false })
+      expect(state.updatedDrives).toEqual([])
+    }))
+
+  it.effect("deletes only empty Drives and rejects non-empty Drives with child summaries", () =>
+    Effect.gen(function*() {
+      const specs = folder("folder-specs", "Specs", drive.ids.Root)
+      const nonEmptyState: DriveState = {
+        drives: [driveSpace()],
+        folders: [specs],
+        files: [],
+        versions: [],
+        nextId: 1
+      }
+      const emptyState: DriveState = {
+        drives: [driveSpace("drive-empty", "Empty")],
+        folders: [],
+        files: [],
+        versions: [],
+        nextId: 1,
+        removedDocs: []
+      }
+
+      const nonEmptyParams = yield* parseDeleteDriveParams({ drive: "Docs" })
+      const nonEmpty = yield* Effect.flip(deleteDrive(nonEmptyParams).pipe(Effect.provide(makeLayer(nonEmptyState))))
+      const emptyParams = yield* parseDeleteDriveParams({ drive: "Empty" })
+      const deleted = yield* deleteDrive(emptyParams).pipe(Effect.provide(makeLayer(emptyState)))
+
+      expect(nonEmpty).toBeInstanceOf(DriveNotEmptyError)
+      if (!(nonEmpty instanceof DriveNotEmptyError)) {
+        throw new Error("expected DriveNotEmptyError")
+      }
+      expect(nonEmpty.childCount).toBe(1)
+      expect(nonEmpty.children).toEqual([{ id: "folder-specs", title: "Specs", kind: "folder" }])
+      expect(deleted).toMatchObject({ deleted: true, drive: { id: "drive-empty", name: "Empty" } })
+      expect(emptyState.drives).toEqual([])
+      expect(emptyState.removedDocs).toEqual([{ classRef: drive.class.Drive, id: "drive-empty" }])
     }))
 
   it.effect("lists children under a normalized folder path", () =>

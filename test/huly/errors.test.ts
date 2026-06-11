@@ -42,6 +42,7 @@ import {
   DriveIdentifierAmbiguousError,
   DriveInvalidItemOperationError,
   DriveInvalidMoveError,
+  DriveNotEmptyError,
   DriveNotFoundError,
   DriveParentNotFolderError,
   DrivePathAmbiguousError,
@@ -962,6 +963,8 @@ describe("Huly Errors", () => {
               return `drive-invalid-item-operation:${error.drive}:${error.path}:${error.operation}:${error.reason}`
             case "DriveFolderNotEmptyError":
               return `drive-folder-not-empty:${error.drive}:${error.path}:${error.childCount}:${error.children.length}`
+            case "DriveNotEmptyError":
+              return `drive-not-empty:${error.drive}:${error.childCount}:${error.children.length}`
             default: {
               const _exhaustive: never = error
               return _exhaustive
@@ -1324,6 +1327,27 @@ describe("Huly Errors", () => {
             children: []
           }).message
         ).toBe("Drive folder '/Specs' in drive 'Docs' is not empty (0 child items).")
+        expect(matchError(
+          new DriveNotEmptyError({
+            drive: "Docs",
+            childCount: Count.make(1),
+            children: [{ id: "folder-1", title: "Specs", kind: "folder" }]
+          })
+        )).toBe("drive-not-empty:Docs:1:1")
+        expect(
+          new DriveNotEmptyError({
+            drive: "Docs",
+            childCount: Count.make(1),
+            children: [{ id: "folder-1", title: "Specs", kind: "folder" }]
+          }).message
+        ).toBe("Drive 'Docs' is not empty (1 child items). Children: Specs (folder folder-1)")
+        expect(
+          new DriveNotEmptyError({
+            drive: "Docs",
+            childCount: Count.make(0),
+            children: []
+          }).message
+        ).toBe("Drive 'Docs' is not empty (0 child items).")
       }))
   })
 })

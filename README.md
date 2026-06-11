@@ -632,6 +632,12 @@ SDK upgrade revisit:
 |------|-------------|
 | `list_drives` | List Huly Drive spaces. When includeArchived is omitted, includeArchived=undefined. Use this before path operations when you do not know the exact drive id or exact drive name. |
 | `get_drive` | Get one Huly Drive by exact drive id or exact drive name. If an exact name is ambiguous, the error includes candidate ids so the next call can use the id. |
+| `create_drive` | Idempotently create a Huly Drive space. If an active Drive with the same exact name already exists, returns it with created=false. Initial members and owners accept account UUIDs, exact emails, or exact person names; omitted lists default to the caller. |
+| `update_drive` | Update safe metadata on an existing Drive: name, description, private, archived, or autoJoin. Provide at least one update field. This changes the Drive space, not files or folders inside it. |
+| `delete_drive` | Permanently delete an empty Huly Drive space. The Drive must contain no files or folders; non-empty Drives fail with child count and item summaries. This is permanent deletion, not archive or trash. |
+| `add_drive_members` | Idempotently add members to an existing Drive. Members accept account UUIDs, exact emails, or exact person names and resolve to Huly account UUIDs before replacing the Drive member list. |
+| `remove_drive_members` | Idempotently remove members from an existing Drive. Members accept account UUIDs, exact emails, or exact person names and resolve to Huly account UUIDs before replacing the Drive member list. |
+| `set_drive_owners` | Replace owners on an existing Drive. Owners accept account UUIDs, exact emails, or exact person names. By default, each owner is also ensured as a Drive member. Pass owners=[] to clear owners. |
 | `list_drive_items` | List children under a folder path in a Drive. Paths are POSIX-like and normalized to absolute; '/' lists the root. Duplicate same-parent titles fail with candidate ids instead of guessing. |
 | `get_drive_item` | Get one Drive folder or file by either exact itemId or path. Provide only one locator. File results include current version, size, MIME type, and download URL when available. |
 | `create_drive_folder` | Idempotently create a Drive folder path, creating missing parents like mkdir -p. Returns created=false when the full folder path already exists. |

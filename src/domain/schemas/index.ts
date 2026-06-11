@@ -2085,6 +2085,41 @@ export {
 } from "./leads.js"
 
 export {
+  type CreateDriveParams,
+  createDriveParamsJsonSchema,
+  CreateDriveParamsSchema,
+  type CreateDriveResult,
+  CreateDriveResultSchema,
+  DEFAULT_DRIVE_AUTO_JOIN,
+  type DeleteDriveParams,
+  deleteDriveParamsJsonSchema,
+  DeleteDriveParamsSchema,
+  type DeleteDriveResult,
+  DeleteDriveResultSchema,
+  type DriveMemberMutationParams,
+  driveMemberMutationParamsJsonSchema,
+  DriveMemberMutationParamsSchema,
+  type DriveMemberMutationResult,
+  DriveMemberMutationResultSchema,
+  parseCreateDriveParams,
+  parseDeleteDriveParams,
+  parseDriveMemberMutationParams,
+  parseSetDriveOwnersParams,
+  parseUpdateDriveParams,
+  type SetDriveOwnersParams,
+  setDriveOwnersParamsJsonSchema,
+  SetDriveOwnersParamsSchema,
+  type SetDriveOwnersResult,
+  SetDriveOwnersResultSchema,
+  UPDATE_DRIVE_FIELDS,
+  type UpdateDriveParams,
+  updateDriveParamsJsonSchema,
+  UpdateDriveParamsSchema,
+  type UpdateDriveResult,
+  UpdateDriveResultSchema
+} from "./drive-admin.js"
+
+export {
   type CreateDriveFolderParams,
   createDriveFolderParamsJsonSchema,
   CreateDriveFolderParamsSchema,

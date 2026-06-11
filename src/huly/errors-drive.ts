@@ -170,3 +170,18 @@ export class DriveFolderNotEmptyError extends Schema.TaggedError<DriveFolderNotE
     return `Drive folder '${this.path}' in drive '${this.drive}' is not empty (${this.childCount} child items).${suffix}`
   }
 }
+
+export class DriveNotEmptyError extends Schema.TaggedError<DriveNotEmptyError>()(
+  "DriveNotEmptyError",
+  {
+    drive: NonEmptyString,
+    childCount: Count,
+    children: Schema.Array(DriveFolderChildSummarySchema)
+  }
+) {
+  override get message(): string {
+    const shown = this.children.map((child) => `${child.title} (${child.kind} ${child.id})`).join(", ")
+    const suffix = shown.length === 0 ? "" : ` Children: ${shown}`
+    return `Drive '${this.drive}' is not empty (${this.childCount} child items).${suffix}`
+  }
+}

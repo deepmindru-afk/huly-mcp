@@ -126,7 +126,13 @@ export const getSpace = (
   Effect.gen(function*() {
     const client = yield* HulyClient
     const space = yield* findSpace(client, params)
-    return toSpaceDetail(space)
+    const spaceType = space.type === undefined
+      ? undefined
+      : yield* client.findOne<HulySpaceType>(
+        core.class.SpaceType,
+        hulyQuery<HulySpaceType>({ _id: toRef<HulySpaceType>(space.type) })
+      )
+    return toSpaceDetail(space, spaceType)
   })
 
 export const listSpaceTypes = (

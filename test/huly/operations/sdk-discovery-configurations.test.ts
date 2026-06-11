@@ -380,8 +380,8 @@ describe("sdk discovery configuration operations", () => {
         roles: [{ id: "role-admin", permissions: ["permission-update"] }],
         rolePermissions: [{ id: "permission-update", label: "Update space" }],
         assignmentShape: {
-          storedOnSpaceField: "roles",
-          roleKeyField: "roleId",
+          storedOnSpaceField: `mixin:${core.class.Space}`,
+          roleKeyField: "role._id",
           memberValueShape: "accountUuidArrayOrUndefined",
           readProjectionTools: ["get_space"]
         }

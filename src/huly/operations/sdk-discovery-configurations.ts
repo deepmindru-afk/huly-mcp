@@ -167,8 +167,8 @@ export const describeHulySpaceTypeCapabilities = (
       roles: detail.roles,
       rolePermissions: detail.availablePermissions,
       assignmentShape: {
-        storedOnSpaceField: HulyConfigurationMetadataKey.make("roles"),
-        roleKeyField: HulyConfigurationMetadataKey.make("roleId"),
+        storedOnSpaceField: HulyConfigurationMetadataKey.make(`mixin:${detail.targetClass}`),
+        roleKeyField: HulyConfigurationMetadataKey.make("role._id"),
         memberValueShape: "accountUuidArrayOrUndefined",
         readProjectionTools: ["get_space"].map((tool) => HulyMcpToolName.make(tool))
       }

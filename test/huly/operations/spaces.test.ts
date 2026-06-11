@@ -515,9 +515,13 @@ describe("spaces operations", () => {
     Effect.gen(function*() {
       const { owners: _owners, ...space } = makeSpace({
         type: toRef<SpaceType>("space-type-1"),
-        roles: { "role-admin": [accountA], "role-empty": undefined }
+        [core.class.Space]: {
+          "role-admin": [accountA],
+          "role-empty": [],
+          ignored: "not a member list"
+        }
       })
-      const layer = createTestLayer({ spaces: [space] })
+      const layer = createTestLayer({ spaces: [space], spaceTypes: [makeSpaceType()] })
 
       const result = yield* getSpace({ space: spaceIdentifier("space-1") }).pipe(Effect.provide(layer))
 

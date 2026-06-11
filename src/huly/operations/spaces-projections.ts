@@ -51,15 +51,30 @@ export const toSpaceSummary = (space: GenericSpace): SpaceSummary => ({
   ownersCount: Count.make(space.owners?.length ?? 0)
 })
 
-const roleAssignments = (space: GenericSpace): Array<SpaceRoleAssignment> | undefined => {
-  if (space.roles === undefined) return undefined
-  return Object.entries(space.roles).map(([roleId, members]) => ({
-    roleId: RoleId.make(roleId),
-    members: (members ?? []).map((member) => AccountUuid.make(member))
-  }))
+const isObjectRecord = (value: unknown): value is object => typeof value === "object" && value !== null
+
+const roleAssignmentSource = (space: GenericSpace, spaceType: HulySpaceType | undefined): unknown =>
+  spaceType === undefined ? undefined : Object.entries(space).find(([key]) => key === spaceType.targetClass)?.[1]
+
+const roleAssignments = (
+  space: GenericSpace,
+  spaceType: HulySpaceType | undefined
+): Array<SpaceRoleAssignment> | undefined => {
+  const source = roleAssignmentSource(space, spaceType)
+  if (!isObjectRecord(source)) return undefined
+  return Object.entries(source).flatMap(([roleId, members]) =>
+    Array.isArray(members)
+      ? [{
+        roleId: RoleId.make(roleId),
+        members: members.filter((member): member is string => typeof member === "string").map((member) =>
+          AccountUuid.make(member)
+        )
+      }]
+      : []
+  )
 }
 
-export const toSpaceDetail = (space: GenericSpace): SpaceDetail => ({
+export const toSpaceDetail = (space: GenericSpace, spaceType?: HulySpaceType): SpaceDetail => ({
   id: SpaceId.make(space._id),
   name: space.name,
   description: space.description,
@@ -70,7 +85,7 @@ export const toSpaceDetail = (space: GenericSpace): SpaceDetail => ({
   autoJoin: space.autoJoin,
   members: space.members.map((member) => AccountUuid.make(member)),
   owners: (space.owners ?? []).map((owner) => AccountUuid.make(owner)),
-  roleAssignments: roleAssignments(space)
+  roleAssignments: roleAssignments(space, spaceType)
 })
 
 export const spaceTypeSummary = (

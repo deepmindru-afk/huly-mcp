@@ -1,9 +1,15 @@
 import {
   createDriveFolderParamsJsonSchema,
   CreateDriveFolderResultSchema,
+  createDriveParamsJsonSchema,
+  CreateDriveResultSchema,
   deleteDriveItemParamsJsonSchema,
   DeleteDriveItemResultSchema,
+  deleteDriveParamsJsonSchema,
+  DeleteDriveResultSchema,
   DriveItemSummarySchema,
+  driveMemberMutationParamsJsonSchema,
+  DriveMemberMutationResultSchema,
   DriveSummarySchema,
   getDriveItemParamsJsonSchema,
   getDriveParamsJsonSchema,
@@ -16,7 +22,10 @@ import {
   moveDriveItemParamsJsonSchema,
   MoveDriveItemResultSchema,
   parseCreateDriveFolderParams,
+  parseCreateDriveParams,
   parseDeleteDriveItemParams,
+  parseDeleteDriveParams,
+  parseDriveMemberMutationParams,
   parseGetDriveItemParams,
   parseGetDriveParams,
   parseListDriveFileVersionsParams,
@@ -25,12 +34,18 @@ import {
   parseMoveDriveItemParams,
   parseRenameDriveItemParams,
   parseRestoreDriveFileVersionParams,
+  parseSetDriveOwnersParams,
+  parseUpdateDriveParams,
   parseUploadDriveFileParams,
   parseUploadDriveFileVersionParams,
   renameDriveItemParamsJsonSchema,
   RenameDriveItemResultSchema,
   restoreDriveFileVersionParamsJsonSchema,
   RestoreDriveFileVersionResultSchema,
+  setDriveOwnersParamsJsonSchema,
+  SetDriveOwnersResultSchema,
+  updateDriveParamsJsonSchema,
+  UpdateDriveResultSchema,
   uploadDriveFileParamsJsonSchema,
   UploadDriveFileResultSchema,
   uploadDriveFileVersionParamsJsonSchema,
@@ -38,7 +53,10 @@ import {
 } from "../../domain/schemas.js"
 import { DEFAULT_INCLUDE_ARCHIVED } from "../../domain/schemas/shared.js"
 import {
+  addDriveMembers,
+  createDrive,
   createDriveFolder,
+  deleteDrive,
   deleteDriveItem,
   getDrive,
   getDriveItem,
@@ -46,8 +64,11 @@ import {
   listDriveItems,
   listDrives,
   moveDriveItem,
+  removeDriveMembers,
   renameDriveItem,
   restoreDriveFileVersion,
+  setDriveOwners,
+  updateDrive,
   uploadDriveFile,
   uploadDriveFileVersion
 } from "../../huly/operations/drive.js"
@@ -71,6 +92,90 @@ export const driveTools: ReadonlyArray<RegisteredTool> = [
     category: CATEGORY,
     inputSchema: getDriveParamsJsonSchema,
     handler: createEncodedCombinedToolHandler("get_drive", parseGetDriveParams, getDrive, DriveSummarySchema)
+  },
+  {
+    name: "create_drive",
+    description:
+      "Idempotently create a Huly Drive space. If an active Drive with the same exact name already exists, returns it with created=false. Initial members and owners accept account UUIDs, exact emails, or exact person names; omitted lists default to the caller.",
+    category: CATEGORY,
+    inputSchema: createDriveParamsJsonSchema,
+    annotations: { idempotentHint: true, destructiveHint: false },
+    handler: createEncodedCombinedToolHandler(
+      "create_drive",
+      parseCreateDriveParams,
+      createDrive,
+      CreateDriveResultSchema
+    )
+  },
+  {
+    name: "update_drive",
+    description:
+      "Update safe metadata on an existing Drive: name, description, private, archived, or autoJoin. Provide at least one update field. This changes the Drive space, not files or folders inside it.",
+    category: CATEGORY,
+    inputSchema: updateDriveParamsJsonSchema,
+    annotations: { idempotentHint: true, destructiveHint: false },
+    handler: createEncodedCombinedToolHandler(
+      "update_drive",
+      parseUpdateDriveParams,
+      updateDrive,
+      UpdateDriveResultSchema
+    )
+  },
+  {
+    name: "delete_drive",
+    description:
+      "Permanently delete an empty Huly Drive space. The Drive must contain no files or folders; non-empty Drives fail with child count and item summaries. This is permanent deletion, not archive or trash.",
+    category: CATEGORY,
+    inputSchema: deleteDriveParamsJsonSchema,
+    annotations: { idempotentHint: false, destructiveHint: true },
+    handler: createEncodedCombinedToolHandler(
+      "delete_drive",
+      parseDeleteDriveParams,
+      deleteDrive,
+      DeleteDriveResultSchema
+    )
+  },
+  {
+    name: "add_drive_members",
+    description:
+      "Idempotently add members to an existing Drive. Members accept account UUIDs, exact emails, or exact person names and resolve to Huly account UUIDs before replacing the Drive member list.",
+    category: CATEGORY,
+    inputSchema: driveMemberMutationParamsJsonSchema,
+    annotations: { idempotentHint: true, destructiveHint: false },
+    handler: createEncodedCombinedToolHandler(
+      "add_drive_members",
+      parseDriveMemberMutationParams,
+      addDriveMembers,
+      DriveMemberMutationResultSchema
+    )
+  },
+  {
+    name: "remove_drive_members",
+    description:
+      "Idempotently remove members from an existing Drive. Members accept account UUIDs, exact emails, or exact person names and resolve to Huly account UUIDs before replacing the Drive member list.",
+    category: CATEGORY,
+    inputSchema: driveMemberMutationParamsJsonSchema,
+    annotations: { idempotentHint: true, destructiveHint: false },
+    handler: createEncodedCombinedToolHandler(
+      "remove_drive_members",
+      parseDriveMemberMutationParams,
+      removeDriveMembers,
+      DriveMemberMutationResultSchema
+    )
+  },
+  {
+    name: "set_drive_owners",
+    description:
+      "Replace owners on an existing Drive. Owners accept account UUIDs, exact emails, or exact person names. By default, each owner is also ensured as a Drive member. Pass owners=[] to clear owners.",
+    category: CATEGORY,
+    inputSchema: setDriveOwnersParamsJsonSchema,
+    annotations: { idempotentHint: true, destructiveHint: false },
+    handler: createEncodedCombinedToolHandler(
+      "set_drive_owners",
+      parseSetDriveOwnersParams,
+      setDriveOwners,
+      SetDriveOwnersResultSchema
+    )
   },
   {
     name: "list_drive_items",

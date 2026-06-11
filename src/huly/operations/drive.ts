@@ -50,6 +50,14 @@ import { makeFileVersionData, uploadSource } from "./drive-upload-shared.js"
 import { clampLimit, hulyQuery } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
 
+export {
+  addDriveMembers,
+  createDrive,
+  deleteDrive,
+  removeDriveMembers,
+  setDriveOwners,
+  updateDrive
+} from "./drive-admin.js"
 export { deleteDriveItem, moveDriveItem, renameDriveItem, uploadDriveFileVersion } from "./drive-file-operations.js"
 
 export const listDrives = (

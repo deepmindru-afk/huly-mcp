@@ -53,6 +53,7 @@ import {
   DriveIdentifierAmbiguousError,
   DriveInvalidItemOperationError,
   DriveInvalidMoveError,
+  DriveNotEmptyError,
   DriveNotFoundError,
   DriveParentNotFolderError,
   DrivePathAmbiguousError,
@@ -184,6 +185,7 @@ export {
   DriveIdentifierAmbiguousError,
   DriveInvalidItemOperationError,
   DriveInvalidMoveError,
+  DriveNotEmptyError,
   DriveNotFoundError,
   DriveParentNotFolderError,
   DrivePathAmbiguousError,
@@ -389,7 +391,8 @@ export const HulyDomainError = Schema.Union(
   DrivePathConflictError,
   DriveInvalidMoveError,
   DriveInvalidItemOperationError,
-  DriveFolderNotEmptyError
+  DriveFolderNotEmptyError,
+  DriveNotEmptyError
 )
 
 /**

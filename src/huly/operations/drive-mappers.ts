@@ -17,6 +17,7 @@ export const toDriveSummary = (client: HulyClientOperations, item: DriveSpace): 
     name: driveTextOrUntitled(item.name),
     archived: item.archived,
     private: item.private,
+    autoJoin: item.autoJoin,
     membersCount: Count.make(item.members.length),
     ownersCount: Count.make((item.owners ?? []).length),
     url: buildDriveUrlFromConfig(client.workbenchUrlConfig, DriveId.make(item._id))

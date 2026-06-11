@@ -8,6 +8,7 @@ import type {
   DriveIdentifierAmbiguousError,
   DriveInvalidItemOperationError,
   DriveInvalidMoveError,
+  DriveNotEmptyError,
   DriveNotFoundError,
   DriveParentNotFolderError,
   DrivePathAmbiguousError,
@@ -33,6 +34,7 @@ export type DriveOperationError =
   | DriveInvalidMoveError
   | DriveInvalidItemOperationError
   | DriveFolderNotEmptyError
+  | DriveNotEmptyError
 
 export type DriveItem = Folder | File
 

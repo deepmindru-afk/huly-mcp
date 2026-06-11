@@ -85,6 +85,7 @@ export const DriveSummarySchema = Schema.Struct({
   description: Schema.optional(Schema.String),
   archived: Schema.Boolean,
   private: Schema.Boolean,
+  autoJoin: Schema.optional(Schema.Boolean),
   membersCount: Count,
   ownersCount: Count,
   url: UrlString

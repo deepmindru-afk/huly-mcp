@@ -3,21 +3,31 @@ import { Effect, Schema } from "effect"
 import { expect } from "vitest"
 
 import {
+  CreateDriveResultSchema,
   DeleteDriveItemResultSchema,
+  DeleteDriveResultSchema,
   DriveFileVersionSummarySchema,
   DriveItemSummarySchema,
   DriveItemTitle,
+  DriveMemberMutationResultSchema,
+  DriveSummarySchema,
   MoveDriveItemResultSchema,
   parseDeleteDriveItemParams,
+  parseDriveMemberMutationParams,
   parseGetDriveItemParams,
   parseMoveDriveItemParams,
   parseRenameDriveItemParams,
+  parseSetDriveOwnersParams,
+  parseUpdateDriveParams,
   parseUploadDriveFileParams,
   parseUploadDriveFileVersionParams,
   RenameDriveItemResultSchema,
+  SetDriveOwnersResultSchema,
+  UpdateDriveResultSchema,
   uploadDriveFileParamsJsonSchema,
   UploadDriveFileVersionResultSchema
 } from "../../src/domain/schemas.js"
+import { AccountUuid } from "../../src/domain/schemas/shared.js"
 import { normalizeDrivePath } from "../../src/huly/operations/drive-path.js"
 
 describe("drive schemas", () => {
@@ -116,6 +126,28 @@ describe("drive schemas", () => {
       expect(moveAmbiguousLocator._tag).toBe("Left")
       expect(versionMissingSource._tag).toBe("Left")
       expect(versionConflictingSource._tag).toBe("Left")
+    }))
+
+  it.effect("validates Drive administration params", () =>
+    Effect.gen(function*() {
+      const updateMissingField = yield* Effect.either(parseUpdateDriveParams({ drive: "Docs" }))
+      const updateAccepted = yield* parseUpdateDriveParams({ drive: "Docs", autoJoin: true })
+      const memberMissing = yield* Effect.either(parseDriveMemberMutationParams({ drive: "Docs", members: [] }))
+      const memberAccepted = yield* parseDriveMemberMutationParams({
+        drive: "Docs",
+        members: ["00000000-0000-4000-8000-000000000001"]
+      })
+      const ownersAccepted = yield* parseSetDriveOwnersParams({
+        drive: "Docs",
+        owners: ["00000000-0000-4000-8000-000000000002"],
+        ensureMembers: false
+      })
+
+      expect(updateMissingField._tag).toBe("Left")
+      expect(updateAccepted.autoJoin).toBe(true)
+      expect(memberMissing._tag).toBe("Left")
+      expect(memberAccepted.members).toEqual(["00000000-0000-4000-8000-000000000001"])
+      expect(ownersAccepted.ensureMembers).toBe(false)
     }))
 
   it.effect("rejects root paths for item mutations", () =>
@@ -221,6 +253,44 @@ describe("drive schemas", () => {
       expect(moved.toPath).toBe("/Specs/API.md")
       expect(renamed.renamed).toBe(true)
       expect(deleted.deletedVersions).toBe(2)
+    }))
+
+  it.effect("encodes branded outputs for Drive administration operations", () =>
+    Effect.gen(function*() {
+      const drive = yield* Schema.decodeUnknown(DriveSummarySchema)({
+        id: "drive-1",
+        name: "Docs",
+        description: "Drive docs",
+        archived: false,
+        private: true,
+        autoJoin: true,
+        membersCount: 2,
+        ownersCount: 1,
+        url: "https://huly.test/workbench/ws/drive/drive-1"
+      })
+      const created = yield* Schema.encode(CreateDriveResultSchema)({ drive, created: true })
+      const updated = yield* Schema.encode(UpdateDriveResultSchema)({ drive, updated: true })
+      const deleted = yield* Schema.encode(DeleteDriveResultSchema)({ drive, deleted: true })
+      const members = yield* Schema.encode(DriveMemberMutationResultSchema)({
+        drive,
+        members: [AccountUuid.make("00000000-0000-4000-8000-000000000001")],
+        changed: true
+      })
+      const owners = yield* Schema.encode(SetDriveOwnersResultSchema)({
+        drive,
+        owners: [AccountUuid.make("00000000-0000-4000-8000-000000000002")],
+        members: [
+          AccountUuid.make("00000000-0000-4000-8000-000000000001"),
+          AccountUuid.make("00000000-0000-4000-8000-000000000002")
+        ],
+        changed: true
+      })
+
+      expect(created.drive.id).toBe("drive-1")
+      expect(updated.drive.autoJoin).toBe(true)
+      expect(deleted.deleted).toBe(true)
+      expect(members.members).toEqual(["00000000-0000-4000-8000-000000000001"])
+      expect(owners.owners).toEqual(["00000000-0000-4000-8000-000000000002"])
     }))
 
   it("exposes source alternatives in upload JSON schema", () => {

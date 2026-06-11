@@ -75,28 +75,29 @@ const findSpaceType = (
     return result
   })
 
-const listSpaceTypeRoles = (
-  client: HulyClient["Type"],
-  spaceType: SpaceTypeId
-): Effect.Effect<ReadonlyArray<Role>, HulyClientError> =>
-  client.findAll<Role>(
-    roleClass,
-    hulyQuery<Role>({
-      attachedTo: toRef<SpaceType>(spaceType)
-    }),
-    { limit: 100 }
-  )
-
 const resolveSpaceRole = (
+  client: HulyClient["Type"],
   spaceType: SpaceTypeId,
-  roles: ReadonlyArray<Role>,
   role: SpaceRoleMemberMutationParams["role"]
-): Effect.Effect<Role, SpaceRoleIdentifierAmbiguousError | SpaceRoleNotFoundError> =>
+): Effect.Effect<Role, HulyClientError | SpaceRoleIdentifierAmbiguousError | SpaceRoleNotFoundError> =>
   Effect.gen(function*() {
-    const byId = roles.find((candidate) => candidate._id === toRef<Role>(role))
+    const byId = yield* client.findOne<Role>(
+      roleClass,
+      hulyQuery<Role>({
+        _id: toRef<Role>(role),
+        attachedTo: toRef<SpaceType>(spaceType)
+      })
+    )
     if (byId !== undefined) return byId
 
-    const matches = roles.filter((candidate) => candidate.name === role)
+    const matches = yield* client.findAll<Role>(
+      roleClass,
+      hulyQuery<Role>({
+        attachedTo: toRef<SpaceType>(spaceType),
+        name: role
+      }),
+      { limit: 2 }
+    )
 
     if (matches.length === 0) {
       return yield* new SpaceRoleNotFoundError({
@@ -184,8 +185,7 @@ const mutateSpaceRoleMembers = (
     const space = yield* findSpace(client, params)
     const spaceType = yield* requireTypedSpaceType(space)
     const spaceTypeDoc = yield* findSpaceType(client, spaceType)
-    const roles = yield* listSpaceTypeRoles(client, spaceType)
-    const role = yield* resolveSpaceRole(spaceType, roles, params.role)
+    const role = yield* resolveSpaceRole(client, spaceType, params.role)
     const resolvedMembers = yield* resolveMembers(client, params.members)
     const currentAssignments = roleAssignments(space, spaceTypeDoc)
     const currentMembers = sortStrings(currentAssignments[role._id] ?? []).map(toAccountUuid)

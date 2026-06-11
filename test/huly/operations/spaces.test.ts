@@ -311,10 +311,12 @@ const createTestLayer = (config: MockConfig) => {
       return []
     })()
 
+    const limitedDocs = options?.limit === undefined ? matchingDocs : matchingDocs.slice(0, options.limit)
+
     // The selected fixture array is determined by the same class ref supplied to
     // the generic SDK method; Huly refs are phantom-branded strings at runtime.
     // eslint-disable-next-line no-restricted-syntax -- brands erased at runtime; class branch selects T fixtures
-    return Effect.succeed(toResult(matchingDocs as unknown as ReadonlyArray<T>, config.sdkTotal))
+    return Effect.succeed(toResult(limitedDocs as unknown as ReadonlyArray<T>, config.sdkTotal))
   }
 
   const findOne: HulyClientOperations["findOne"] = <T extends Doc>(_class: Ref<Class<T>>, query: DocumentQuery<T>) =>
@@ -1011,6 +1013,45 @@ describe("spaces operations", () => {
       expect(exitCauseText(missingRole)).toContain("SpaceRoleNotFoundError")
       expect(exitCauseText(missingSpaceType)).toContain("SpaceRoleNotFoundError")
       expect(exitCauseText(ambiguousRole)).toContain("SpaceRoleIdentifierAmbiguousError")
+    }))
+
+  it.effect("space role resolution is not truncated by broad role list caps", () =>
+    Effect.gen(function*() {
+      const fillerRoles = Array.from({ length: 100 }, (_, index) =>
+        makeRole({
+          _id: toRef<Role>(`role-filler-${index}`),
+          name: `Filler ${index}`
+        }))
+      const lateRole = makeRole({ _id: toRef<Role>("role-late"), name: "Late Role" })
+      const lateDuplicateA = makeRole({ _id: toRef<Role>("role-late-a"), name: "Duplicated Late Role" })
+      const lateDuplicateB = makeRole({ _id: toRef<Role>("role-late-b"), name: "Duplicated Late Role" })
+      const baseLayer = {
+        spaces: [makeSpace({ type: toRef<SpaceType>("space-type-1") })],
+        spaceTypes: [makeSpaceType()]
+      }
+
+      const resolved = yield* addSpaceRoleMembers({
+        space: spaceIdentifier("space-1"),
+        role: spaceRoleIdentifier("Late Role"),
+        members: [spaceMemberIdentifier(accountA)]
+      }).pipe(Effect.provide(createTestLayer({
+        ...baseLayer,
+        roles: [...fillerRoles, lateRole]
+      })))
+      const ambiguous = yield* Effect.exit(
+        addSpaceRoleMembers({
+          space: spaceIdentifier("space-1"),
+          role: spaceRoleIdentifier("Duplicated Late Role"),
+          members: [spaceMemberIdentifier(accountA)]
+        }).pipe(Effect.provide(createTestLayer({
+          ...baseLayer,
+          roles: [...fillerRoles, lateDuplicateA, lateDuplicateB]
+        })))
+      )
+
+      expect(resolved).toMatchObject({ roleId: "role-late", members: [accountA], changed: true })
+      expect(exitCauseText(ambiguous)).toContain("SpaceRoleIdentifierAmbiguousError")
+      expect(exitCauseText(ambiguous)).toContain("role-late-b")
     }))
 
   it.effect("member resolution reports missing, ambiguous, and non-employee persons", () =>

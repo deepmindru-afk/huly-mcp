@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs"
+
 import { describe, it } from "@effect/vitest"
 import type { AccountUuid, AnyAttribute, Doc, PersonId, Ref, Space } from "@hcengineering/core"
 import { ClassifierKind, toFindResult } from "@hcengineering/core"
@@ -13,6 +15,20 @@ import type { HulyStorageOperations } from "../../../src/huly/storage.js"
 import { testWorkbenchUrlConfig } from "../../../src/huly/url-builders.js"
 import { TOOL_DEFINITIONS } from "../../../src/mcp/tools/index.js"
 import { sdkDiscoveryTools } from "../../../src/mcp/tools/sdk-discovery.js"
+
+const PackageDependencySchema = Schema.Struct({
+  dependencies: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String })),
+  devDependencies: Schema.optional(Schema.Record({ key: Schema.String, value: Schema.String }))
+})
+const packageDependencies = Schema.decodeUnknownSync(PackageDependencySchema)(
+  JSON.parse(readFileSync(new URL("../../../package.json", import.meta.url), "utf8"))
+)
+const declaredPackageNames = new Set([
+  ...Object.keys(packageDependencies.dependencies ?? {}),
+  ...Object.keys(packageDependencies.devDependencies ?? {})
+])
+const expectedDependencyStatus = (packageName: string): "declared" | "not_declared" =>
+  declaredPackageNames.has(packageName) ? "declared" : "not_declared"
 
 const person = "person-1" as PersonId
 const space = "space-1" as Ref<Space>
@@ -124,7 +140,7 @@ describe("sdkDiscoveryTools", () => {
           packageName: "@hcengineering/board",
           requestedVersion: "0.7.423",
           publishStatus: "published",
-          dependencyStatus: "not_declared",
+          dependencyStatus: expectedDependencyStatus("@hcengineering/board"),
           mcpStatus: "incompatible",
           usableClassesOrOperations: [],
           blockedReason: expect.stringContaining("without shipping a types directory")
@@ -133,7 +149,7 @@ describe("sdkDiscoveryTools", () => {
           packageName: "@hcengineering/inventory",
           requestedVersion: "0.7.423",
           publishStatus: "published",
-          dependencyStatus: "not_declared",
+          dependencyStatus: expectedDependencyStatus("@hcengineering/inventory"),
           mcpStatus: "incompatible",
           usableClassesOrOperations: [],
           blockedReason: expect.stringContaining("without shipping a types directory")
@@ -141,7 +157,7 @@ describe("sdkDiscoveryTools", () => {
         expect.objectContaining({
           packageName: "@hcengineering/products",
           publishStatus: "not_published",
-          dependencyStatus: "not_declared",
+          dependencyStatus: expectedDependencyStatus("@hcengineering/products"),
           mcpStatus: "blocked",
           usableClassesOrOperations: [],
           blockedReason: expect.stringContaining("not published")
@@ -154,8 +170,10 @@ describe("sdkDiscoveryTools", () => {
         publishStatus: "not_published",
         usableClassesOrOperations: []
       }))
+      expect(declaredPackageNames.has("@hcengineering/products")).toBe(false)
       expect(parsed.packages.filter((packageStatus) => packageStatus.mcpStatus === "usable_for_discovery")).toEqual([])
       for (const packageStatus of parsed.packages) {
+        expect(packageStatus.dependencyStatus).toBe(expectedDependencyStatus(packageStatus.packageName))
         expect(packageStatus.writeGuidance).toContain("Do not create")
       }
     }))

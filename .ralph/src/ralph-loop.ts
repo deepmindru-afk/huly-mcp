@@ -1,4 +1,4 @@
-import { mkdir, writeFile } from "node:fs/promises"
+import { mkdir, readFile, readdir, writeFile } from "node:fs/promises"
 import { join } from "node:path"
 import { Context, Effect, Layer, Ref, Schema } from "effect"
 
@@ -117,6 +117,7 @@ export interface RalphLoopOptions {
   readonly maxReviewAttempts: number
   readonly laneConcurrency?: number
   readonly maxTasksPerLane?: number
+  readonly resumeExistingPlan?: boolean
   readonly observer?: RalphLoopObserver
 }
 
@@ -241,6 +242,72 @@ export const renderRalphPlanMarkdown = (plan: RalphLanePlan): string => {
     .concat("\n")
 }
 
+const escapeRegExp = (value: string): string => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+
+const parseTaskSection = (
+  markdown: string,
+  taskId: RalphTaskId,
+  fallbackStatus: RalphTaskStatus
+): { readonly status: RalphTaskStatus; readonly load: RalphTaskLoad } => {
+  const pattern = new RegExp(
+    `^## ${escapeRegExp(String(taskId))}\\n\\nStatus: \`([^\\n\`]+)\`\\n\\n### Load\\n\\n([\\s\\S]*?)(?=\\n## |$)`,
+    "m"
+  )
+  const match = markdown.match(pattern)
+
+  if (match?.[2] === undefined) {
+    return {
+      status: fallbackStatus,
+      load: makeRalphTaskLoad(`Resume plan is missing a load section for ${taskId}`)
+    }
+  }
+
+  return {
+    status: match[1] === undefined ? fallbackStatus : Schema.decodeUnknownSync(RalphTaskStatusSchema)(match[1]),
+    load: makeRalphTaskLoad(match[2].trim())
+  }
+}
+
+export const parseRalphPlanMarkdown = (
+  planFile: RalphPlanFile,
+  markdown: string
+): RalphLanePlan => {
+  const laneMatch = markdown.match(/^# Ralph Lane (.+)$/m)
+  const branchMatch = markdown.match(/^Branch: `(.+)`$/m)
+
+  if (laneMatch?.[1] === undefined || branchMatch?.[1] === undefined) {
+    throw new Error(`Invalid Ralph plan Markdown in ${planFile}`)
+  }
+
+  const taskMatches = markdown.matchAll(/^- \[([ xX])\] `([^`]+)` (.+)$/gm)
+  const tasks = Array.from(taskMatches).map((match) => {
+    const taskIdText = match[2]
+    const title = match[3]
+    if (taskIdText === undefined || title === undefined) {
+      throw new Error(`Invalid Ralph task list entry in ${planFile}`)
+    }
+
+    const checkbox = match[1] ?? " "
+    const taskId = makeRalphTaskId(taskIdText)
+    const fallbackStatus: RalphTaskStatus = checkbox.toLowerCase() === "x" ? "done" : "todo"
+    const section = parseTaskSection(markdown, taskId, fallbackStatus)
+
+    return {
+      id: taskId,
+      title: makeRalphTaskTitle(title),
+      load: section.load,
+      status: section.status
+    }
+  })
+
+  return {
+    laneId: makeRalphLaneId(laneMatch[1]),
+    branch: makeRalphBranchName(branchMatch[1]),
+    planFile,
+    tasks
+  }
+}
+
 export const makeMemoryRalphPlanStore = (
   initialPlans: ReadonlyArray<RalphLanePlan> = []
 ): Layer.Layer<RalphPlanStore> => {
@@ -280,6 +347,25 @@ export const makeFileBackedRalphPlanStore = (rootDir: string): Layer.Layer<Ralph
       catch: (cause) => cause instanceof Error ? cause : new Error(String(cause))
     })
 
+  const readPersistedPlan = (laneId: RalphLaneId): Effect.Effect<RalphLanePlan, Error> =>
+    Effect.tryPromise({
+      try: async () => {
+        const entries = await readdir(rootDir)
+        const markdownFiles = entries.filter((entry) => entry.endsWith(".md"))
+
+        for (const entry of markdownFiles) {
+          const plan = parseRalphPlanMarkdown(makeRalphPlanFile(entry), await readFile(join(rootDir, entry), "utf8"))
+          if (plan.laneId === laneId) {
+            memory.set(laneId, plan)
+            return plan
+          }
+        }
+
+        throw new RalphPlanNotFoundError(laneId)
+      },
+      catch: (cause) => cause instanceof Error ? cause : new Error(String(cause))
+    })
+
   return Layer.succeed(RalphPlanStore, {
     writePlan: (plan) =>
       Effect.sync(() => {
@@ -288,7 +374,7 @@ export const makeFileBackedRalphPlanStore = (rootDir: string): Layer.Layer<Ralph
     readPlan: (laneId) =>
       Effect.sync(() => memory.get(laneId)).pipe(
         Effect.flatMap((plan) =>
-          Effect.fromNullable(plan).pipe(Effect.mapError(() => new RalphPlanNotFoundError(laneId)))
+          plan === undefined ? readPersistedPlan(laneId) : Effect.succeed(plan)
         )
       ),
     updateTaskStatus: ({ laneId, taskId, status }) =>
@@ -349,8 +435,15 @@ export const runRalphLane = (
   const runLane = Effect.gen(function*() {
     const agent = yield* RalphAgent
     const store = yield* RalphPlanStore
-    yield* observeLaneStage(options, { lane, stage: "planning" })
-    const planned = yield* agent.planLane(lane)
+    const planned = options.resumeExistingPlan === true
+      ? yield* store.readPlan(lane.laneId).pipe(
+        Effect.catchAll((error) => error instanceof RalphPlanNotFoundError ? agent.planLane(lane) : Effect.fail(error))
+      )
+      : yield* agent.planLane(lane)
+
+    if (options.resumeExistingPlan !== true) {
+      yield* observeLaneStage(options, { lane, stage: "planning" })
+    }
     yield* store.writePlan(planned)
     yield* observePlanWritten(options, planned)
     yield* observeLaneStage(options, { lane, stage: "planned" })

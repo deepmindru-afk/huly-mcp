@@ -16,6 +16,7 @@ import {
   RalphPlanNotFoundError,
   RalphPlanStore,
   RalphReviewFailedError,
+  parseRalphPlanMarkdown,
   renderRalphPlanMarkdown,
   runRalphLane,
   runRalphLanes,
@@ -47,9 +48,9 @@ const planFor = (
   }))
 })
 
-const makeInspectableStore = () =>
+const makeInspectableStore = (initialPlans: ReadonlyArray<RalphLanePlan> = []) =>
   Effect.gen(function*() {
-    const plansRef = yield* Ref.make(new Map<RalphLaneSpec["laneId"], RalphLanePlan>())
+    const plansRef = yield* Ref.make(new Map(initialPlans.map((plan) => [plan.laneId, plan])))
 
     const layer = Layer.succeed(RalphPlanStore, {
       writePlan: (plan) => Ref.update(plansRef, (plans) => new Map(plans).set(plan.laneId, plan)),
@@ -164,6 +165,58 @@ describe("Ralph Sandcastle loop", () => {
       expect(result.completedTasks.map((task) => String(task.taskId))).toEqual(["task-1"])
       expect(taskStatus(plans.get(spec.laneId), "task-1")).toBe("done")
       expect(taskStatus(plans.get(spec.laneId), "task-2")).toBe("todo")
+    })
+  )
+
+  it.effect("resumes an existing plan at the next unfinished task", () =>
+    Effect.gen(function*() {
+      const spec = lane()
+      const existingPlan: RalphLanePlan = {
+        ...planFor(spec, [
+          { id: "task-1", title: "First task" },
+          { id: "task-2", title: "Second task" }
+        ]),
+        tasks: [
+          {
+            id: makeRalphTaskId("task-1"),
+            title: makeRalphTaskTitle("First task"),
+            load: makeRalphTaskLoad("Already complete."),
+            status: "done"
+          },
+          {
+            id: makeRalphTaskId("task-2"),
+            title: makeRalphTaskTitle("Second task"),
+            load: makeRalphTaskLoad("Finish this."),
+            status: "todo"
+          }
+        ]
+      }
+      const store = yield* makeInspectableStore([existingPlan])
+      const planned = yield* Ref.make(false)
+      const implementedTasks = yield* Ref.make<ReadonlyArray<string>>([])
+      const agentLayer = Layer.succeed(RalphAgent, {
+        planLane: () => Ref.set(planned, true).pipe(Effect.as(planFor(spec, [{ id: "task-1", title: "Wrong task" }]))),
+        implementTask: ({ task }) =>
+          Ref.update(implementedTasks, (tasks) => [...tasks, String(task.id)]).pipe(
+            Effect.as({ summary: makeRalphAgentNotes(String(task.title)), commits: [makeRalphCommitSha(task.id)] })
+          ),
+        reviewTask: () => Effect.succeed({ status: "approved", notes: makeRalphAgentNotes("Approved") }),
+        cleanupTask: () => Effect.succeed({ commits: [] })
+      })
+
+      const result = yield* runRalphLane(spec, {
+        maxReviewAttempts: 1,
+        resumeExistingPlan: true
+      }).pipe(Effect.provide(Layer.merge(agentLayer, store.layer)))
+      const wasPlanned = yield* Ref.get(planned)
+      const tasks = yield* Ref.get(implementedTasks)
+      const plans = yield* Ref.get(store.plansRef)
+
+      expect(wasPlanned).toBe(false)
+      expect(result.completedTasks.map((task) => String(task.taskId))).toEqual(["task-2"])
+      expect(tasks).toEqual(["task-2"])
+      expect(taskStatus(plans.get(spec.laneId), "task-1")).toBe("done")
+      expect(taskStatus(plans.get(spec.laneId), "task-2")).toBe("done")
     })
   )
 
@@ -337,5 +390,38 @@ describe("Ralph Sandcastle loop", () => {
     expect(markdown).toContain("# Ralph Lane lane-a")
     expect(markdown).toContain("- [ ] `task-1` First task")
     expect(markdown).toContain("### Load\n\nDo one thing.")
+  })
+
+  it("parses a rendered Markdown plan with task statuses", () => {
+    const spec = lane()
+    const markdown = renderRalphPlanMarkdown({
+      ...planFor(spec, [
+        { id: "task-1", title: "First task", load: "Already done." },
+        { id: "task-2", title: "Second task", load: "Continue here." }
+      ]),
+      tasks: [
+        {
+          id: makeRalphTaskId("task-1"),
+          title: makeRalphTaskTitle("First task"),
+          load: makeRalphTaskLoad("Already done."),
+          status: "done"
+        },
+        {
+          id: makeRalphTaskId("task-2"),
+          title: makeRalphTaskTitle("Second task"),
+          load: makeRalphTaskLoad("Continue here."),
+          status: "todo"
+        }
+      ]
+    })
+
+    const parsed = parseRalphPlanMarkdown(spec.planFile, markdown)
+
+    expect(parsed.laneId).toBe(spec.laneId)
+    expect(parsed.branch).toBe(spec.branch)
+    expect(parsed.tasks.map((task) => [String(task.id), task.status, String(task.load)])).toEqual([
+      ["task-1", "done", "Already done."],
+      ["task-2", "todo", "Continue here."]
+    ])
   })
 })

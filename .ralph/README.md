@@ -116,8 +116,10 @@ complete reliably in this container. The worktree is the isolation boundary for
 this experiment.
 
 `run.ts` reuses an existing checked-out lane worktree if the branch is already
-checked out. This allows a failed/interrupted run to be restarted without
-deleting useful product work.
+checked out, and hydrates existing `.ralph/plans/*.md` files so restarted runs
+continue at the next unfinished task instead of replanning completed tasks. This
+allows a failed/interrupted run to be restarted without deleting useful product
+work.
 
 ## Recovery
 

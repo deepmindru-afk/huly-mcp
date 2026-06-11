@@ -943,6 +943,7 @@ const program = runRalphLanes(selectedLaneSpecs, {
   laneConcurrency: readPositiveInteger("RALPH_LANE_CONCURRENCY", Math.max(1, selectedLaneSpecs.length)),
   maxReviewAttempts: readPositiveInteger("RALPH_MAX_REVIEW_ATTEMPTS", 12),
   maxTasksPerLane: readPositiveInteger("RALPH_MAX_TASKS_PER_LANE", 1),
+  resumeExistingPlan: true,
   observer: makeFileObserver(initialStatus)
 })
 

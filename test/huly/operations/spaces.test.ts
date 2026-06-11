@@ -858,13 +858,16 @@ describe("spaces operations", () => {
       const captureMixin: MockConfig["captureMixin"] = {}
       const space = makeSpace({
         type: toRef<SpaceType>("space-type-1"),
-        "role-admin": [accountA],
-        "role-viewer": [accountC]
+        [core.class.Space]: {
+          "role-admin": [accountA],
+          "role-viewer": [accountC],
+          ignored: "not a role member list"
+        }
       })
       const layer = createTestLayer({
         spaces: [space],
         spaceTypes: [makeSpaceType()],
-        roles: [makeRole()],
+        roles: [makeRole({ attachedToClass: toRef<Class<Doc>>("custom:class:SpaceType") })],
         persons: [makePerson()],
         channels: [makeChannel()],
         employees: [makeEmployee()],
@@ -882,7 +885,7 @@ describe("spaces operations", () => {
         action: "update",
         id: "space-1",
         mixin: core.class.Space,
-        attributes: { "role-admin": [accountB] }
+        attributes: { "role-admin": [accountB], "role-viewer": [accountC] }
       })
     }))
 
@@ -893,7 +896,9 @@ describe("spaces operations", () => {
       const removeMixin: MockConfig["captureMixin"] = {}
       const baseSpace = makeSpace({
         type: toRef<SpaceType>("space-type-1"),
-        "role-admin": [accountA]
+        [core.class.Space]: {
+          "role-admin": [accountA]
+        }
       })
 
       const added = yield* addSpaceRoleMembers({
@@ -977,6 +982,16 @@ describe("spaces operations", () => {
           roles: [makeRole()]
         })))
       )
+      const missingSpaceType = yield* Effect.exit(
+        addSpaceRoleMembers({
+          space: spaceIdentifier("space-1"),
+          role: spaceRoleIdentifier("Admins"),
+          members: [spaceMemberIdentifier(accountA)]
+        }).pipe(Effect.provide(createTestLayer({
+          spaces: [makeSpace({ type: toRef<SpaceType>("space-type-1") })],
+          roles: [makeRole()]
+        })))
+      )
       const ambiguousRole = yield* Effect.exit(
         addSpaceRoleMembers({
           space: spaceIdentifier("space-1"),
@@ -994,6 +1009,7 @@ describe("spaces operations", () => {
 
       expect(exitCauseText(nonTyped)).toContain("is not typed")
       expect(exitCauseText(missingRole)).toContain("SpaceRoleNotFoundError")
+      expect(exitCauseText(missingSpaceType)).toContain("SpaceRoleNotFoundError")
       expect(exitCauseText(ambiguousRole)).toContain("SpaceRoleIdentifierAmbiguousError")
     }))
 

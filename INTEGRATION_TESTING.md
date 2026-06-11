@@ -45,8 +45,12 @@ Known incomplete fixture:
   write tools. Huly does not normally create inbox notifications for actions
   performed by the same account that later reads the inbox, so a one-member
   workspace leaves notification mutations skipped.
+- Two non-self workspace members are needed to deterministically test
+  `create_group_direct_message`, because that tool intentionally requires at
+  least two other participants and automatically includes the authenticated
+  account.
 
-Manual setup that works:
+Manual setup that works for the first non-self member:
 
 1. Open `http://localhost:8087`.
 2. Log in as the owner from `.env.local` (`agent@local.dev` in the default local fixture).
@@ -86,6 +90,34 @@ so future harness changes can seed cross-user notifications directly:
 HULY_TEST_ACTOR_EMAIL=actor@local.dev
 HULY_TEST_ACTOR_PASSWORD=actor123
 ```
+
+Manual setup for the second group-DM participant:
+
+1. While logged in as the owner, invite another workspace member from the same
+   Members/Invite UI.
+2. Open the invite link in a fresh private/incognito browser session, or fully
+   log out of the actor session before accepting it.
+3. Join as:
+
+   ```bash
+   HULY_TEST_REVIEWER_EMAIL=reviewer@local.dev
+   HULY_TEST_REVIEWER_PASSWORD=reviewer123
+   ```
+
+4. Confirm the workspace has at least three accepted members:
+
+   ```bash
+   set -a && source .env.local && set +a
+   printf '%s\n%s\n' \
+   '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"test","version":"1.0"}},"id":1}' \
+   '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_workspace_members","arguments":{}},"id":2}' \
+     | MCP_AUTO_EXIT=true node dist/index.cjs 2>/dev/null | grep '"id":2'
+   ```
+
+5. Confirm `list_employees` shows the owner plus two non-self employees with
+   unique exact names. Email channels are not required for chat integration
+   tests; the harness resolves channel members and group-DM participants by
+   exact display name when email is absent.
 
 Do not mark the local setup as fully automated until a documented host-side
 command or script can create that second workspace member from a clean Huly

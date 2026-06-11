@@ -54,7 +54,18 @@ import {
 
 import { chunter, contact } from "../huly-plugins.js"
 
+export {
+  addChannelMembers,
+  archiveChannel,
+  joinChannel,
+  leaveChannel,
+  listChannelMembers,
+  removeChannelMembers,
+  unarchiveChannel
+} from "./channel-members.js"
 export { deleteChannelMessage, updateChannelMessage } from "./channels-messages.js"
+export { setConversationClosed, setConversationStarred } from "./chat-contexts.js"
+export { createGroupDirectMessage } from "./direct-message-conversations.js"
 
 // --- Error Types ---
 

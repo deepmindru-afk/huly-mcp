@@ -63,6 +63,7 @@ import {
   listThreadReplies,
   updateThreadReply
 } from "../../huly/operations/threads.js"
+import { channelConversationTools } from "./channel-conversations.js"
 import { createToolHandler, type RegisteredTool } from "./registry.js"
 
 const CATEGORY = "channels" as const
@@ -115,7 +116,8 @@ export const channelTools: ReadonlyArray<RegisteredTool> = [
   },
   {
     name: "delete_channel",
-    description: "Permanently delete a Huly channel. This action cannot be undone.",
+    description:
+      "Permanently delete a Huly channel. This action cannot be undone. For reversible channel lifecycle changes, use archive_channel and unarchive_channel instead.",
     category: CATEGORY,
     inputSchema: deleteChannelParamsJsonSchema,
     handler: createToolHandler(
@@ -124,6 +126,7 @@ export const channelTools: ReadonlyArray<RegisteredTool> = [
       deleteChannel
     )
   },
+  ...channelConversationTools,
   {
     name: "list_channel_messages",
     description: "List messages in a Huly channel. Returns messages sorted by date (newest first).",

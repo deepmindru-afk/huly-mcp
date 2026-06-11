@@ -38,6 +38,17 @@ export class NotificationContextNotFoundError extends Schema.TaggedError<Notific
   }
 }
 
+export class NotificationPersonSpaceNotFoundError extends Schema.TaggedError<NotificationPersonSpaceNotFoundError>()(
+  "NotificationPersonSpaceNotFoundError",
+  {
+    user: RawErrorIdentifier
+  }
+) {
+  override get message(): string {
+    return `Notification person space for authenticated user '${this.user}' not found`
+  }
+}
+
 export class NotificationTypeNotFoundError extends Schema.TaggedError<NotificationTypeNotFoundError>()(
   "NotificationTypeNotFoundError",
   {

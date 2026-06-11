@@ -1561,6 +1561,7 @@ else
 fi
 SELF_NAME=""
 EMPLOYEES_FOR_DM_TEXT=""
+USER_PROFILE_TEXT=""
 if [ -n "$HULY_EMAIL" ]; then
   EMPLOYEES_FOR_DM_TEXT=$(run_capture_only \
     '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_employees","arguments":{"limit":200}},"id":2}')
@@ -1570,25 +1571,55 @@ if [ -n "$HULY_EMAIL" ]; then
     EMPLOYEES_FOR_DM_TEXT=""
   fi
 fi
+if [ -z "$SELF_NAME" ]; then
+  USER_PROFILE_TEXT=$(run_capture_only \
+    '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"get_user_profile","arguments":{}},"id":2}')
+  if [ $? -eq 0 ]; then
+    SELF_NAME=$(echo "$USER_PROFILE_TEXT" | jq -r '[.name, ((.firstName // "") + " " + (.lastName // ""))] | map(select(type == "string") | gsub("^ +| +$"; "")) | map(select(. != "")) | .[0] // empty' 2>/dev/null)
+  fi
+fi
 if [ -n "$SELF_NAME" ]; then
   EXISTING_DM_PERSON_NAME=$(echo "$DM_LIST_TEXT" | jq -r --arg self "$SELF_NAME" '.conversations[]? | select((.participantIds // [] | length) == 2 and (.participants // [] | length) == 2 and ((.participants // []) | index($self) != null)) | .participants[]? | select(. != $self)' 2>/dev/null | head -1)
   if [ -n "$EXISTING_DM_PERSON_NAME" ]; then
-    EXISTING_DM_PERSON_EMAIL=$(echo "$EMPLOYEES_FOR_DM_TEXT" | jq -r --arg name "$EXISTING_DM_PERSON_NAME" '[.[]? | select(.name == $name and (.email // "") != "") | .email] | unique | if length == 1 then .[0] else empty end' 2>/dev/null)
-    if [ -n "$EXISTING_DM_PERSON_EMAIL" ]; then
-      EXISTING_DM_PERSON_JSON=$(json_string "$EXISTING_DM_PERSON_EMAIL")
-      CREATE_DM_TEXT=$(run_capture "create_direct_message(existing:$EXISTING_DM_PERSON_NAME)" \
-        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_direct_message\",\"arguments\":{\"person\":$EXISTING_DM_PERSON_JSON}},\"id\":2}")
-      if [ $? -eq 0 ]; then
-        assert_json_field_equals "create_direct_message existing created=false" "$CREATE_DM_TEXT" ".created" "false"
-      fi
-    else
-      skip_test "create_direct_message(existing)" "existing DM participant is not uniquely identifiable by email"
+    EXISTING_DM_PERSON_JSON=$(json_string "$EXISTING_DM_PERSON_NAME")
+    CREATE_DM_TEXT=$(run_capture "create_direct_message(existing:$EXISTING_DM_PERSON_NAME)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_direct_message\",\"arguments\":{\"person\":$EXISTING_DM_PERSON_JSON}},\"id\":2}")
+    if [ $? -eq 0 ]; then
+      assert_json_field_equals "create_direct_message existing created=false" "$CREATE_DM_TEXT" ".created" "false"
     fi
   else
     skip_test "create_direct_message(existing)" "no existing one-to-one DM participant found"
   fi
 else
   skip_test "create_direct_message(existing)" "could not determine current employee name"
+fi
+GROUP_DM_PEOPLE_JSON=""
+GROUP_DM_ID=""
+CHANNEL_MEMBER_CANDIDATE=""
+if [ -n "$EMPLOYEES_FOR_DM_TEXT" ] && [ -n "$SELF_NAME" ]; then
+  CHANNEL_MEMBER_CANDIDATE=$(echo "$EMPLOYEES_FOR_DM_TEXT" | jq -r --arg self "$SELF_NAME" '[.[]? | select((.name // "") != "" and .name != $self and .active != false) | .name] | sort | group_by(.) | map(select(length == 1) | .[0]) | .[0] // empty' 2>/dev/null)
+  GROUP_DM_PEOPLE_JSON=$(echo "$EMPLOYEES_FOR_DM_TEXT" | jq -c --arg self "$SELF_NAME" '[.[]? | select((.name // "") != "" and .name != $self and .active != false) | .name] | sort | group_by(.) | map(select(length == 1) | .[0]) | .[:2]' 2>/dev/null)
+fi
+if [ "$(printf '%s\n' "$GROUP_DM_PEOPLE_JSON" | jq -r 'length // 0' 2>/dev/null)" = "2" ]; then
+  GROUP_DM_TEXT=$(run_capture "create_group_direct_message" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_group_direct_message\",\"arguments\":{\"people\":$GROUP_DM_PEOPLE_JSON}},\"id\":2}")
+  if [ $? -eq 0 ]; then
+    GROUP_DM_ID=$(echo "$GROUP_DM_TEXT" | jq -r '.id // empty' 2>/dev/null)
+    assert_json_field_nonempty "create_group_direct_message returns id" "$GROUP_DM_TEXT" ".id"
+    assert_json_field_count "create_group_direct_message has three members" "$GROUP_DM_TEXT" ".members | length" "3"
+
+    GROUP_DM_REVERSED_JSON=$(printf '%s\n' "$GROUP_DM_PEOPLE_JSON" | jq -c 'reverse')
+    GROUP_DM_EXISTING_TEXT=$(run_capture "create_group_direct_message(existing reversed)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_group_direct_message\",\"arguments\":{\"people\":$GROUP_DM_REVERSED_JSON}},\"id\":2}")
+    if [ $? -eq 0 ]; then
+      assert_json_field_equals "create_group_direct_message existing created=false" "$GROUP_DM_EXISTING_TEXT" ".created" "false"
+      if [ -n "$GROUP_DM_ID" ]; then
+        assert_json_field_equals "create_group_direct_message existing same id" "$GROUP_DM_EXISTING_TEXT" ".id" "$GROUP_DM_ID"
+      fi
+    fi
+  fi
+else
+  skip_test "create_group_direct_message" "need at least two non-self employees with unique exact names"
 fi
 DM_ID="${HULY_TEST_DM_ID:-}"
 if [ -z "$DM_ID" ]; then
@@ -1628,6 +1659,91 @@ CH_TEXT=$(run_capture "create_channel" \
 if [ $? -eq 0 ]; then
   CH_ID=$(echo "$CH_TEXT" | jq -r '.id' 2>/dev/null)
   echo "  => channel: $CH_ID"
+
+  CH_MEMBERS_TEXT=$(run_capture "list_channel_members($CH_ID)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_channel_members\",\"arguments\":{\"channel\":\"$CH_ID\"}},\"id\":2}")
+  if [ $? -eq 0 ]; then
+    assert_json_field_count "list_channel_members sees creator" "$CH_MEMBERS_TEXT" ".members | length" "1"
+    assert_json_field_nonempty "list_channel_members returns accountUuid" "$CH_MEMBERS_TEXT" ".members[0].accountUuid"
+  fi
+
+  JOIN_TEXT=$(run_capture "join_channel($CH_ID idempotent)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"join_channel\",\"arguments\":{\"channel\":\"$CH_ID\"}},\"id\":2}")
+  if [ $? -eq 0 ]; then
+    assert_json_field_equals "join_channel existing member changed=false" "$JOIN_TEXT" ".changed" "false"
+  fi
+
+  if [ -n "$CHANNEL_MEMBER_CANDIDATE" ]; then
+    CHANNEL_MEMBER_CANDIDATE_JSON=$(json_string "$CHANNEL_MEMBER_CANDIDATE")
+    ADD_MEMBERS_TEXT=$(run_capture "add_channel_members($CH_ID)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"add_channel_members\",\"arguments\":{\"channel\":\"$CH_ID\",\"members\":[$CHANNEL_MEMBER_CANDIDATE_JSON]}},\"id\":2}")
+    if [ $? -eq 0 ]; then
+      assert_json_field_equals "add_channel_members changed" "$ADD_MEMBERS_TEXT" ".changed" "true"
+      assert_json_field_count "add_channel_members has two members" "$ADD_MEMBERS_TEXT" ".members | length" "2"
+    fi
+
+    ADD_MEMBERS_AGAIN_TEXT=$(run_capture "add_channel_members($CH_ID idempotent)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"add_channel_members\",\"arguments\":{\"channel\":\"$CH_ID\",\"members\":[$CHANNEL_MEMBER_CANDIDATE_JSON]}},\"id\":2}")
+    if [ $? -eq 0 ]; then
+      assert_json_field_equals "add_channel_members idempotent changed=false" "$ADD_MEMBERS_AGAIN_TEXT" ".changed" "false"
+    fi
+
+    REMOVE_MEMBERS_TEXT=$(run_capture "remove_channel_members($CH_ID)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"remove_channel_members\",\"arguments\":{\"channel\":\"$CH_ID\",\"members\":[$CHANNEL_MEMBER_CANDIDATE_JSON]}},\"id\":2}")
+    if [ $? -eq 0 ]; then
+      assert_json_field_equals "remove_channel_members changed" "$REMOVE_MEMBERS_TEXT" ".changed" "true"
+      assert_json_field_count "remove_channel_members leaves creator" "$REMOVE_MEMBERS_TEXT" ".members | length" "1"
+    fi
+  else
+    skip_test "add/remove_channel_members" "need a non-self employee with a unique exact name"
+  fi
+
+  run_expect_error "leave_channel($CH_ID rejects last owner)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"leave_channel\",\"arguments\":{\"channel\":\"$CH_ID\"}},\"id\":2}"
+
+  STAR_TEXT=$(run_capture "set_conversation_starred(channel:$CH_ID)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"set_conversation_starred\",\"arguments\":{\"channel\":\"$CH_ID\",\"starred\":true}},\"id\":2}")
+  if [ $? -eq 0 ]; then
+    assert_json_field_equals "set_conversation_starred channel kind" "$STAR_TEXT" ".kind" "channel"
+    assert_json_field_equals "set_conversation_starred channel starred" "$STAR_TEXT" ".starred" "true"
+  fi
+
+  STAR_AGAIN_TEXT=$(run_capture "set_conversation_starred(channel:$CH_ID idempotent)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"set_conversation_starred\",\"arguments\":{\"channel\":\"$CH_ID\",\"starred\":true}},\"id\":2}")
+  if [ $? -eq 0 ]; then
+    assert_json_field_equals "set_conversation_starred idempotent changed=false" "$STAR_AGAIN_TEXT" ".changed" "false"
+  fi
+
+  ARCHIVE_TEXT=$(run_capture "archive_channel($CH_ID)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"archive_channel\",\"arguments\":{\"channel\":\"$CH_ID\"}},\"id\":2}")
+  if [ $? -eq 0 ]; then
+    assert_json_field_equals "archive_channel archived" "$ARCHIVE_TEXT" ".archived" "true"
+    assert_json_field_equals "archive_channel changed" "$ARCHIVE_TEXT" ".changed" "true"
+  fi
+
+  ARCHIVE_AGAIN_TEXT=$(run_capture "archive_channel($CH_ID idempotent)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"archive_channel\",\"arguments\":{\"channel\":\"$CH_ID\"}},\"id\":2}")
+  if [ $? -eq 0 ]; then
+    assert_json_field_equals "archive_channel idempotent changed=false" "$ARCHIVE_AGAIN_TEXT" ".changed" "false"
+  fi
+
+  if [ -n "$CHANNEL_MEMBER_CANDIDATE" ]; then
+    run_expect_error "add_channel_members($CH_ID archived rejects)" \
+      "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"add_channel_members\",\"arguments\":{\"channel\":\"$CH_ID\",\"members\":[$CHANNEL_MEMBER_CANDIDATE_JSON]}},\"id\":2}"
+  fi
+
+  UNARCHIVE_TEXT=$(run_capture "unarchive_channel($CH_ID)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"unarchive_channel\",\"arguments\":{\"channel\":\"$CH_ID\"}},\"id\":2}")
+  if [ $? -eq 0 ]; then
+    assert_json_field_equals "unarchive_channel archived=false" "$UNARCHIVE_TEXT" ".archived" "false"
+    assert_json_field_equals "unarchive_channel changed" "$UNARCHIVE_TEXT" ".changed" "true"
+  fi
+
+  UNARCHIVE_AGAIN_TEXT=$(run_capture "unarchive_channel($CH_ID idempotent)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"unarchive_channel\",\"arguments\":{\"channel\":\"$CH_ID\"}},\"id\":2}")
+  if [ $? -eq 0 ]; then
+    assert_json_field_equals "unarchive_channel idempotent changed=false" "$UNARCHIVE_AGAIN_TEXT" ".changed" "false"
+  fi
 
   CH_REGEX_TEXT=$(run_capture "list_channels(nameRegex SIMILAR TO contains)" \
     "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_channels\",\"arguments\":{\"nameRegex\":$CHANNEL_NAME_REGEX_JSON,\"limit\":10}},\"id\":2}")
@@ -1681,6 +1797,22 @@ if [ $? -eq 0 ]; then
     "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"update_channel\",\"arguments\":{\"channel\":\"$CH_ID\",\"topic\":\"updated\"}},\"id\":2}"
   run_test "delete_channel($CH_ID)" \
     "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_channel\",\"arguments\":{\"channel\":\"$CH_ID\"}},\"id\":2}"
+fi
+if [ -n "$GROUP_DM_ID" ]; then
+  CLOSE_DM_TEXT=$(run_capture "set_conversation_closed(dm:$GROUP_DM_ID)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"set_conversation_closed\",\"arguments\":{\"dm\":\"$GROUP_DM_ID\",\"closed\":true}},\"id\":2}")
+  if [ $? -eq 0 ]; then
+    assert_json_field_equals "set_conversation_closed dm kind" "$CLOSE_DM_TEXT" ".kind" "direct_message"
+    assert_json_field_equals "set_conversation_closed dm closed" "$CLOSE_DM_TEXT" ".closed" "true"
+  fi
+
+  REOPEN_DM_TEXT=$(run_capture "set_conversation_closed(dm:$GROUP_DM_ID reopen)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"set_conversation_closed\",\"arguments\":{\"dm\":\"$GROUP_DM_ID\",\"closed\":false}},\"id\":2}")
+  if [ $? -eq 0 ]; then
+    assert_json_field_equals "set_conversation_closed dm reopened" "$REOPEN_DM_TEXT" ".closed" "false"
+  fi
+else
+  skip_test "set_conversation_closed(dm)" "no group direct-message id available"
 fi
 echo ""
 

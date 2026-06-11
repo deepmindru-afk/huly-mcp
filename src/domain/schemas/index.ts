@@ -1145,6 +1145,41 @@ export {
 } from "./direct-messages.js"
 
 export {
+  type ChannelArchiveResult,
+  type ChannelLifecycleParams,
+  channelLifecycleParamsJsonSchema,
+  ChannelLifecycleParamsSchema,
+  ChannelMemberIdentifier,
+  type ChannelMemberMutationParams,
+  channelMemberMutationParamsJsonSchema,
+  ChannelMemberMutationParamsSchema,
+  type ChannelMemberMutationResult,
+  type ChannelMemberSummary,
+  type ConversationKind,
+  type ConversationStateResult,
+  type CreateGroupDirectMessageParams,
+  createGroupDirectMessageParamsJsonSchema,
+  CreateGroupDirectMessageParamsSchema,
+  type CreateGroupDirectMessageResult,
+  type ListChannelMembersParams,
+  listChannelMembersParamsJsonSchema,
+  ListChannelMembersParamsSchema,
+  type ListChannelMembersResult,
+  parseChannelLifecycleParams,
+  parseChannelMemberMutationParams,
+  parseCreateGroupDirectMessageParams,
+  parseListChannelMembersParams,
+  parseSetConversationClosedParams,
+  parseSetConversationStarredParams,
+  type SetConversationClosedParams,
+  setConversationClosedParamsJsonSchema,
+  SetConversationClosedParamsSchema,
+  type SetConversationStarredParams,
+  setConversationStarredParamsJsonSchema,
+  SetConversationStarredParamsSchema
+} from "./chat-conversations.js"
+
+export {
   CalendarEventTitle,
   CalendarName,
   type CreateEventParams,

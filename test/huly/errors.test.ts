@@ -26,11 +26,15 @@ import {
   CannotDirectMessageSelfError,
   CardNotFoundError,
   CardSpaceNotFoundError,
+  ChannelArchivedError,
+  ChannelLastMemberRemovalError,
+  ChannelLastOwnerRemovalError,
   ChannelNotFoundError,
   CommentNotFoundError,
   ComponentNotFoundError,
   DirectMessageIdentifierAmbiguousError,
   DirectMessageNotFoundError,
+  DirectMessageParticipantCountError,
   DocumentContentCorruptedError,
   DocumentEditModeError,
   DocumentNotFoundError,
@@ -79,6 +83,7 @@ import {
   MilestoneNotFoundError,
   NotificationContextNotFoundError,
   NotificationNotFoundError,
+  NotificationPersonSpaceNotFoundError,
   NotificationProviderNotConfigurableError,
   NotificationTypeNotFoundError,
   NoUpdateFieldsError,
@@ -786,10 +791,18 @@ describe("Huly Errors", () => {
               return `milestone:${error.identifier}`
             case "ChannelNotFoundError":
               return `channel:${error.identifier}`
+            case "ChannelArchivedError":
+              return `channel-archived:${error.channel}`
+            case "ChannelLastMemberRemovalError":
+              return `channel-last-member:${error.channel}`
+            case "ChannelLastOwnerRemovalError":
+              return `channel-last-owner:${error.channel}`
             case "DirectMessageIdentifierAmbiguousError":
               return `dm-ambiguous:${error.identifier}:${error.matches}`
             case "DirectMessageNotFoundError":
               return `dm:${error.identifier}`
+            case "DirectMessageParticipantCountError":
+              return `dm-participant-count:${error.requested}:${error.nonSelfParticipants}`
             case "MessageNotFoundError":
               return `message:${error.messageId}`
             case "ThreadReplyNotFoundError":
@@ -858,6 +871,8 @@ describe("Huly Errors", () => {
               return `notification:${error.notificationId}`
             case "NotificationContextNotFoundError":
               return `notifctx:${error.contextId}`
+            case "NotificationPersonSpaceNotFoundError":
+              return `notif-person-space:${error.user}`
             case "NotificationTypeNotFoundError":
               return `notiftype:${error.typeId}`
             case "NotificationProviderNotConfigurableError":
@@ -1027,11 +1042,26 @@ describe("Huly Errors", () => {
         ).toBe("comment:c-1")
         expect(matchError(new MilestoneNotFoundError({ identifier: "m-1", project: "P" }))).toBe("milestone:m-1")
         expect(matchError(new ChannelNotFoundError({ identifier: "ch-1" }))).toBe("channel:ch-1")
+        expect(matchError(new ChannelArchivedError({ channel: "general" }))).toBe("channel-archived:general")
+        expect(matchError(new ChannelLastMemberRemovalError({ channel: "general" }))).toBe(
+          "channel-last-member:general"
+        )
+        expect(matchError(new ChannelLastOwnerRemovalError({ channel: "general" }))).toBe(
+          "channel-last-owner:general"
+        )
         expect(matchError(new DirectMessageIdentifierAmbiguousError({ identifier: "dm-1", matches: Count.make(2) })))
           .toBe(
             "dm-ambiguous:dm-1:2"
           )
         expect(matchError(new DirectMessageNotFoundError({ identifier: "dm-1" }))).toBe("dm:dm-1")
+        expect(
+          matchError(
+            new DirectMessageParticipantCountError({
+              requested: Count.make(2),
+              nonSelfParticipants: Count.make(1)
+            })
+          )
+        ).toBe("dm-participant-count:2:1")
         expect(matchError(new MessageNotFoundError({ messageId: "msg-1", channel: "ch-1" }))).toBe("message:msg-1")
         expect(matchError(new ThreadReplyNotFoundError({ replyId: "r-1", messageId: "msg-1" }))).toBe("reply:r-1")
         expect(matchError(new CalendarNotAccessibleError({ calendarId: "cal-1" }))).toBe("calendar:cal-1")
@@ -1062,6 +1092,9 @@ describe("Huly Errors", () => {
         ).toBe("templatechild:c-1")
         expect(matchError(new NotificationNotFoundError({ notificationId: "n-1" }))).toBe("notification:n-1")
         expect(matchError(new NotificationContextNotFoundError({ contextId: "nc-1" }))).toBe("notifctx:nc-1")
+        expect(matchError(new NotificationPersonSpaceNotFoundError({ user: "user-1" }))).toBe(
+          "notif-person-space:user-1"
+        )
         expect(matchError(new NotificationTypeNotFoundError({ typeId: "nt-1" }))).toBe("notiftype:nt-1")
         expect(
           matchError(new NotificationProviderNotConfigurableError({ providerId: "np-1", typeId: "nt-1" }))

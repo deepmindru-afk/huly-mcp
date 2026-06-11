@@ -75,6 +75,21 @@ export class CannotDirectMessageSelfError extends Schema.TaggedError<CannotDirec
 }
 
 /**
+ * Group direct-message creation needs at least two other workspace members.
+ */
+export class DirectMessageParticipantCountError extends Schema.TaggedError<DirectMessageParticipantCountError>()(
+  "DirectMessageParticipantCountError",
+  {
+    requested: Count,
+    nonSelfParticipants: Count
+  }
+) {
+  override get message(): string {
+    return `Group direct messages require at least two non-self participants; got ${this.nonSelfParticipants} after resolving ${this.requested} requested people`
+  }
+}
+
+/**
  * Resolved Person has no Huly workspace account.
  *
  * DMs are addressed by `AccountUuid`, which is populated only on the Employee
@@ -93,6 +108,48 @@ export class PersonNotAnEmployeeError extends Schema.TaggedError<PersonNotAnEmpl
 ) {
   override get message(): string {
     return `Person '${this.identifier}' is not a workspace member (no Huly account) and cannot receive direct messages`
+  }
+}
+
+/**
+ * Archived channels cannot accept membership mutations.
+ */
+export class ChannelArchivedError extends Schema.TaggedError<ChannelArchivedError>()(
+  "ChannelArchivedError",
+  {
+    channel: Schema.String
+  }
+) {
+  override get message(): string {
+    return `Channel '${this.channel}' is archived; unarchive it before changing members`
+  }
+}
+
+/**
+ * Channel member removal cannot leave a channel empty.
+ */
+export class ChannelLastMemberRemovalError extends Schema.TaggedError<ChannelLastMemberRemovalError>()(
+  "ChannelLastMemberRemovalError",
+  {
+    channel: Schema.String
+  }
+) {
+  override get message(): string {
+    return `Cannot remove the last member from channel '${this.channel}'`
+  }
+}
+
+/**
+ * Channel member removal cannot leave a channel with no remaining owner.
+ */
+export class ChannelLastOwnerRemovalError extends Schema.TaggedError<ChannelLastOwnerRemovalError>()(
+  "ChannelLastOwnerRemovalError",
+  {
+    channel: Schema.String
+  }
+) {
+  override get message(): string {
+    return `Cannot remove channel members because channel '${this.channel}' would have no remaining owner`
   }
 }
 

@@ -465,11 +465,21 @@ SDK upgrade revisit:
 
 | Tool | Description |
 |------|-------------|
+| `list_channel_members` | List members of a Huly channel by channel name or ID. Returns each member account UUID and the workspace display name when available. |
+| `add_channel_members` | Idempotently add members to a non-archived Huly channel. Members accept account UUID, exact email, or exact person display name and resolve to Huly account UUIDs before replacing the full sorted member array. |
+| `remove_channel_members` | Idempotently remove members from a non-archived Huly channel. Members accept account UUID, exact email, or exact person display name. Refuses removals that would leave the channel with zero members or, when owners exist, no owner among remaining members. |
+| `join_channel` | Join a non-archived Huly channel as the authenticated account. Idempotent when the account is already a member. |
+| `leave_channel` | Leave a non-archived Huly channel as the authenticated account. Idempotent when already absent. Refuses to leave if that would leave the channel empty or without any remaining owner. |
+| `archive_channel` | Archive a Huly channel by channel name or ID. This is reversible with unarchive_channel and is idempotent when the channel is already archived. |
+| `unarchive_channel` | Unarchive a Huly channel by channel name or ID. Idempotent when the channel is already active. |
+| `create_group_direct_message` | Open a group direct-message conversation with at least two other workspace members. The `people` array accepts exact emails or exact display names; the authenticated account is included automatically. Idempotent by exact sorted member set: returns an existing group DM with `created: false` when one already exists. For one other person, use create_direct_message. |
+| `set_conversation_starred` | Set the authenticated user's starred state for exactly one conversation. Provide either `channel` (channel name or ID) or `dm` (DM ID, or one-to-one participant display name), plus `starred`. Creates the missing notification context when needed. |
+| `set_conversation_closed` | Set the authenticated user's closed/visible state for exactly one conversation. Provide either `channel` or `dm`, plus `closed`. Closing only hides the current user's notification context; it does not leave channels or remove members. |
 | `list_channels` | List all Huly channels. Returns channels sorted by name. Supports filtering by archived status. Supports searching by name substring (nameSearch) and topic substring (topicSearch). |
 | `get_channel` | Retrieve full details for a Huly channel including topic and member list. |
 | `create_channel` | Create a new channel in Huly. Returns the created channel ID and name. |
 | `update_channel` | Update fields on an existing Huly channel. Only provided fields are modified. |
-| `delete_channel` | Permanently delete a Huly channel. This action cannot be undone. |
+| `delete_channel` | Permanently delete a Huly channel. This action cannot be undone. For reversible channel lifecycle changes, use archive_channel and unarchive_channel instead. |
 | `list_channel_messages` | List messages in a Huly channel. Returns messages sorted by date (newest first). |
 | `send_channel_message` | Send a message to a Huly channel. Message body supports markdown formatting. |
 | `update_channel_message` | Update a channel message. Only the body can be modified. |

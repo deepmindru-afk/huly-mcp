@@ -30,8 +30,24 @@ export const ContactChannelProviderValues = [
   "viber"
 ] as const
 
+export type ContactChannelProvider = typeof ContactChannelProviderValues[number]
+
+export const ContactChannelProviderSdkKeys = {
+  email: "Email",
+  phone: "Phone",
+  linkedin: "LinkedIn",
+  twitter: "Twitter",
+  github: "GitHub",
+  facebook: "Facebook",
+  telegram: "Telegram",
+  homepage: "Homepage",
+  whatsapp: "Whatsapp",
+  skype: "Skype",
+  profile: "Profile",
+  viber: "Viber"
+} as const satisfies Record<ContactChannelProvider, string>
+
 export const ContactChannelProviderSchema = Schema.Literal(...ContactChannelProviderValues)
-export type ContactChannelProvider = Schema.Schema.Type<typeof ContactChannelProviderSchema>
 
 export interface ContactChannelSummary {
   readonly channelId: ChannelId

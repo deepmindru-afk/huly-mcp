@@ -139,6 +139,9 @@ import { HulyClassNotFoundError } from "./errors-sdk-discovery.js"
 import {
   SpaceIdentifierAmbiguousError,
   SpaceNotFoundError,
+  SpaceNotTypedError,
+  SpaceRoleIdentifierAmbiguousError,
+  SpaceRoleNotFoundError,
   SpaceTypeIdentifierAmbiguousError,
   SpaceTypeNotFoundError
 } from "./errors-spaces.js"
@@ -276,6 +279,9 @@ export {
   ScheduleNotFoundError,
   SpaceIdentifierAmbiguousError,
   SpaceNotFoundError,
+  SpaceNotTypedError,
+  SpaceRoleIdentifierAmbiguousError,
+  SpaceRoleNotFoundError,
   SpaceTypeIdentifierAmbiguousError,
   SpaceTypeNotFoundError,
   TagCategoryNotFoundError,
@@ -408,6 +414,9 @@ export const HulyDomainError = Schema.Union(
   HulyClassNotFoundError,
   SpaceNotFoundError,
   SpaceIdentifierAmbiguousError,
+  SpaceNotTypedError,
+  SpaceRoleNotFoundError,
+  SpaceRoleIdentifierAmbiguousError,
   SpaceTypeNotFoundError,
   SpaceTypeIdentifierAmbiguousError,
   TodoNotFoundError,

@@ -2,7 +2,6 @@ import type {
   Permission as HulyPermission,
   Ref,
   Role as HulyRole,
-  RolesAssignment,
   SpaceType as HulySpaceType,
   SpaceTypeDescriptor
 } from "@hcengineering/core"
@@ -26,10 +25,6 @@ import {
 } from "../../domain/schemas/shared.js"
 import type { GenericSpace } from "./spaces-shared.js"
 import { optionalObjectClassName, optionalString } from "./spaces-shared.js"
-
-type SpaceWithRoles = GenericSpace & {
-  readonly roles?: RolesAssignment
-}
 
 export const toPermissionSummary = (permission: HulyPermission): SpacePermissionSummary => ({
   id: PermissionId.make(permission._id),
@@ -56,7 +51,7 @@ export const toSpaceSummary = (space: GenericSpace): SpaceSummary => ({
   ownersCount: Count.make(space.owners?.length ?? 0)
 })
 
-const roleAssignments = (space: SpaceWithRoles): Array<SpaceRoleAssignment> | undefined => {
+const roleAssignments = (space: GenericSpace): Array<SpaceRoleAssignment> | undefined => {
   if (space.roles === undefined) return undefined
   return Object.entries(space.roles).map(([roleId, members]) => ({
     roleId: RoleId.make(roleId),
@@ -64,7 +59,7 @@ const roleAssignments = (space: SpaceWithRoles): Array<SpaceRoleAssignment> | un
   }))
 }
 
-export const toSpaceDetail = (space: SpaceWithRoles): SpaceDetail => ({
+export const toSpaceDetail = (space: GenericSpace): SpaceDetail => ({
   id: SpaceId.make(space._id),
   name: space.name,
   description: space.description,

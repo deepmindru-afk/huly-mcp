@@ -36,7 +36,11 @@ import { listTotal } from "./counts.js"
 import { hulyQuery, type StrictDocumentQuery } from "./query-helpers.js"
 import { toAccountUuid, toClassRef, toRef } from "./sdk-boundary.js"
 
-export type GenericSpace = Space & Partial<Pick<TypedSpace, "type" | "restricted">>
+type RolesAssignment = Readonly<Record<string, ReadonlyArray<HulyAccountUuid> | undefined>>
+
+export type GenericSpace = Space & Partial<Pick<TypedSpace, "type" | "restricted">> & {
+  readonly roles?: RolesAssignment | undefined
+}
 
 export type SpaceMutationError =
   | HulyClientError

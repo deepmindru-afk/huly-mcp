@@ -23,17 +23,25 @@ import { expect } from "vitest"
 import {
   NonEmptyString,
   ObjectClassName,
+  RoleId,
   SpaceClassFilter,
   SpaceId,
   SpaceIdentifier,
   SpaceTypeId,
   SpaceTypeIdentifier
 } from "../../../src/domain/schemas/shared.js"
-import { parseUpdateSpaceParams, SpaceMemberIdentifier } from "../../../src/domain/schemas/spaces.js"
+import {
+  parseUpdateSpaceParams,
+  SpaceMemberIdentifier,
+  SpaceRoleIdentifier
+} from "../../../src/domain/schemas/spaces.js"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
 import {
   SpaceIdentifierAmbiguousError,
   SpaceNotFoundError,
+  SpaceNotTypedError,
+  SpaceRoleIdentifierAmbiguousError,
+  SpaceRoleNotFoundError,
   SpaceTypeIdentifierAmbiguousError,
   SpaceTypeNotFoundError
 } from "../../../src/huly/errors-spaces.js"
@@ -42,13 +50,16 @@ import { testMarkupUrlConfig } from "../../../src/huly/operations/markup.js"
 import { toAccountUuid, toRef } from "../../../src/huly/operations/sdk-boundary.js"
 import {
   addSpaceMembers,
+  addSpaceRoleMembers,
   getSpace,
   getSpaceType,
   listSpacePermissions,
   listSpaces,
   listSpaceTypes,
   removeSpaceMembers,
+  removeSpaceRoleMembers,
   setSpaceOwners,
+  setSpaceRoleMembers,
   updateSpace
 } from "../../../src/huly/operations/spaces.js"
 import { testWorkbenchUrlConfig } from "../../../src/huly/url-builders.js"
@@ -66,6 +77,7 @@ const spaceIdentifier = (value: string) => SpaceIdentifier.make(value)
 const spaceClassFilter = (value: string) => SpaceClassFilter.make(value)
 const spaceTypeIdentifier = (value: string) => SpaceTypeIdentifier.make(value)
 const spaceMemberIdentifier = (value: string) => SpaceMemberIdentifier.make(value)
+const spaceRoleIdentifier = (value: string) => SpaceRoleIdentifier.make(value)
 // Huly localizable strings and icon refs are branded SDK strings. Test fixture
 // constants cross that SDK boundary with plain strings.
 const intlString = (value: string): SpaceTypeDescriptor["name"] => value as SpaceTypeDescriptor["name"]
@@ -376,12 +388,31 @@ describe("space domain errors", () => {
         }
       ]
     })
+    const spaceNotTyped = new SpaceNotTypedError({
+      id: SpaceId.make("space-1"),
+      name: NonEmptyString.make("General")
+    })
+    const roleNotFound = new SpaceRoleNotFoundError({
+      identifier: NonEmptyString.make("Admins"),
+      spaceType: SpaceTypeId.make("space-type-1")
+    })
+    const roleAmbiguous = new SpaceRoleIdentifierAmbiguousError({
+      identifier: NonEmptyString.make("Admins"),
+      spaceType: SpaceTypeId.make("space-type-1"),
+      matches: [
+        { id: RoleId.make("role-a"), name: NonEmptyString.make("Admins") },
+        { id: RoleId.make("role-b"), name: NonEmptyString.make("Admins") }
+      ]
+    })
 
     expect(spaceNotFound.message).toBe("Space 'Missing' not found")
     expect(spaceAmbiguous.message).toContain("space-a (module:class:A)")
     expect(spaceAmbiguous.message).toContain("space-b (module:class:B, type space-type-b)")
     expect(spaceTypeNotFound.message).toBe("Space type 'Missing Type' not found")
     expect(spaceTypeAmbiguous.message).toContain("type-b (module:class:B)")
+    expect(spaceNotTyped.message).toContain("is not typed")
+    expect(roleNotFound.message).toContain("Role 'Admins' not found in space type 'space-type-1'")
+    expect(roleAmbiguous.message).toContain("role-b (Admins)")
   })
 })
 
@@ -803,6 +834,118 @@ describe("spaces operations", () => {
       expect(noChange.changed).toBe(false)
       expect(noChangeUpdate.operations).toBeUndefined()
       expect(missingOwners.owners).toEqual([accountA])
+    }))
+
+  it.effect("setSpaceRoleMembers replaces only the targeted typed-space role assignment", () =>
+    Effect.gen(function*() {
+      const captureUpdate: MockConfig["captureUpdate"] = {}
+      const space = makeSpace({
+        type: toRef<SpaceType>("space-type-1"),
+        roles: {
+          "role-admin": [accountA],
+          "role-viewer": [accountC]
+        }
+      })
+      const layer = createTestLayer({
+        spaces: [space],
+        roles: [makeRole()],
+        persons: [makePerson()],
+        channels: [makeChannel()],
+        employees: [makeEmployee()],
+        captureUpdate
+      })
+
+      const result = yield* setSpaceRoleMembers({
+        space: spaceIdentifier("space-1"),
+        role: spaceRoleIdentifier("Admins"),
+        members: [spaceMemberIdentifier("jane@example.com")]
+      }).pipe(Effect.provide(layer))
+
+      expect(result).toMatchObject({ id: "space-1", roleId: "role-admin", members: [accountB], changed: true })
+      expect(captureUpdate.operations).toEqual({
+        roles: {
+          "role-admin": [accountB],
+          "role-viewer": [accountC]
+        }
+      })
+    }))
+
+  it.effect("space role add and remove mutations are idempotent", () =>
+    Effect.gen(function*() {
+      const addUpdate: MockConfig["captureUpdate"] = {}
+      const removeUpdate: MockConfig["captureUpdate"] = {}
+      const baseSpace = makeSpace({
+        type: toRef<SpaceType>("space-type-1"),
+        roles: { "role-admin": [accountA] }
+      })
+
+      const added = yield* addSpaceRoleMembers({
+        space: spaceIdentifier("space-1"),
+        role: spaceRoleIdentifier("role-admin"),
+        members: [spaceMemberIdentifier(accountB), spaceMemberIdentifier(accountA)]
+      }).pipe(Effect.provide(createTestLayer({ spaces: [baseSpace], roles: [makeRole()], captureUpdate: addUpdate })))
+      const addNoop = yield* addSpaceRoleMembers({
+        space: spaceIdentifier("space-1"),
+        role: spaceRoleIdentifier("role-admin"),
+        members: [spaceMemberIdentifier(accountA)]
+      }).pipe(Effect.provide(createTestLayer({ spaces: [baseSpace], roles: [makeRole()] })))
+      const removed = yield* removeSpaceRoleMembers({
+        space: spaceIdentifier("space-1"),
+        role: spaceRoleIdentifier("role-admin"),
+        members: [spaceMemberIdentifier(accountA)]
+      }).pipe(
+        Effect.provide(createTestLayer({ spaces: [baseSpace], roles: [makeRole()], captureUpdate: removeUpdate }))
+      )
+      const removeNoop = yield* removeSpaceRoleMembers({
+        space: spaceIdentifier("space-1"),
+        role: spaceRoleIdentifier("role-admin"),
+        members: [spaceMemberIdentifier(accountC)]
+      }).pipe(Effect.provide(createTestLayer({ spaces: [baseSpace], roles: [makeRole()] })))
+
+      expect(added.members).toEqual([accountA, accountB])
+      expect(addUpdate.operations).toEqual({ roles: { "role-admin": [accountA, accountB] } })
+      expect(addNoop.changed).toBe(false)
+      expect(removed.members).toEqual([])
+      expect(removeUpdate.operations).toEqual({ roles: { "role-admin": [] } })
+      expect(removeNoop.changed).toBe(false)
+    }))
+
+  it.effect("space role member mutations reject non-typed spaces and missing or ambiguous roles", () =>
+    Effect.gen(function*() {
+      const nonTyped = yield* Effect.exit(
+        setSpaceRoleMembers({
+          space: spaceIdentifier("space-1"),
+          role: spaceRoleIdentifier("Admins"),
+          members: []
+        }).pipe(Effect.provide(createTestLayer({ spaces: [makeSpace()], roles: [makeRole()] })))
+      )
+      const missingRole = yield* Effect.exit(
+        addSpaceRoleMembers({
+          space: spaceIdentifier("space-1"),
+          role: spaceRoleIdentifier("Missing"),
+          members: [spaceMemberIdentifier(accountA)]
+        }).pipe(Effect.provide(createTestLayer({
+          spaces: [makeSpace({ type: toRef<SpaceType>("space-type-1") })],
+          roles: [makeRole()]
+        })))
+      )
+      const ambiguousRole = yield* Effect.exit(
+        addSpaceRoleMembers({
+          space: spaceIdentifier("space-1"),
+          role: spaceRoleIdentifier("Admins"),
+          members: [spaceMemberIdentifier(accountA)]
+        }).pipe(Effect.provide(createTestLayer({
+          spaces: [makeSpace({ type: toRef<SpaceType>("space-type-1") })],
+          roles: [
+            makeRole({ _id: toRef<Role>("role-admin-a") }),
+            makeRole({ _id: toRef<Role>("role-admin-b") })
+          ]
+        })))
+      )
+
+      expect(exitCauseText(nonTyped)).toContain("is not typed")
+      expect(exitCauseText(missingRole)).toContain("SpaceRoleNotFoundError")
+      expect(exitCauseText(ambiguousRole)).toContain("SpaceRoleIdentifierAmbiguousError")
     }))
 
   it.effect("member resolution reports missing, ambiguous, and non-employee persons", () =>

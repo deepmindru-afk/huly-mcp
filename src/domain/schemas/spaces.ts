@@ -31,9 +31,17 @@ export type SpacePermissionScope = Schema.Schema.Type<typeof SpacePermissionScop
 export const SpaceMemberIdentifier = NonEmptyString.pipe(Schema.brand("SpaceMemberIdentifier"))
 export type SpaceMemberIdentifier = Schema.Schema.Type<typeof SpaceMemberIdentifier>
 
+export const SpaceRoleIdentifier = NonEmptyString.pipe(Schema.brand("SpaceRoleIdentifier"))
+export type SpaceRoleIdentifier = Schema.Schema.Type<typeof SpaceRoleIdentifier>
+
 const SpaceMemberIdentifierSchema = SpaceMemberIdentifier.annotations({
   description:
     "Workspace member to resolve. Accepts a Huly account UUID directly, an exact email address, or an exact person display name."
+})
+
+const SpaceRoleIdentifierSchema = SpaceRoleIdentifier.annotations({
+  description:
+    "Role to resolve within the space's SpaceType. Accepts a raw Huly role _id or an exact role name from get_space_type."
 })
 
 export const SpaceRoleAssignmentSchema = Schema.Struct({
@@ -285,6 +293,43 @@ export interface SetSpaceOwnersResult {
   readonly changed: boolean
 }
 
+const SpaceRoleMemberMutationFields = {
+  space: SpaceIdentifier.annotations({
+    description:
+      "Typed space _id or exact space name whose role assignment should change. The space must have a SpaceType."
+  }),
+  class: Schema.optional(SpaceClassFilter.annotations({
+    description: "Optional raw Huly space class ID used to disambiguate exact-name lookup."
+  })),
+  type: Schema.optional(SpaceTypeId.annotations({
+    description: "Optional raw Huly SpaceType _id used to disambiguate exact-name lookup."
+  })),
+  role: SpaceRoleIdentifierSchema,
+  members: Schema.Array(SpaceMemberIdentifierSchema).pipe(Schema.minItems(1)).annotations({
+    description:
+      "Members to add or remove from this role. Each entry may be an account UUID, exact email address, or exact person name."
+  })
+}
+
+export const SpaceRoleMemberMutationParamsSchema = Schema.Struct(SpaceRoleMemberMutationFields)
+export type SpaceRoleMemberMutationParams = Schema.Schema.Type<typeof SpaceRoleMemberMutationParamsSchema>
+
+export const SetSpaceRoleMembersParamsSchema = Schema.Struct({
+  ...SpaceRoleMemberMutationFields,
+  members: Schema.Array(SpaceMemberIdentifierSchema).annotations({
+    description:
+      "Replacement member list for this role only. Each entry may be an account UUID, exact email address, or exact person name. Pass [] to clear this role."
+  })
+})
+export type SetSpaceRoleMembersParams = Schema.Schema.Type<typeof SetSpaceRoleMembersParamsSchema>
+
+export interface SpaceRoleMembersResult {
+  readonly id: SpaceId
+  readonly roleId: RoleId
+  readonly members: ReadonlyArray<AccountUuid>
+  readonly changed: boolean
+}
+
 export const listSpacesParamsJsonSchema = JSONSchema.make(ListSpacesParamsSchema)
 export const getSpaceParamsJsonSchema = JSONSchema.make(GetSpaceParamsSchema)
 export const listSpaceTypesParamsJsonSchema = JSONSchema.make(ListSpaceTypesParamsSchema)
@@ -296,6 +341,8 @@ export const updateSpaceParamsJsonSchema = withAtLeastOneRequired(
 )
 export const spaceMemberMutationParamsJsonSchema = JSONSchema.make(SpaceMemberMutationParamsSchema)
 export const setSpaceOwnersParamsJsonSchema = JSONSchema.make(SetSpaceOwnersParamsSchema)
+export const spaceRoleMemberMutationParamsJsonSchema = JSONSchema.make(SpaceRoleMemberMutationParamsSchema)
+export const setSpaceRoleMembersParamsJsonSchema = JSONSchema.make(SetSpaceRoleMembersParamsSchema)
 
 export const parseListSpacesParams = Schema.decodeUnknown(ListSpacesParamsSchema)
 export const parseGetSpaceParams = Schema.decodeUnknown(GetSpaceParamsSchema)
@@ -305,3 +352,5 @@ export const parseListSpacePermissionsParams = Schema.decodeUnknown(ListSpacePer
 export const parseUpdateSpaceParams = Schema.decodeUnknown(UpdateSpaceParamsSchema)
 export const parseSpaceMemberMutationParams = Schema.decodeUnknown(SpaceMemberMutationParamsSchema)
 export const parseSetSpaceOwnersParams = Schema.decodeUnknown(SetSpaceOwnersParamsSchema)
+export const parseSpaceRoleMemberMutationParams = Schema.decodeUnknown(SpaceRoleMemberMutationParamsSchema)
+export const parseSetSpaceRoleMembersParams = Schema.decodeUnknown(SetSpaceRoleMembersParamsSchema)

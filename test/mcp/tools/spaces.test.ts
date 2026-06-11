@@ -96,7 +96,10 @@ describe("spaceTools", () => {
         "update_space",
         "add_space_members",
         "remove_space_members",
-        "set_space_owners"
+        "set_space_owners",
+        "set_space_role_members",
+        "add_space_role_members",
+        "remove_space_role_members"
       ])
       for (const tool of spaceTools) {
         expect(tool.category).toBe("spaces")

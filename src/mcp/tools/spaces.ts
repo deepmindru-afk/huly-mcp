@@ -10,22 +10,29 @@ import {
   parseListSpacesParams,
   parseListSpaceTypesParams,
   parseSetSpaceOwnersParams,
+  parseSetSpaceRoleMembersParams,
   parseSpaceMemberMutationParams,
+  parseSpaceRoleMemberMutationParams,
   parseUpdateSpaceParams,
   setSpaceOwnersParamsJsonSchema,
+  setSpaceRoleMembersParamsJsonSchema,
   spaceMemberMutationParamsJsonSchema,
+  spaceRoleMemberMutationParamsJsonSchema,
   updateSpaceParamsJsonSchema
 } from "../../domain/schemas.js"
 import { DEFAULT_INCLUDE_ARCHIVED } from "../../domain/schemas/shared.js"
 import {
   addSpaceMembers,
+  addSpaceRoleMembers,
   getSpace,
   getSpaceType,
   listSpacePermissions,
   listSpaces,
   listSpaceTypes,
   removeSpaceMembers,
+  removeSpaceRoleMembers,
   setSpaceOwners,
+  setSpaceRoleMembers,
   updateSpace
 } from "../../huly/operations/spaces.js"
 import { createToolHandler, type RegisteredTool } from "./registry.js"
@@ -104,5 +111,29 @@ export const spaceTools: ReadonlyArray<RegisteredTool> = [
     category: CATEGORY,
     inputSchema: setSpaceOwnersParamsJsonSchema,
     handler: createToolHandler("set_space_owners", parseSetSpaceOwnersParams, setSpaceOwners)
+  },
+  {
+    name: "set_space_role_members",
+    description:
+      "Replace members assigned to one role on a typed Huly space while preserving all other role assignments. Role accepts a raw role _id or exact role name from the space's SpaceType. Members accept account UUID, exact email, or exact person display name; pass members=[] to clear this role.",
+    category: CATEGORY,
+    inputSchema: setSpaceRoleMembersParamsJsonSchema,
+    handler: createToolHandler("set_space_role_members", parseSetSpaceRoleMembersParams, setSpaceRoleMembers)
+  },
+  {
+    name: "add_space_role_members",
+    description:
+      "Idempotently add members to one role on a typed Huly space while preserving all other role assignments. Role accepts a raw role _id or exact role name from the space's SpaceType. Members accept account UUID, exact email, or exact person display name.",
+    category: CATEGORY,
+    inputSchema: spaceRoleMemberMutationParamsJsonSchema,
+    handler: createToolHandler("add_space_role_members", parseSpaceRoleMemberMutationParams, addSpaceRoleMembers)
+  },
+  {
+    name: "remove_space_role_members",
+    description:
+      "Idempotently remove members from one role on a typed Huly space while preserving all other role assignments. Role accepts a raw role _id or exact role name from the space's SpaceType. Members accept account UUID, exact email, or exact person display name.",
+    category: CATEGORY,
+    inputSchema: spaceRoleMemberMutationParamsJsonSchema,
+    handler: createToolHandler("remove_space_role_members", parseSpaceRoleMemberMutationParams, removeSpaceRoleMembers)
   }
 ]

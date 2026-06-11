@@ -98,8 +98,20 @@ describe("sdk discovery schemas", () => {
       usableClassesOrOperations: ["inventory:class:Sku"],
       writeGuidance
     }
+    const blockedProducts = {
+      packageName: "@hcengineering/products",
+      publishStatus: "not_published",
+      dependencyStatus: "not_declared",
+      mcpStatus: "blocked",
+      usableClassesOrOperations: [],
+      blockedReason: "Products is not published.",
+      writeGuidance
+    }
 
     expect(Schema.decodeUnknownSync(HulyPackageViabilitySchema)(blockedBoard).mcpStatus).toBe("blocked")
+    expect(Schema.decodeUnknownSync(HulyPackageViabilitySchema)(blockedProducts).packageName).toBe(
+      "@hcengineering/products"
+    )
     expect(Schema.decodeUnknownSync(HulyPackageViabilitySchema)(usableInventory).mcpStatus).toBe(
       "usable_for_discovery"
     )
@@ -135,6 +147,20 @@ describe("sdk discovery schemas", () => {
         mcpStatus: "incompatible",
         usableClassesOrOperations: ["inventory:class:Product"],
         blockedReason: "Incompatible rows must not advertise usable exports."
+      })
+    ).toThrow()
+    expect(() =>
+      Schema.decodeUnknownSync(HulyPackageViabilitySchema)({
+        ...usableInventory,
+        packageName: "@hcengineering/products"
+      })
+    ).toThrow()
+    expect(() =>
+      Schema.decodeUnknownSync(HulyPackageViabilitySchema)({
+        ...blockedProducts,
+        publishStatus: "published",
+        dependencyStatus: "declared",
+        usableClassesOrOperations: ["products:class:Product"]
       })
     ).toThrow()
     expect(() =>

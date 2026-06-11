@@ -34,13 +34,10 @@ const NormalizedAttributeTypeKindValues = [
   "array",
   "collection"
 ] as const
-const HulyIssue101PackageNameValues = [
+const HulyPublishedIssue101PackageNameValues = [
   "@hcengineering/board",
-  "@hcengineering/inventory",
-  "@hcengineering/products"
+  "@hcengineering/inventory"
 ] as const
-const HulyPackagePublishStatusValues = ["published", "not_published"] as const
-const HulyPackageDependencyStatusValues = ["declared", "not_declared"] as const
 const HulyPackageMcpStatusValues = ["usable_for_discovery", "incompatible", "blocked"] as const
 
 type HulyKnownClassifierKindLiteral = typeof KnownClassifierKindValues[number]
@@ -219,29 +216,31 @@ export const HulyEnumSummarySchema = Schema.Struct({
 export type HulyEnumSummary = Schema.Schema.Type<typeof HulyEnumSummarySchema>
 
 const HulyPackageViabilityBaseFields = {
-  packageName: Schema.Literal(...HulyIssue101PackageNameValues).annotations({
-    description: `Exact issue #101 @hcengineering SDK package name: ${
-      enumValuesDescription(HulyIssue101PackageNameValues)
-    }`
-  }),
   requestedVersion: Schema.optional(NonEmptyString.annotations({
     description: "Version known to be published or requested for this package, when available"
   })),
-  publishStatus: Schema.Literal(...HulyPackagePublishStatusValues).annotations({
-    description: `npm package availability: ${enumValuesDescription(HulyPackagePublishStatusValues)}`
-  }),
-  dependencyStatus: Schema.Literal(...HulyPackageDependencyStatusValues).annotations({
-    description: `Whether this MCP server currently declares the package as a dependency: ${
-      enumValuesDescription(HulyPackageDependencyStatusValues)
-    }`
-  }),
   writeGuidance: NonEmptyString.annotations({
     description: "Non-goal guidance for writes; this viability surface is read-only and never authorizes write tools"
   })
 } as const
 
-const HulyBlockedPackageViabilitySchema = Schema.Struct({
+const HulyPublishedPackageFields = {
   ...HulyPackageViabilityBaseFields,
+  packageName: Schema.Literal(...HulyPublishedIssue101PackageNameValues).annotations({
+    description: `Published issue #101 @hcengineering SDK package name: ${
+      enumValuesDescription(HulyPublishedIssue101PackageNameValues)
+    }`
+  })
+} as const
+
+const HulyBlockedPackageViabilitySchema = Schema.Struct({
+  ...HulyPublishedPackageFields,
+  publishStatus: Schema.Literal("published").annotations({
+    description: "Blocked published package rows are published but not currently usable"
+  }),
+  dependencyStatus: Schema.Literal("not_declared").annotations({
+    description: "Blocked published package rows must not be declared as MCP package dependencies"
+  }),
   mcpStatus: Schema.Literal("blocked").annotations({
     description: "This package is not currently usable for MCP discovery implementation"
   }),
@@ -253,8 +252,30 @@ const HulyBlockedPackageViabilitySchema = Schema.Struct({
   })
 })
 
-const HulyIncompatiblePackageViabilitySchema = Schema.Struct({
+const HulyProductsBlockedPackageViabilitySchema = Schema.Struct({
   ...HulyPackageViabilityBaseFields,
+  packageName: Schema.Literal("@hcengineering/products").annotations({
+    description: "Unpublished issue #101 products SDK package name"
+  }),
+  publishStatus: Schema.Literal("not_published").annotations({
+    description: "Products is not published and cannot be reported as installable"
+  }),
+  dependencyStatus: Schema.Literal("not_declared").annotations({
+    description: "Products must not be declared as an MCP package dependency"
+  }),
+  mcpStatus: Schema.Literal("blocked").annotations({
+    description: "Products is blocked because no published package exists"
+  }),
+  usableClassesOrOperations: Schema.Tuple().annotations({
+    description: "Products must not advertise usable classes or operations"
+  }),
+  blockedReason: NonEmptyString.annotations({
+    description: "Explicit reason an LLM should not attempt products implementation against package imports"
+  })
+})
+
+const HulyIncompatiblePackageViabilitySchema = Schema.Struct({
+  ...HulyPublishedPackageFields,
   publishStatus: Schema.Literal("published").annotations({
     description: "Incompatible package rows are published but not consumable by this MCP package"
   }),
@@ -273,7 +294,7 @@ const HulyIncompatiblePackageViabilitySchema = Schema.Struct({
 })
 
 const HulyUsablePackageViabilitySchema = Schema.Struct({
-  ...HulyPackageViabilityBaseFields,
+  ...HulyPublishedPackageFields,
   publishStatus: Schema.Literal("published").annotations({
     description: "Usable package rows must be published"
   }),
@@ -294,6 +315,7 @@ const HulyUsablePackageViabilitySchema = Schema.Struct({
 
 export const HulyPackageViabilitySchema = Schema.Union(
   HulyBlockedPackageViabilitySchema,
+  HulyProductsBlockedPackageViabilitySchema,
   HulyIncompatiblePackageViabilitySchema,
   HulyUsablePackageViabilitySchema
 ).annotations({

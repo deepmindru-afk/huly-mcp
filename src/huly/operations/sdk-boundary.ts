@@ -1,4 +1,4 @@
-import type { AccountUuid, Class, Doc, PersonUuid, Ref } from "@hcengineering/core"
+import type { AccountUuid, Class, Doc, Mixin, PersonUuid, Ref } from "@hcengineering/core"
 import { Effect } from "effect"
 
 import type { NonEmptyString } from "../../domain/schemas/shared.js"
@@ -14,6 +14,11 @@ export const toRef = <T extends Doc>(id: NonEmptyString | Ref<T>): Ref<T> => id 
 // centralized SDK boundary for converting validated class strings back to refs.
 // eslint-disable-next-line no-restricted-syntax -- see above
 export const toClassRef = <T extends Doc>(id: string | Ref<Class<T>>): Ref<Class<T>> => id as Ref<Class<T>>
+
+// SpaceType targetClass can point at a mixin class; mixin APIs require the more
+// specific branded reference type at the SDK boundary.
+// eslint-disable-next-line no-restricted-syntax -- see above
+export const toMixinRef = <T extends Doc>(id: string | Ref<Mixin<T>>): Ref<Mixin<T>> => id as Ref<Mixin<T>>
 
 // Brands are erased at runtime; the domain value and SDK AccountUuid are both
 // non-empty strings, so this is the final boundary conversion into the SDK type.

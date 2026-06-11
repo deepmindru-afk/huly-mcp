@@ -740,6 +740,9 @@ SDK upgrade revisit:
 | `add_space_members` | Idempotently add members to an existing Huly space. Members accept account UUID, exact email, or exact person display name and resolve to Huly account UUIDs before replacing the full members array. |
 | `remove_space_members` | Idempotently remove members from an existing Huly space. Members accept account UUID, exact email, or exact person display name and resolve to Huly account UUIDs before replacing the full members array. |
 | `set_space_owners` | Replace owners on an existing Huly space. Owners accept account UUID, exact email, or exact person display name. By default, owners are also ensured in members. |
+| `set_space_role_members` | Replace members assigned to one role on a typed Huly space while preserving all other role assignments. Role accepts a raw role _id or exact role name from the space's SpaceType. Members accept account UUID, exact email, or exact person display name; pass members=[] to clear this role. |
+| `add_space_role_members` | Idempotently add members to one role on a typed Huly space while preserving all other role assignments. Role accepts a raw role _id or exact role name from the space's SpaceType. Members accept account UUID, exact email, or exact person display name. |
+| `remove_space_role_members` | Idempotently remove members from one role on a typed Huly space while preserving all other role assignments. Role accepts a raw role _id or exact role name from the space's SpaceType. Members accept account UUID, exact email, or exact person display name. |
 
 ### Tag-Categories
 

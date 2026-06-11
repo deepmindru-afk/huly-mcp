@@ -88,7 +88,7 @@ const exitCauseText = <A, E>(exit: Exit.Exit<A, E>): string => {
   return exit.cause.toString()
 }
 
-const makeSpace = (overrides: Partial<GenericSpace> = {}): GenericSpace => ({
+const makeSpace = (overrides: Partial<GenericSpace> & Readonly<Record<string, unknown>> = {}): GenericSpace => ({
   _id: toRef<Space>("space-1"),
   _class: core.class.Space,
   space: core.space.Space,
@@ -232,6 +232,7 @@ interface MockConfig {
   readonly channels?: ReadonlyArray<Channel>
   readonly employees?: ReadonlyArray<Employee>
   readonly captureUpdate?: { operations?: unknown; id?: string }
+  readonly captureMixin?: { action?: "create" | "update"; attributes?: unknown; id?: string; mixin?: string }
   readonly captureFindOptions?: Array<FindOptions<Doc> | undefined>
   readonly sdkTotal?: number
 }
@@ -345,8 +346,24 @@ const createTestLayer = (config: MockConfig) => {
     uploadMarkup: () => Effect.die(new Error("not implemented")),
     fetchMarkup: () => Effect.succeed(""),
     updateMarkup: () => Effect.die(new Error("not implemented")),
-    updateMixin: () => Effect.die(new Error("not implemented")),
-    createMixin: () => Effect.die(new Error("not implemented")),
+    updateMixin: (_objectId, _objectClass, _objectSpace, mixin, attributes) => {
+      if (config.captureMixin !== undefined) {
+        config.captureMixin.action = "update"
+        config.captureMixin.id = String(_objectId)
+        config.captureMixin.mixin = String(mixin)
+        config.captureMixin.attributes = attributes
+      }
+      return Effect.succeed([])
+    },
+    createMixin: (_objectId, _objectClass, _objectSpace, mixin, attributes) => {
+      if (config.captureMixin !== undefined) {
+        config.captureMixin.action = "create"
+        config.captureMixin.id = String(_objectId)
+        config.captureMixin.mixin = String(mixin)
+        config.captureMixin.attributes = attributes
+      }
+      return Effect.succeed([])
+    },
     searchFulltext: () => Effect.die(new Error("not implemented"))
   }
 
@@ -838,21 +855,20 @@ describe("spaces operations", () => {
 
   it.effect("setSpaceRoleMembers replaces only the targeted typed-space role assignment", () =>
     Effect.gen(function*() {
-      const captureUpdate: MockConfig["captureUpdate"] = {}
+      const captureMixin: MockConfig["captureMixin"] = {}
       const space = makeSpace({
         type: toRef<SpaceType>("space-type-1"),
-        roles: {
-          "role-admin": [accountA],
-          "role-viewer": [accountC]
-        }
+        "role-admin": [accountA],
+        "role-viewer": [accountC]
       })
       const layer = createTestLayer({
         spaces: [space],
+        spaceTypes: [makeSpaceType()],
         roles: [makeRole()],
         persons: [makePerson()],
         channels: [makeChannel()],
         employees: [makeEmployee()],
-        captureUpdate
+        captureMixin
       })
 
       const result = yield* setSpaceRoleMembers({
@@ -862,51 +878,82 @@ describe("spaces operations", () => {
       }).pipe(Effect.provide(layer))
 
       expect(result).toMatchObject({ id: "space-1", roleId: "role-admin", members: [accountB], changed: true })
-      expect(captureUpdate.operations).toEqual({
-        roles: {
-          "role-admin": [accountB],
-          "role-viewer": [accountC]
-        }
+      expect(captureMixin).toMatchObject({
+        action: "update",
+        id: "space-1",
+        mixin: core.class.Space,
+        attributes: { "role-admin": [accountB] }
       })
     }))
 
   it.effect("space role add and remove mutations are idempotent", () =>
     Effect.gen(function*() {
-      const addUpdate: MockConfig["captureUpdate"] = {}
-      const removeUpdate: MockConfig["captureUpdate"] = {}
+      const addMixin: MockConfig["captureMixin"] = {}
+      const createMixin: MockConfig["captureMixin"] = {}
+      const removeMixin: MockConfig["captureMixin"] = {}
       const baseSpace = makeSpace({
         type: toRef<SpaceType>("space-type-1"),
-        roles: { "role-admin": [accountA] }
+        "role-admin": [accountA]
       })
 
       const added = yield* addSpaceRoleMembers({
         space: spaceIdentifier("space-1"),
         role: spaceRoleIdentifier("role-admin"),
         members: [spaceMemberIdentifier(accountB), spaceMemberIdentifier(accountA)]
-      }).pipe(Effect.provide(createTestLayer({ spaces: [baseSpace], roles: [makeRole()], captureUpdate: addUpdate })))
+      }).pipe(Effect.provide(createTestLayer({
+        spaces: [baseSpace],
+        spaceTypes: [makeSpaceType()],
+        roles: [makeRole()],
+        captureMixin: addMixin
+      })))
+      const created = yield* addSpaceRoleMembers({
+        space: spaceIdentifier("space-1"),
+        role: spaceRoleIdentifier("role-admin"),
+        members: [spaceMemberIdentifier(accountA)]
+      }).pipe(Effect.provide(createTestLayer({
+        spaces: [makeSpace({ type: toRef<SpaceType>("space-type-1") })],
+        spaceTypes: [makeSpaceType()],
+        roles: [makeRole()],
+        captureMixin: createMixin
+      })))
       const addNoop = yield* addSpaceRoleMembers({
         space: spaceIdentifier("space-1"),
         role: spaceRoleIdentifier("role-admin"),
         members: [spaceMemberIdentifier(accountA)]
-      }).pipe(Effect.provide(createTestLayer({ spaces: [baseSpace], roles: [makeRole()] })))
+      }).pipe(Effect.provide(createTestLayer({
+        spaces: [baseSpace],
+        spaceTypes: [makeSpaceType()],
+        roles: [makeRole()]
+      })))
       const removed = yield* removeSpaceRoleMembers({
         space: spaceIdentifier("space-1"),
         role: spaceRoleIdentifier("role-admin"),
         members: [spaceMemberIdentifier(accountA)]
       }).pipe(
-        Effect.provide(createTestLayer({ spaces: [baseSpace], roles: [makeRole()], captureUpdate: removeUpdate }))
+        Effect.provide(createTestLayer({
+          spaces: [baseSpace],
+          spaceTypes: [makeSpaceType()],
+          roles: [makeRole()],
+          captureMixin: removeMixin
+        }))
       )
       const removeNoop = yield* removeSpaceRoleMembers({
         space: spaceIdentifier("space-1"),
         role: spaceRoleIdentifier("role-admin"),
         members: [spaceMemberIdentifier(accountC)]
-      }).pipe(Effect.provide(createTestLayer({ spaces: [baseSpace], roles: [makeRole()] })))
+      }).pipe(Effect.provide(createTestLayer({
+        spaces: [baseSpace],
+        spaceTypes: [makeSpaceType()],
+        roles: [makeRole()]
+      })))
 
       expect(added.members).toEqual([accountA, accountB])
-      expect(addUpdate.operations).toEqual({ roles: { "role-admin": [accountA, accountB] } })
+      expect(addMixin).toMatchObject({ action: "update", attributes: { "role-admin": [accountA, accountB] } })
+      expect(created.changed).toBe(true)
+      expect(createMixin).toMatchObject({ action: "create", attributes: { "role-admin": [accountA] } })
       expect(addNoop.changed).toBe(false)
       expect(removed.members).toEqual([])
-      expect(removeUpdate.operations).toEqual({ roles: { "role-admin": [] } })
+      expect(removeMixin).toMatchObject({ action: "update", attributes: { "role-admin": [] } })
       expect(removeNoop.changed).toBe(false)
     }))
 
@@ -926,6 +973,7 @@ describe("spaces operations", () => {
           members: [spaceMemberIdentifier(accountA)]
         }).pipe(Effect.provide(createTestLayer({
           spaces: [makeSpace({ type: toRef<SpaceType>("space-type-1") })],
+          spaceTypes: [makeSpaceType()],
           roles: [makeRole()]
         })))
       )
@@ -936,6 +984,7 @@ describe("spaces operations", () => {
           members: [spaceMemberIdentifier(accountA)]
         }).pipe(Effect.provide(createTestLayer({
           spaces: [makeSpace({ type: toRef<SpaceType>("space-type-1") })],
+          spaceTypes: [makeSpaceType()],
           roles: [
             makeRole({ _id: toRef<Role>("role-admin-a") }),
             makeRole({ _id: toRef<Role>("role-admin-b") })

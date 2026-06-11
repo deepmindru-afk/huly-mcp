@@ -118,6 +118,7 @@ export const spaceTools: ReadonlyArray<RegisteredTool> = [
       "Replace members assigned to one role on a typed Huly space while preserving all other role assignments. Role accepts a raw role _id or exact role name from the space's SpaceType. Members accept account UUID, exact email, or exact person display name; pass members=[] to clear this role.",
     category: CATEGORY,
     inputSchema: setSpaceRoleMembersParamsJsonSchema,
+    annotations: { idempotentHint: true, destructiveHint: false },
     handler: createToolHandler("set_space_role_members", parseSetSpaceRoleMembersParams, setSpaceRoleMembers)
   },
   {
@@ -126,6 +127,7 @@ export const spaceTools: ReadonlyArray<RegisteredTool> = [
       "Idempotently add members to one role on a typed Huly space while preserving all other role assignments. Role accepts a raw role _id or exact role name from the space's SpaceType. Members accept account UUID, exact email, or exact person display name.",
     category: CATEGORY,
     inputSchema: spaceRoleMemberMutationParamsJsonSchema,
+    annotations: { idempotentHint: true, destructiveHint: false },
     handler: createToolHandler("add_space_role_members", parseSpaceRoleMemberMutationParams, addSpaceRoleMembers)
   },
   {
@@ -134,6 +136,7 @@ export const spaceTools: ReadonlyArray<RegisteredTool> = [
       "Idempotently remove members from one role on a typed Huly space while preserving all other role assignments. Role accepts a raw role _id or exact role name from the space's SpaceType. Members accept account UUID, exact email, or exact person display name.",
     category: CATEGORY,
     inputSchema: spaceRoleMemberMutationParamsJsonSchema,
+    annotations: { idempotentHint: true, destructiveHint: false },
     handler: createToolHandler("remove_space_role_members", parseSpaceRoleMemberMutationParams, removeSpaceRoleMembers)
   }
 ]

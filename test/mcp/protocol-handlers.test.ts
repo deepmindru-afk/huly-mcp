@@ -16,6 +16,7 @@ import { describe, expect, it } from "vitest"
 import { sanitizeHulyRuntimeConfigFromEnv } from "../../src/config/config.js"
 import { type GetHulyContextResult, GetHulyContextResultSchema } from "../../src/domain/schemas/index.js"
 import { HulyClient, type HulyClientOperations } from "../../src/huly/client.js"
+import { Diagnostics } from "../../src/huly/diagnostics.js"
 import { HulyConnectionError } from "../../src/huly/errors.js"
 import { HulyStorageClient } from "../../src/huly/storage.js"
 import {
@@ -33,7 +34,7 @@ import {
   type NowClock
 } from "../../src/mcp/protocol-handlers.js"
 import { createFilteredRegistry, type ToolRegistry, toolRegistry } from "../../src/mcp/tools/index.js"
-import { isNoArgumentTool, requiresArgumentsObject } from "../../src/mcp/tools/registry.js"
+import { createToolHandler, isNoArgumentTool, requiresArgumentsObject } from "../../src/mcp/tools/registry.js"
 import { createNoopTelemetry } from "../../src/telemetry/noop.js"
 import type { TelemetryOperations, ToolCalledProps } from "../../src/telemetry/telemetry.js"
 import { VERSION } from "../../src/version.js"
@@ -217,6 +218,43 @@ const propertylessObjectRegistry: ToolRegistry = {
   handleToolCall: async () => null
 }
 
+const DiagnosticProbeParams = Schema.Struct({ subject: Schema.String })
+type DiagnosticProbeParams = typeof DiagnosticProbeParams.Type
+
+const diagnosticProbeTool = {
+  name: "diagnostic_probe",
+  description: "Test-only tool that emits an agent-visible diagnostic warning.",
+  inputSchema: {
+    type: "object",
+    properties: { subject: { type: "string" } },
+    required: ["subject"],
+    additionalProperties: false
+  },
+  category: "test",
+  handler: createToolHandler(
+    "diagnostic_probe",
+    Schema.decodeUnknown(DiagnosticProbeParams),
+    (params: DiagnosticProbeParams) =>
+      Effect.gen(function*() {
+        const diagnostics = yield* Diagnostics
+        yield* diagnostics.warnAgent({
+          code: "status_metadata_unresolved",
+          message: `Status metadata was degraded for ${params.subject}.`
+        })
+        return { subject: params.subject, degraded: true }
+      })
+  )
+}
+
+const diagnosticProbeRegistry: ToolRegistry = {
+  tools: new Map([[diagnosticProbeTool.name, diagnosticProbeTool]]),
+  definitions: [diagnosticProbeTool],
+  handleToolCall: async (toolName, args, hulyClient, storageClient, workspaceClient) => {
+    if (toolName !== diagnosticProbeTool.name) return null
+    return diagnosticProbeTool.handler(args ?? {}, hulyClient, storageClient, workspaceClient)
+  }
+}
+
 // Narrow the MCP content union to the text variant (no cast).
 const firstText = (content: ReadonlyArray<unknown>): string => {
   const item = content[0]
@@ -381,6 +419,34 @@ describe("createMcpProtocolHandlers — tool dispatch", () => {
 
     expect(response.isError).not.toBe(true)
     expect(probe.toolCalled[0]).toMatchObject({ toolName: "list_projects", status: "success" })
+  })
+
+  it("carries diagnostics warnings through the MCP callTool response", async () => {
+    const probe = createTelemetryProbe()
+    const handlers = createMcpProtocolHandlers(
+      buildStubClients(),
+      probe.telemetry,
+      diagnosticProbeRegistry,
+      unusedGetHulyContext
+    )
+
+    const response = await handlers.callTool({
+      params: { name: "diagnostic_probe", arguments: { subject: "workflow status refs" } }
+    })
+
+    const warning = {
+      code: "status_metadata_unresolved",
+      message: "Status metadata was degraded for workflow status refs."
+    }
+
+    expect(response.isError).not.toBe(true)
+    expect(response.structuredContent).toEqual({
+      result: { subject: "workflow status refs", degraded: true },
+      warnings: [warning]
+    })
+    expect(response.content).toHaveLength(2)
+    expect(JSON.parse(firstText([response.content[1]]))).toEqual({ warnings: [warning] })
+    expect(probe.toolCalled[0]).toMatchObject({ toolName: "diagnostic_probe", status: "success" })
   })
 
   it("maps a client-resolution failure to an error", async () => {

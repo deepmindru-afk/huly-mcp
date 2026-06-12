@@ -77,11 +77,11 @@ In execution order:
 - [x] `task-1` Fix the inverted no-warnings jq guard (BLOCKER)
 - [x] `task-8` Complete the run_capture subshell accounting audit (calibrates the suite)
 - [x] `task-2` Stop emitting structuredContent on error envelopes (BLOCKER)
-- [ ] `task-3` Derive the warning-code enum from ToolWarningCodeSchema
-- [ ] `task-4` Remove the dead HandlerArgs.diagnostics field
-- [ ] `task-5` Require Diagnostics in R on the warn path (drop serviceOption)
-- [ ] `task-6` Centralize the three ref-fallback merge implementations
-- [ ] `task-7` Justify or eliminate leftover fixture casts
+- [x] `task-3` Derive the warning-code enum from ToolWarningCodeSchema
+- [x] `task-4` Remove the dead HandlerArgs.diagnostics field
+- [x] `task-5` Require Diagnostics in R on the warn path (drop serviceOption)
+- [x] `task-6` Centralize the three ref-fallback merge implementations
+- [x] `task-7` Justify or eliminate leftover fixture casts
 
 ## task-1
 
@@ -172,7 +172,13 @@ files; no registry, transport, or operations changes. Constraints: no casts; pre
 
 ## task-3
 
-Status: `pending`
+Status: `done`
+
+Done in this lane. `src/mcp/tool-output-schema.ts` now derives the advertised warning
+code enum from `ToolWarningCodeSchema.literals`, verified against the Effect Schema
+literal accessor in the local Effect reference. Added
+`test/mcp/tool-output-schema.test.ts` to pin the advertised enum to the schema-owned
+literals. Verification: `pnpm check-all` passed.
 
 ### Load
 
@@ -196,7 +202,12 @@ schema.
 
 ## task-4
 
-Status: `pending`
+Status: `done`
+
+Done in this lane. Removed the unused `diagnostics` member from `HandlerArgs` and the
+dead object property in `createHandler`; the real per-call Diagnostics provisioning
+remains the existing `Effect.provideService(Diagnostics, diagnosticsScope.service)`
+pipe. Verification: `pnpm check-all` passed.
 
 ### Load
 
@@ -215,7 +226,17 @@ pipe.
 
 ## task-5
 
-Status: `pending`
+Status: `done`
+
+Done in this lane. `findStatusDocs` now requires `Diagnostics`, emits agent-visible
+warnings through the provided scope, and records degraded-but-recovered trails through
+the same service instead of `Effect.serviceOption`. The explicit R requirements were
+widened through the affected project, issue, task-management, lead, and resource read
+paths. Tests now provide Diagnostics explicitly; fallback tests assert warning codes,
+model-repaired paths assert no warnings, and resource reads surface warnings through
+`_meta.warnings`. Review agents found the original resource-read warning gap and
+discarded-warning tests; both were fixed. Verification: `pnpm check-all` passed and the
+full live integration suite reported `RESULTS: 559 passed, 0 failed, 27 skipped (of 586)`.
 
 ### Load
 
@@ -257,7 +278,12 @@ casts; do not change warning/trail message wording; keep `Option` import removal
 
 ## task-6
 
-Status: `pending`
+Status: `done`
+
+Done in this lane. Added `resolveByStatusRef` in `issues-shared.ts` and rewired the
+workflow, task-management, and lead status fallback paths to use the single resolver
+while preserving ref order and fallback semantics. Verification: `pnpm check-all`
+passed.
 
 ### Load
 
@@ -286,7 +312,14 @@ input order; docs deduped upstream by `uniqueStatusDocs`).
 
 ## task-7
 
-Status: `pending`
+Status: `done`
+
+Done in this lane. Eliminated the specified `as never` fixture casts in
+`projects.test.ts` and `issues-task-types.test.ts`. A final review pass found two new
+SDK-shaped MCP fixture casts in `protocol-handlers.test.ts`; those now have targeted
+`no-restricted-syntax` justifications because the SDK document interfaces include
+generated/branded fields without public fixture constructors. Verification:
+`pnpm check-all` passed.
 
 ### Load
 

@@ -37,10 +37,11 @@ import {
 } from "../../domain/schemas.js"
 import { normalizeForComparison } from "../../utils/normalize.js"
 import { HulyClient, type HulyClientError, type HulyClientOperations } from "../client.js"
+import type { Diagnostics } from "../diagnostics.js"
 import { HulyConnectionError, HulyError } from "../errors.js"
 import { core, task, tracker } from "../huly-plugins.js"
 import { listTotal } from "./counts.js"
-import { findStatusDocs, uniqueStatusRefs, workflowStatusFromRef } from "./issues-shared.js"
+import { findStatusDocs, resolveByStatusRef, uniqueStatusRefs, workflowStatusFromRef } from "./issues-shared.js"
 import { hulyQuery } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
 
@@ -126,7 +127,7 @@ const uniqueProjectStatuses = (statuses: ReadonlyArray<ProjectStatus>): Array<Pr
 const getStatusDocs = (
   client: HulyClientOperations,
   statusIds: ReadonlyArray<Ref<Status>>
-): Effect.Effect<ReadonlyArray<Status>, never> =>
+): Effect.Effect<ReadonlyArray<Status>, never, Diagnostics> =>
   statusIds.length === 0
     ? Effect.succeed([])
     : findStatusDocs(client, statusIds)
@@ -144,10 +145,7 @@ const fallbackStatusDoc = (statusId: Ref<Status>): Status => ({
 const statusDocsWithFallbacks = (
   statusIds: ReadonlyArray<Ref<Status>>,
   statusDocs: ReadonlyArray<Status>
-): Array<Status> => {
-  const docsById = new Map(statusDocs.map((statusDoc) => [statusDoc._id, statusDoc]))
-  return statusIds.map((statusId) => docsById.get(statusId) ?? fallbackStatusDoc(statusId))
-}
+): Array<Status> => resolveByStatusRef(statusIds, statusDocs, (statusDoc) => statusDoc, fallbackStatusDoc)
 
 const getTaskTypes = (
   client: HulyClientOperations,
@@ -185,7 +183,7 @@ const getRecoverableStatusesByName = (
 const loadWorkflowData = (
   client: HulyClientOperations,
   projectType: ProjectType
-): Effect.Effect<WorkflowData, HulyClientError> =>
+): Effect.Effect<WorkflowData, HulyClientError, Diagnostics> =>
   Effect.gen(function*() {
     const taskTypes = yield* getTaskTypes(client, projectType.tasks)
     const statusIds = uniqueStatusIds(projectType)
@@ -351,7 +349,7 @@ const sameProjectStatusList = (
 
 export const listProjectTypes = (
   _params: ListProjectTypesParams
-): Effect.Effect<ListProjectTypesResult, TaskManagementError, HulyClient> =>
+): Effect.Effect<ListProjectTypesResult, TaskManagementError, HulyClient | Diagnostics> =>
   Effect.gen(function*() {
     const client = yield* HulyClient
     const projectTypes = yield* listAllProjectTypes(client)
@@ -365,7 +363,7 @@ export const listProjectTypes = (
 
 export const getProjectType = (
   params: GetProjectTypeParams
-): Effect.Effect<ProjectTypeDetail, TaskManagementError, HulyClient> =>
+): Effect.Effect<ProjectTypeDetail, TaskManagementError, HulyClient | Diagnostics> =>
   Effect.gen(function*() {
     const client = yield* HulyClient
     const projectType = yield* resolveProjectType(client, params.projectType)
@@ -375,7 +373,7 @@ export const getProjectType = (
 
 export const listTaskTypes = (
   params: ListTaskTypesParams
-): Effect.Effect<ListTaskTypesResult, TaskManagementError, HulyClient> =>
+): Effect.Effect<ListTaskTypesResult, TaskManagementError, HulyClient | Diagnostics> =>
   Effect.gen(function*() {
     const client = yield* HulyClient
     const projectTypes = params.projectType === undefined
@@ -391,7 +389,7 @@ export const listTaskTypes = (
 
 export const createTaskType = (
   params: CreateTaskTypeParams
-): Effect.Effect<CreateTaskTypeResult, TaskManagementError, HulyClient> =>
+): Effect.Effect<CreateTaskTypeResult, TaskManagementError, HulyClient | Diagnostics> =>
   Effect.gen(function*() {
     const client = yield* HulyClient
     const projectType = yield* resolveProjectType(client, params.projectType)
@@ -548,7 +546,7 @@ export const createTaskType = (
 
 export const createIssueStatus = (
   params: CreateIssueStatusParams
-): Effect.Effect<CreateIssueStatusResult, TaskManagementError, HulyClient> =>
+): Effect.Effect<CreateIssueStatusResult, TaskManagementError, HulyClient | Diagnostics> =>
   Effect.gen(function*() {
     const client = yield* HulyClient
     const projectType = yield* resolveProjectType(client, params.projectType)

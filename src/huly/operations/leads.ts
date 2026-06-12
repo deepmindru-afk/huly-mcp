@@ -35,13 +35,14 @@ import {
 import { StatusName } from "../../domain/schemas/shared.js"
 import { normalizeForComparison } from "../../utils/normalize.js"
 import { HulyClient, type HulyClientError } from "../client.js"
+import type { Diagnostics } from "../diagnostics.js"
 import { FunnelNotFoundError, LeadNotFoundError } from "../errors-leads.js"
 import { HulyConnectionError, InvalidStatusError } from "../errors.js"
 import { contact, task } from "../huly-plugins.js"
 import { leadClassIds } from "../lead-plugin.js"
 import { findPersonByEmailOrName } from "./contacts-shared.js"
 import { listTotal } from "./counts.js"
-import { findStatusDocs, uniqueStatusRefs, workflowStatusFromRef } from "./issues-shared.js"
+import { findStatusDocs, resolveByStatusRef, uniqueStatusRefs, workflowStatusFromRef } from "./issues-shared.js"
 import { clampLimit, escapeLikeWildcards } from "./query-helpers.js"
 import { toRef } from "./sdk-boundary.js"
 
@@ -77,21 +78,19 @@ const funnelAsSpace = (funnel: HulyFunnel): Ref<Space> => toRef<Space>(funnel._i
 const statusInfosWithFallbacks = (
   statusRefs: ReadonlyArray<Ref<Status>>,
   statusDocs: ReadonlyArray<Status>
-): ReadonlyArray<StatusInfo> => {
-  const docsById = new Map(statusDocs.map((statusDoc) => [statusDoc._id, statusDoc]))
-  return statusRefs.map((statusRef) => {
-    const statusDoc = docsById.get(statusRef)
-    return statusDoc === undefined
-      ? {
-        _id: statusRef,
-        name: workflowStatusFromRef(statusRef).name
-      }
-      : {
-        _id: statusDoc._id,
-        name: statusDoc.name
-      }
-  })
-}
+): ReadonlyArray<StatusInfo> =>
+  resolveByStatusRef(
+    statusRefs,
+    statusDocs,
+    (statusDoc) => ({
+      _id: statusDoc._id,
+      name: statusDoc.name
+    }),
+    (statusRef) => ({
+      _id: statusRef,
+      name: workflowStatusFromRef(statusRef).name
+    })
+  )
 
 // Huly lead descriptions are stored as blob-backed markup refs. The client
 // fetch API accepts the wider MarkupRef shape, so this bridge is safe.
@@ -147,7 +146,7 @@ const findFunnel = (
 const getFunnelStatuses = (
   client: HulyClient["Type"],
   funnel: HulyFunnel
-): Effect.Effect<ReadonlyArray<StatusInfo>, HulyClientError | HulyConnectionError> =>
+): Effect.Effect<ReadonlyArray<StatusInfo>, HulyClientError | HulyConnectionError, Diagnostics> =>
   Effect.gen(function*() {
     if (funnel.type === undefined) {
       return yield* Effect.fail(
@@ -268,7 +267,7 @@ type ListLeadsError =
 
 export const listLeads = (
   params: ListLeadsParams
-): Effect.Effect<Array<LeadSummary>, ListLeadsError, HulyClient> =>
+): Effect.Effect<Array<LeadSummary>, ListLeadsError, HulyClient | Diagnostics> =>
   Effect.gen(function*() {
     const client = yield* HulyClient
     const funnel = yield* findFunnel(client, params.funnel)
@@ -362,7 +361,7 @@ type GetLeadError =
 
 export const getLead = (
   params: GetLeadParams
-): Effect.Effect<LeadDetail, GetLeadError, HulyClient> =>
+): Effect.Effect<LeadDetail, GetLeadError, HulyClient | Diagnostics> =>
   Effect.gen(function*() {
     const client = yield* HulyClient
     const funnel = yield* findFunnel(client, params.funnel)

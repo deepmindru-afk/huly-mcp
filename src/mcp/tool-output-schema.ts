@@ -1,4 +1,5 @@
 import { getHulyContextResultJsonSchema } from "../domain/schemas/index.js"
+import { ToolWarningCodeSchema } from "../domain/schemas/tool-warnings.js"
 
 interface McpOutputSchema {
   readonly type: "object"
@@ -6,6 +7,8 @@ interface McpOutputSchema {
   readonly required?: Array<string>
   readonly [key: string]: unknown
 }
+
+const toolWarningCodeEnum = [...ToolWarningCodeSchema.literals]
 
 export const defaultToolOutputSchema: McpOutputSchema = {
   type: "object",
@@ -23,7 +26,7 @@ export const defaultToolOutputSchema: McpOutputSchema = {
         properties: {
           code: {
             type: "string",
-            enum: ["status_metadata_unresolved"]
+            enum: toolWarningCodeEnum
           },
           message: {
             type: "string",

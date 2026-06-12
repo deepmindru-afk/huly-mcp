@@ -9,6 +9,10 @@
  *
  * @module
  */
+import type { Class, Doc, FindResult, PersonId, Ref, Space, Status, WithLookup } from "@hcengineering/core"
+import { toFindResult } from "@hcengineering/core"
+import type { ProjectType } from "@hcengineering/task"
+import { type Project as HulyProject, TimeReportDayType } from "@hcengineering/tracker"
 import { McpError } from "@modelcontextprotocol/sdk/types.js"
 import { Context, Effect, Layer, Schema } from "effect"
 import { describe, expect, it } from "vitest"
@@ -18,6 +22,7 @@ import { type GetHulyContextResult, GetHulyContextResultSchema } from "../../src
 import { HulyClient, type HulyClientOperations } from "../../src/huly/client.js"
 import { Diagnostics } from "../../src/huly/diagnostics.js"
 import { HulyConnectionError } from "../../src/huly/errors.js"
+import { task, tracker } from "../../src/huly/huly-plugins.js"
 import { HulyStorageClient } from "../../src/huly/storage.js"
 import {
   buildHulyContext,
@@ -188,6 +193,70 @@ const buildStubClients = (hulyOps: Partial<HulyClientOperations> = {}): () => Pr
       return { hulyClient: Context.get(ctx, HulyClient), storageClient: Context.get(ctx, HulyStorageClient) }
     })
   )
+
+const emptyFindResult = <T extends Doc>(): FindResult<T> => toFindResult([] satisfies Array<T>)
+
+type ProjectWithTypeLookup = WithLookup<HulyProject> & { readonly $lookup: { readonly type: ProjectType } }
+
+// Huly SDK document interfaces include generated/branded fields and plugin metadata
+// that do not have public test constructors. These helpers build the minimal
+// SDK-shaped documents read by getProject; brands are erased at runtime.
+const projectTypeFixture = (statusId: Ref<Status>): ProjectType =>
+  // eslint-disable-next-line no-restricted-syntax -- SDK ProjectType has generated plugin fields and branded refs with no public fixture constructor.
+  ({
+    _id: "project-type-1" as Ref<ProjectType>,
+    _class: task.class.ProjectType,
+    space: "space-1" as Ref<Space>,
+    name: "Classic",
+    descriptor: tracker.descriptors.ProjectType,
+    statuses: [{ _id: statusId }],
+    tasks: [],
+    modifiedBy: "user-1" as PersonId,
+    modifiedOn: 0,
+    createdBy: "user-1" as PersonId,
+    createdOn: 0
+  } as unknown) as ProjectType
+
+const projectWithTypeLookupFixture = (statusId: Ref<Status>, projectType: ProjectType): ProjectWithTypeLookup =>
+  // eslint-disable-next-line no-restricted-syntax -- SDK Project plus lookup metadata has branded refs and generated fields with no public fixture constructor.
+  ({
+    _id: "project-1" as Ref<HulyProject>,
+    _class: tracker.class.Project,
+    space: "space-1" as Ref<Space>,
+    identifier: "TEST",
+    name: "Test Project",
+    description: "Project used by resource warning tests",
+    private: false,
+    members: [],
+    owners: [],
+    archived: false,
+    sequence: 1,
+    defaultIssueStatus: statusId,
+    defaultTimeReportDay: TimeReportDayType.CurrentWorkDay,
+    modifiedBy: "user-1" as PersonId,
+    modifiedOn: 0,
+    createdBy: "user-1" as PersonId,
+    createdOn: 0,
+    $lookup: { type: projectType }
+  } as unknown) as ProjectWithTypeLookup
+
+const buildResourceWarningClients = (): () => Promise<ClientBundle> => {
+  const statusId = "plainstatus" as Ref<Status>
+  const projectType = projectTypeFixture(statusId)
+  const project = projectWithTypeLookupFixture(statusId, projectType)
+
+  // HulyClientOperations.findOne is generic by requested SDK class. This fixture
+  // returns a project only when the class ref is tracker.class.Project and returns
+  // undefined for every other class, so the generic contract is preserved.
+  const findOne =
+    ((_class: Ref<Class<Doc>>) =>
+      Effect.succeed(_class === tracker.class.Project ? project : undefined)) as HulyClientOperations["findOne"]
+
+  const findAll: HulyClientOperations["findAll"] = () => Effect.succeed(emptyFindResult())
+  const findAllInModel: HulyClientOperations["findAllInModel"] = () => Effect.succeed(emptyFindResult())
+
+  return buildStubClients({ findOne, findAll, findAllInModel })
+}
 
 const rejectingResolveClients = (): Promise<ClientBundle> => Promise.reject(new Error("client init boom"))
 const rejectingResolveClientsWithString = (): Promise<ClientBundle> => Promise.reject("client init boom")
@@ -552,6 +621,33 @@ describe("createMcpProtocolHandlers — resource handlers", () => {
     )
     const result = await handlers.listResources()
     expect(Array.isArray(result.resources)).toBe(true)
+  })
+
+  it("attaches Diagnostics warnings to resource read metadata", async () => {
+    const handlers = createMcpProtocolHandlers(
+      buildResourceWarningClients(),
+      createTelemetryProbe().telemetry,
+      emptyRegistry,
+      unusedGetHulyContext
+    )
+
+    const result = await handlers.readResource({ params: { uri: "huly://projects/TEST" } })
+
+    expect(result._meta).toEqual({
+      warnings: [
+        expect.objectContaining({
+          code: "status_metadata_unresolved"
+        })
+      ]
+    })
+    const content = result.contents[0]
+    if (!("text" in content)) throw new Error("expected text resource content")
+    expect(JSON.parse(content.text)).toMatchObject({
+      project: {
+        identifier: "TEST",
+        statuses: ["plainstatus"]
+      }
+    })
   })
 
   it("throws an McpError when client resolution fails while listing resources", async () => {

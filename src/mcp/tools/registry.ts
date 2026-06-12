@@ -170,7 +170,6 @@ const encodeOutput = (schema: Schema.Schema.AnyNoContext, result: unknown): unkn
 
 interface HandlerArgs {
   readonly hulyClient: HulyClient["Type"]
-  readonly diagnostics: Diagnostics["Type"]
   readonly storageClient: HulyStorageClient["Type"]
   readonly workspaceClient: WorkspaceClientOperations | undefined
 }
@@ -216,7 +215,6 @@ async (args, hulyClient, storageClient, workspaceClient) => {
 
   const diagnosticsScope = await Effect.runPromise(makeDiagnosticsScope)
   const provided = provide({
-    diagnostics: diagnosticsScope.service,
     hulyClient,
     storageClient,
     workspaceClient

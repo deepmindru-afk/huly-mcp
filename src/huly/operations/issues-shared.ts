@@ -2,7 +2,7 @@ import type { Ref, Status, StatusCategory, WithLookup } from "@hcengineering/cor
 import type { ProjectType } from "@hcengineering/task"
 import type { Issue as HulyIssue, Project as HulyProject } from "@hcengineering/tracker"
 import { IssuePriority } from "@hcengineering/tracker"
-import { Effect, Option } from "effect"
+import { Effect } from "effect"
 
 import type { IssuePriority as IssuePriorityStr } from "../../domain/schemas/issues.js"
 import type { NonNegativeNumber } from "../../domain/schemas/shared.js"
@@ -95,37 +95,30 @@ const missingStatusRefs = (
   statusDocs: ReadonlyArray<Status>
 ): Array<Ref<Status>> => statusRefs.filter((statusRef) => !statusDocs.some((statusDoc) => statusDoc._id === statusRef))
 
-const workflowStatusesFromDocsOrRefs = (
+export const resolveByStatusRef = <T>(
   statusRefs: ReadonlyArray<Ref<Status>>,
-  statusDocs: ReadonlyArray<Status>
-): Array<WorkflowStatus> => {
+  statusDocs: ReadonlyArray<Status>,
+  fromDoc: (status: Status) => T,
+  fromRef: (statusRef: Ref<Status>) => T
+): Array<T> => {
   const statusDocsById = new Map(statusDocs.map((statusDoc) => [statusDoc._id, statusDoc]))
   return statusRefs.map((statusRef) => {
     const statusDoc = statusDocsById.get(statusRef)
-    return statusDoc === undefined ? workflowStatusFromRef(statusRef) : workflowStatusFromDoc(statusDoc)
+    return statusDoc === undefined ? fromRef(statusRef) : fromDoc(statusDoc)
   })
 }
+
+const workflowStatusesFromDocsOrRefs = (
+  statusRefs: ReadonlyArray<Ref<Status>>,
+  statusDocs: ReadonlyArray<Status>
+): Array<WorkflowStatus> => resolveByStatusRef(statusRefs, statusDocs, workflowStatusFromDoc, workflowStatusFromRef)
 
 export const findStatusDocs = (
   client: HulyClient["Type"],
   statusRefs: ReadonlyArray<Ref<Status>>
-): Effect.Effect<ReadonlyArray<Status>, never> =>
+): Effect.Effect<ReadonlyArray<Status>, never, Diagnostics> =>
   Effect.gen(function*() {
-    const diagnostics = yield* Effect.serviceOption(Diagnostics)
-    const warnAgent = (message: string) =>
-      Option.match(diagnostics, {
-        onNone: () => Effect.logWarning(message),
-        onSome: (service) =>
-          service.warnAgent({
-            code: "status_metadata_unresolved",
-            message
-          })
-      })
-    const trail = (message: string) =>
-      Option.match(diagnostics, {
-        onNone: () => Effect.logInfo(message),
-        onSome: (service) => service.trail(message)
-      })
+    const diagnostics = yield* Diagnostics
 
     const remoteResult = yield* Effect.either(
       client.findAll<Status>(
@@ -154,13 +147,14 @@ export const findStatusDocs = (
     if (stillUnresolvedRefs.length > 0) {
       const remoteError = remoteResult._tag === "Left" ? ` Remote error: ${remoteResult.left.message}` : ""
       const modelError = modelResult._tag === "Left" ? ` Model error: ${modelResult.left.message}` : ""
-      yield* warnAgent(
-        `Huly did not return metadata for ${stillUnresolvedRefs.length} workflow status ref(s). `
+      yield* diagnostics.warnAgent({
+        code: "status_metadata_unresolved",
+        message: `Huly did not return metadata for ${stillUnresolvedRefs.length} workflow status ref(s). `
           + `The tool result uses ref-derived status names and category "unknown" for those statuses; `
           + `do not infer completion or cancellation semantics from those fallback names.${remoteError}${modelError}`
-      )
+      })
     } else if (remoteResult._tag === "Left") {
-      yield* trail(
+      yield* diagnostics.trail(
         `Server status metadata lookup failed, but the local Huly model resolved all requested workflow statuses. `
           + `Remote error: ${remoteResult.left.message}`
       )
@@ -187,7 +181,7 @@ export const findProjectWithStatuses = (
     defaultStatusId: Ref<Status> | undefined
   },
   ProjectNotFoundError | HulyClientError,
-  HulyClient
+  HulyClient | Diagnostics
 > =>
   Effect.gen(function*() {
     const client = yield* HulyClient

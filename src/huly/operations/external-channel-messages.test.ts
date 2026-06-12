@@ -58,6 +58,35 @@ describe("external channel messages", () => {
     expect(Either.isRight(result)).toBe(true)
   })
 
+  it("rejects empty present external message text fields", () => {
+    const baseMessage = {
+      id: "external-message-1",
+      bodyPreview: "Build completed"
+    }
+
+    expect(Either.isLeft(decodeResult({
+      supported: true,
+      provider: "gmail",
+      channel: "Inbox",
+      limit: 1,
+      messages: [{ ...baseMessage, subject: "" }]
+    }))).toBe(true)
+    expect(Either.isLeft(decodeResult({
+      supported: true,
+      provider: "gmail",
+      channel: "Inbox",
+      limit: 1,
+      messages: [{ ...baseMessage, sender: "   " }]
+    }))).toBe(true)
+    expect(Either.isLeft(decodeResult({
+      supported: true,
+      provider: "telegram",
+      channel: "Ops",
+      limit: 1,
+      messages: [{ ...baseMessage, senderId: "" }]
+    }))).toBe(true)
+  })
+
   it("rejects impossible unsupported result states", () => {
     expect(Either.isLeft(decodeResult({
       supported: false,

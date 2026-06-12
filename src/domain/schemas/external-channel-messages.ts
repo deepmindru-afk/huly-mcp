@@ -37,12 +37,34 @@ export const ExternalChannelMessageId = NonEmptyString.pipe(Schema.brand("Extern
 })
 export type ExternalChannelMessageId = Schema.Schema.Type<typeof ExternalChannelMessageId>
 
+const ExternalChannelMessageSubject = NonEmptyString.pipe(
+  Schema.brand("ExternalChannelMessageSubject")
+).annotations({
+  identifier: "ExternalChannelMessageSubject",
+  title: "ExternalChannelMessageSubject",
+  description: "Non-empty external message subject. Omit the field when the provider has no subject value."
+})
+
+const ExternalChannelMessageSender = NonEmptyString.pipe(Schema.brand("ExternalChannelMessageSender"))
+  .annotations({
+    identifier: "ExternalChannelMessageSender",
+    title: "ExternalChannelMessageSender",
+    description: "Non-empty normalized external message sender label or address."
+  })
+
+const ExternalChannelMessageSenderId = NonEmptyString.pipe(Schema.brand("ExternalChannelMessageSenderId"))
+  .annotations({
+    identifier: "ExternalChannelMessageSenderId",
+    title: "ExternalChannelMessageSenderId",
+    description: "Non-empty opaque external provider sender ID."
+  })
+
 export const ExternalChannelMessageSummarySchema = Schema.Struct({
   id: ExternalChannelMessageId,
-  subject: Schema.optional(Schema.String),
+  subject: Schema.optional(ExternalChannelMessageSubject),
   bodyPreview: NonEmptyString,
-  sender: Schema.optional(Schema.String),
-  senderId: Schema.optional(Schema.String),
+  sender: Schema.optional(ExternalChannelMessageSender),
+  senderId: Schema.optional(ExternalChannelMessageSenderId),
   createdOn: Schema.optional(Timestamp),
   modifiedOn: Schema.optional(Timestamp),
   url: Schema.optional(UrlString)

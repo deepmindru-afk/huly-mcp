@@ -1,5 +1,11 @@
 # @firfi/huly-mcp
 
+## 0.30.1
+
+### Patch Changes
+
+- 1579508: Delete thread replies through Huly collection transactions so parent reply metadata stays in sync.
+
 ## 0.30.0
 
 ### Minor Changes

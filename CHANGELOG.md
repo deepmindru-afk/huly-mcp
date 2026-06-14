@@ -1,5 +1,11 @@
 # @firfi/huly-mcp
 
+## 0.32.0
+
+### Minor Changes
+
+- 2ff8b8c: Add first-class inventory CRUD MCP tools for categories, products, and variants/SKUs.
+
 ## 0.31.1
 
 ### Patch Changes

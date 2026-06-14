@@ -15,6 +15,7 @@ import type {
 import { DEFAULT_SPACE_OWNER_ENSURE_MEMBERS, UPDATE_SPACE_FIELDS } from "../../domain/schemas.js"
 import { AccountUuid, NonEmptyString, RoleId, SpaceId, SpaceTypeId } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
+import type { SpaceRoleAssignmentsMalformedError } from "../errors-spaces.js"
 import { SpaceNotTypedError, SpaceRoleIdentifierAmbiguousError, SpaceRoleNotFoundError } from "../errors-spaces.js"
 import { core } from "../huly-plugins.js"
 import { clearTextAsEmptyString } from "./clear-field-updates.js"
@@ -31,9 +32,9 @@ import {
   sortStrings,
   type SpaceMemberMutationError,
   type SpaceRoleAssignments,
-  spaceRoleAssignments,
   type SpaceRoleAssignmentsMixin,
   spaceRoleAssignmentsMixin,
+  strictSpaceRoleAssignments,
   updateSpaceDoc,
   type UpdateSpaceError
 } from "./spaces-shared.js"
@@ -42,6 +43,7 @@ import { type DirectUpdateEntry, mergeUpdateEntries, requireUpdateFields } from 
 type SpaceRoleMemberMutationError =
   | SpaceMemberMutationError
   | SpaceNotTypedError
+  | SpaceRoleAssignmentsMalformedError
   | SpaceRoleIdentifierAmbiguousError
   | SpaceRoleNotFoundError
 
@@ -169,7 +171,7 @@ const mutateSpaceRoleMembers = (
     const role = yield* resolveSpaceRole(client, spaceType, params.role)
     const validRoles = yield* findSpaceTypeRoles(client, spaceTypeDoc)
     const resolvedMembers = yield* resolveMembers(client, params.members)
-    const currentAssignments = spaceRoleAssignments(
+    const currentAssignments = yield* strictSpaceRoleAssignments(
       space,
       spaceTypeDoc,
       new Set(validRoles.map((validRole) => validRole._id))

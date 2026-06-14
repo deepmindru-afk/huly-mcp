@@ -31,7 +31,8 @@ import type {
 } from "../errors.js"
 import {
   SpaceIdentifierAmbiguousError as SpaceIdentifierAmbiguous,
-  SpaceNotFoundError as SpaceNotFound
+  SpaceNotFoundError as SpaceNotFound,
+  SpaceRoleAssignmentsMalformedError
 } from "../errors.js"
 import { core } from "../huly-plugins.js"
 import { resolveEmployeeAccountUuid } from "./contacts-shared.js"
@@ -86,37 +87,155 @@ export const optionalString = (value: string | undefined): string | undefined =>
 export const optionalObjectClassName = (value: string | undefined): ObjectClassName | undefined =>
   value === undefined || value === "" ? undefined : ObjectClassName.make(value)
 
-const isObjectRecord = (value: unknown): value is object => typeof value === "object" && value !== null
+const RoleAssignmentStorageSchema = Schema.Record({ key: Schema.String, value: Schema.Array(AccountUuid) })
 
-const spaceRoleAssignmentSource = (space: GenericSpace, spaceType: HulySpaceType): unknown =>
-  Object.entries(space).find(([key]) => key === spaceType.targetClass)?.[1]
+type SpaceRoleAssignmentEntry = readonly [Ref<Role>, ReadonlyArray<HulyAccountUuid>]
+
+interface SpaceRoleAssignmentStorageSource {
+  readonly present: boolean
+  readonly value: unknown
+}
+
+interface SpaceRoleAssignmentReadResult {
+  readonly entries: ReadonlyArray<SpaceRoleAssignmentEntry>
+  readonly degradationReasons: ReadonlyArray<string>
+}
+
+const isRecordObject = (value: unknown): value is Readonly<Record<string, unknown>> =>
+  typeof value === "object" && value !== null && !Array.isArray(value)
+
+const validStoredAccountUuid = (value: unknown): HulyAccountUuid | undefined => {
+  const decoded = Schema.decodeUnknownEither(AccountUuid)(value)
+  return decoded._tag === "Right" ? toAccountUuid(NonEmptyString.make(decoded.right)) : undefined
+}
+
+const parsedSpaceRoleAssignmentEntry = (
+  roleId: string,
+  members: ReadonlyArray<HulyAccountUuid>
+): { readonly _tag: "entry"; readonly entry: SpaceRoleAssignmentEntry } => ({
+  _tag: "entry",
+  entry: [
+    toRef<Role>(roleId),
+    sortStrings(members).map(toAccountUuid)
+  ]
+})
+
+// Huly stores typed-space role assignments on a dynamic mixin whose property
+// name is SpaceType.targetClass. Schema can validate the extracted value, but
+// the lookup itself must stay runtime-keyed. Missing means no assignment mixin;
+// present-but-malformed is degraded on reads and rejected on writes.
+const spaceRoleAssignmentSource = (space: GenericSpace, spaceType: HulySpaceType): SpaceRoleAssignmentStorageSource =>
+  Object.prototype.hasOwnProperty.call(space, spaceType.targetClass)
+    ? { present: true, value: Object.entries(space).find(([key]) => key === spaceType.targetClass)?.[1] }
+    : { present: false, value: undefined }
+
+const roleAssignmentsMalformedError = (
+  space: GenericSpace,
+  spaceType: HulySpaceType,
+  reason: string
+): SpaceRoleAssignmentsMalformedError =>
+  new SpaceRoleAssignmentsMalformedError({
+    space: SpaceId.make(space._id),
+    spaceType: SpaceTypeIdSchema.make(spaceType._id),
+    targetClass: ObjectClassName.make(spaceType.targetClass),
+    reason: NonEmptyString.make(reason)
+  })
+
+export const readSpaceRoleAssignmentEntries = (
+  space: GenericSpace,
+  spaceType: HulySpaceType,
+  validRoleIds: ReadonlySet<Ref<Role>>
+): SpaceRoleAssignmentReadResult => {
+  const source = spaceRoleAssignmentSource(space, spaceType)
+  if (!source.present) return { entries: [], degradationReasons: [] }
+  if (!isRecordObject(source.value)) {
+    return {
+      entries: [],
+      degradationReasons: [`role assignment mixin ${spaceType.targetClass} is not an object`]
+    }
+  }
+
+  const parsed = Object.entries(source.value).flatMap(([roleId, members]) => {
+    if (!validRoleIds.has(toRef<Role>(roleId))) {
+      return [{
+        _tag: "dropped" as const,
+        reason: `role assignment '${roleId}' is not defined on space type ${spaceType._id}`
+      }]
+    }
+    if (!Array.isArray(members)) {
+      return [{ _tag: "dropped" as const, reason: `role assignment '${roleId}' members are not an array` }]
+    }
+
+    const accountUuids = members.flatMap((member) => {
+      const accountUuid = validStoredAccountUuid(member)
+      return accountUuid === undefined ? [] : [accountUuid]
+    })
+    const invalidMemberCount = members.length - accountUuids.length
+    return [
+      ...(invalidMemberCount > 0
+        ? [{
+          _tag: "dropped" as const,
+          reason: `role assignment '${roleId}' has ${invalidMemberCount} malformed account UUID value(s)`
+        }]
+        : []),
+      parsedSpaceRoleAssignmentEntry(roleId, accountUuids)
+    ]
+  })
+
+  return {
+    entries: parsed.flatMap((item) => item._tag === "entry" ? [item.entry] : []),
+    degradationReasons: parsed.flatMap((item) => item._tag === "dropped" ? [item.reason] : [])
+  }
+}
 
 export const spaceRoleAssignmentEntries = (
   space: GenericSpace,
   spaceType: HulySpaceType,
   validRoleIds: ReadonlySet<Ref<Role>>
-): ReadonlyArray<readonly [Ref<Role>, ReadonlyArray<HulyAccountUuid>]> => {
-  const source = spaceRoleAssignmentSource(space, spaceType)
-  if (!isObjectRecord(source)) return []
+): ReadonlyArray<SpaceRoleAssignmentEntry> => readSpaceRoleAssignmentEntries(space, spaceType, validRoleIds).entries
 
-  return Object.entries(source).flatMap(([roleId, members]) =>
-    validRoleIds.has(toRef<Role>(roleId)) && Array.isArray(members)
-      ? [[
-        toRef<Role>(roleId),
-        sortStrings(members.filter((member): member is string => typeof member === "string")).map(toAccountUuid)
-      ]]
-      : []
-  )
-}
+export const hasSpaceRoleAssignmentMixin = (space: GenericSpace, spaceType: HulySpaceType): boolean =>
+  spaceRoleAssignmentSource(space, spaceType).present
 
-export const spaceRoleAssignments = (
+export const strictSpaceRoleAssignments = (
   space: GenericSpace,
   spaceType: HulySpaceType,
   validRoleIds: ReadonlySet<Ref<Role>>
-): SpaceRoleAssignments => Object.fromEntries(spaceRoleAssignmentEntries(space, spaceType, validRoleIds))
+): Effect.Effect<SpaceRoleAssignments, SpaceRoleAssignmentsMalformedError> =>
+  Effect.gen(function*() {
+    const source = spaceRoleAssignmentSource(space, spaceType)
+    if (!source.present) return {}
 
-export const hasSpaceRoleAssignmentMixin = (space: GenericSpace, spaceType: HulySpaceType): boolean =>
-  isObjectRecord(spaceRoleAssignmentSource(space, spaceType))
+    const decoded = Schema.decodeUnknownEither(RoleAssignmentStorageSchema)(source.value)
+    if (decoded._tag === "Left") {
+      return yield* roleAssignmentsMalformedError(
+        space,
+        spaceType,
+        `expected an object whose keys are role ids and values are arrays of account UUIDs`
+      )
+    }
+
+    const unknownRoleIds = Object.keys(decoded.right).filter((roleId) => !validRoleIds.has(toRef<Role>(roleId)))
+    if (unknownRoleIds.length > 0) {
+      return yield* roleAssignmentsMalformedError(
+        space,
+        spaceType,
+        `unknown role assignment key(s): ${unknownRoleIds.join(", ")}`
+      )
+    }
+
+    return Object.fromEntries(
+      Object.entries(decoded.right).map(([roleId, members]) => [
+        toRef<Role>(roleId),
+        members.map((member) => toAccountUuid(NonEmptyString.make(member)))
+      ])
+    )
+  })
+
+export const roleAssignmentDegradationMessage = (reasons: ReadonlyArray<string>): string =>
+  `Some typed-space role assignment data was omitted because existing Huly storage is malformed: ${
+    reasons.join("; ")
+  }. Read results include only valid role assignments; role-member write tools will refuse to modify this space until the stored role assignment data is repaired.`
 
 export const spaceRoleAssignmentsMixin = (spaceType: HulySpaceType) =>
   toMixinRef<SpaceRoleAssignmentsMixin>(spaceType.targetClass)

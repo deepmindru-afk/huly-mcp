@@ -114,3 +114,17 @@ export class SpaceRoleIdentifierAmbiguousError extends Schema.TaggedError<SpaceR
     return `Role '${this.identifier}' is ambiguous in space type '${this.spaceType}'; use a role id. Matches: ${details}`
   }
 }
+
+export class SpaceRoleAssignmentsMalformedError extends Schema.TaggedError<SpaceRoleAssignmentsMalformedError>()(
+  "SpaceRoleAssignmentsMalformedError",
+  {
+    space: SpaceId,
+    spaceType: SpaceTypeId,
+    targetClass: ObjectClassName,
+    reason: NonEmptyString
+  }
+) {
+  override get message(): string {
+    return `Role assignments for space '${this.space}' and space type '${this.spaceType}' are malformed at '${this.targetClass}': ${this.reason}. Refusing to write role members to avoid access-control data loss.`
+  }
+}

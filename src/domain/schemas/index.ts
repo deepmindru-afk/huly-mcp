@@ -60,6 +60,7 @@ export {
 } from "./shared.js"
 
 export {
+  SpaceRoleAssignmentsDegradedWarningCode,
   StatusMetadataUnresolvedWarningCode,
   type ToolWarning,
   type ToolWarningCode,

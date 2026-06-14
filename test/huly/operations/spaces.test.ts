@@ -35,10 +35,12 @@ import {
   SpaceRoleIdentifier
 } from "../../../src/domain/schemas/spaces.js"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
+import { Diagnostics, makeDiagnosticsScope } from "../../../src/huly/diagnostics.js"
 import {
   SpaceIdentifierAmbiguousError,
   SpaceNotFoundError,
   SpaceNotTypedError,
+  SpaceRoleAssignmentsMalformedError,
   SpaceRoleIdentifierAmbiguousError,
   SpaceRoleNotFoundError,
   SpaceTypeIdentifierAmbiguousError,
@@ -62,6 +64,7 @@ import {
   updateSpace
 } from "../../../src/huly/operations/spaces.js"
 import { testWorkbenchUrlConfig } from "../../../src/huly/url-builders.js"
+import { withDiagnostics } from "../../helpers/diagnostics.js"
 import { corePersonId } from "../../helpers/huly-sdk.js"
 
 type GenericSpace = Space & Partial<Pick<TypedSpace, "type">>
@@ -473,13 +476,17 @@ describe("spaces operations", () => {
       })
       const layer = createTestLayer({ spaces: [first, second] })
 
-      const byId = yield* getSpace({ space: spaceIdentifier("space-a") }).pipe(Effect.provide(layer))
+      const byId = yield* getSpace({ space: spaceIdentifier("space-a") }).pipe(Effect.provide(layer), withDiagnostics)
       const narrowed = yield* getSpace({
         space: spaceIdentifier("Shared"),
         class: spaceClassFilter("module:class:B")
-      }).pipe(Effect.provide(layer))
-      const ambiguous = yield* Effect.exit(getSpace({ space: spaceIdentifier("Shared") }).pipe(Effect.provide(layer)))
-      const missing = yield* Effect.exit(getSpace({ space: spaceIdentifier("Missing") }).pipe(Effect.provide(layer)))
+      }).pipe(Effect.provide(layer), withDiagnostics)
+      const ambiguous = yield* Effect.exit(
+        getSpace({ space: spaceIdentifier("Shared") }).pipe(Effect.provide(layer), withDiagnostics)
+      )
+      const missing = yield* Effect.exit(
+        getSpace({ space: spaceIdentifier("Missing") }).pipe(Effect.provide(layer), withDiagnostics)
+      )
 
       expect(byId.id).toBe("space-a")
       expect(narrowed.id).toBe("space-b")
@@ -494,7 +501,7 @@ describe("spaces operations", () => {
       const { owners: _owners, ...space } = makeSpace()
       const layer = createTestLayer({ spaces: [space] })
 
-      const result = yield* getSpace({ space: spaceIdentifier("space-1") }).pipe(Effect.provide(layer))
+      const result = yield* getSpace({ space: spaceIdentifier("space-1") }).pipe(Effect.provide(layer), withDiagnostics)
 
       expect(result.owners).toEqual([])
     }))
@@ -503,7 +510,7 @@ describe("spaces operations", () => {
     Effect.gen(function*() {
       const layer = createTestLayer({ spaces: [makeSpace({ owners: [accountB] })] })
 
-      const result = yield* getSpace({ space: spaceIdentifier("space-1") }).pipe(Effect.provide(layer))
+      const result = yield* getSpace({ space: spaceIdentifier("space-1") }).pipe(Effect.provide(layer), withDiagnostics)
 
       expect(result.owners).toEqual([accountB])
     }))
@@ -528,7 +535,7 @@ describe("spaces operations", () => {
         ]
       })
 
-      const result = yield* getSpace({ space: spaceIdentifier("space-1") }).pipe(Effect.provide(layer))
+      const result = yield* getSpace({ space: spaceIdentifier("space-1") }).pipe(Effect.provide(layer), withDiagnostics)
 
       expect(result.type).toBe("space-type-1")
       expect(result.owners).toEqual([])
@@ -552,9 +559,91 @@ describe("spaces operations", () => {
         roles: [makeRole()]
       })
 
-      const result = yield* getSpace({ space: spaceIdentifier("space-1") }).pipe(Effect.provide(layer))
+      const result = yield* getSpace({ space: spaceIdentifier("space-1") }).pipe(Effect.provide(layer), withDiagnostics)
 
       expect(result.roleAssignments).toBeUndefined()
+    }))
+
+  it.effect("getSpace returns no role assignments and no warnings when the typed-space mixin is absent", () =>
+    Effect.gen(function*() {
+      const { owners: _owners, ...space } = makeSpace({
+        type: toRef<SpaceType>("space-type-1")
+      })
+      const layer = createTestLayer({
+        spaces: [space],
+        spaceTypes: [makeSpaceType()],
+        roles: [makeRole()]
+      })
+      const diagnostics = yield* makeDiagnosticsScope
+
+      const result = yield* getSpace({ space: spaceIdentifier("space-1") }).pipe(
+        Effect.provide(layer),
+        Effect.provideService(Diagnostics, diagnostics.service)
+      )
+      const warnings = yield* diagnostics.drainWarnings
+
+      expect(result.roleAssignments).toBeUndefined()
+      expect(warnings).toEqual([])
+    }))
+
+  it.effect("getSpace drops malformed role assignment data and warns the agent", () =>
+    Effect.gen(function*() {
+      const malformedMember = "not-an-account-uuid"
+      const { owners: _owners, ...space } = makeSpace({
+        type: toRef<SpaceType>("space-type-1"),
+        [core.class.Space]: {
+          "role-admin": [accountA, malformedMember],
+          "role-viewer": "not an array",
+          "role-unknown": [accountB]
+        }
+      })
+      const layer = createTestLayer({
+        spaces: [space],
+        spaceTypes: [makeSpaceType({ roles: 2 })],
+        roles: [
+          makeRole(),
+          makeRole({ _id: toRef<Role>("role-viewer"), name: "Viewers" })
+        ]
+      })
+      const diagnostics = yield* makeDiagnosticsScope
+
+      const result = yield* getSpace({ space: spaceIdentifier("space-1") }).pipe(
+        Effect.provide(layer),
+        Effect.provideService(Diagnostics, diagnostics.service)
+      )
+      const warnings = yield* diagnostics.drainWarnings
+
+      expect(result.roleAssignments).toEqual([{ roleId: "role-admin", members: [accountA] }])
+      expect(warnings).toHaveLength(1)
+      expect(warnings[0].code).toBe("space_role_assignments_degraded")
+      expect(warnings[0].message).toContain("role-viewer")
+      expect(warnings[0].message).toContain("role-unknown")
+      expect(warnings[0].message).toContain("malformed account UUID")
+    }))
+
+  it.effect("getSpace drops a non-object role assignment mixin and warns the agent", () =>
+    Effect.gen(function*() {
+      const { owners: _owners, ...space } = makeSpace({
+        type: toRef<SpaceType>("space-type-1"),
+        [core.class.Space]: "not an assignment object"
+      })
+      const layer = createTestLayer({
+        spaces: [space],
+        spaceTypes: [makeSpaceType()],
+        roles: [makeRole()]
+      })
+      const diagnostics = yield* makeDiagnosticsScope
+
+      const result = yield* getSpace({ space: spaceIdentifier("space-1") }).pipe(
+        Effect.provide(layer),
+        Effect.provideService(Diagnostics, diagnostics.service)
+      )
+      const warnings = yield* diagnostics.drainWarnings
+
+      expect(result.roleAssignments).toBeUndefined()
+      expect(warnings).toHaveLength(1)
+      expect(warnings[0].code).toBe("space_role_assignments_degraded")
+      expect(warnings[0].message).toContain("role assignment mixin core:class:Space is not an object")
     }))
 
   it.effect("listSpaces filters by raw class and type", () =>
@@ -890,9 +979,7 @@ describe("spaces operations", () => {
         type: toRef<SpaceType>("space-type-1"),
         [core.class.Space]: {
           "role-admin": [accountA],
-          "role-viewer": [accountC],
-          customTags: ["custom-a", "custom-b"],
-          ignored: "not a role member list"
+          "role-viewer": [accountC]
         }
       })
       const layer = createTestLayer({
@@ -921,6 +1008,65 @@ describe("spaces operations", () => {
         mixin: core.class.Space,
         attributes: { "role-admin": [accountB], "role-viewer": [accountC] }
       })
+    }))
+
+  it.effect("space role member mutations reject malformed existing role assignment storage before writing", () =>
+    Effect.gen(function*() {
+      const unknownRoleMixin: MockConfig["captureMixin"] = {}
+      const malformedMembersMixin: MockConfig["captureMixin"] = {}
+      const unknownRoleStorage = makeSpace({
+        type: toRef<SpaceType>("space-type-1"),
+        [core.class.Space]: {
+          "role-admin": [accountA],
+          "role-unknown": [accountB]
+        }
+      })
+      const malformedMemberStorage = makeSpace({
+        type: toRef<SpaceType>("space-type-1"),
+        [core.class.Space]: {
+          "role-admin": [accountA],
+          "role-viewer": ["not-an-account-uuid"]
+        }
+      })
+
+      const unknownRoleError = yield* Effect.flip(
+        setSpaceRoleMembers({
+          space: spaceIdentifier("space-1"),
+          role: spaceRoleIdentifier("role-admin"),
+          members: [spaceMemberIdentifier(accountB)]
+        }).pipe(Effect.provide(createTestLayer({
+          spaces: [unknownRoleStorage],
+          spaceTypes: [makeSpaceType({ roles: 2 })],
+          roles: [
+            makeRole(),
+            makeRole({ _id: toRef<Role>("role-viewer"), name: "Viewers" })
+          ],
+          captureMixin: unknownRoleMixin
+        })))
+      )
+
+      const malformedMembersError = yield* Effect.flip(
+        setSpaceRoleMembers({
+          space: spaceIdentifier("space-1"),
+          role: spaceRoleIdentifier("role-admin"),
+          members: [spaceMemberIdentifier(accountB)]
+        }).pipe(Effect.provide(createTestLayer({
+          spaces: [malformedMemberStorage],
+          spaceTypes: [makeSpaceType({ roles: 2 })],
+          roles: [
+            makeRole(),
+            makeRole({ _id: toRef<Role>("role-viewer"), name: "Viewers" })
+          ],
+          captureMixin: malformedMembersMixin
+        })))
+      )
+
+      expect(unknownRoleError).toBeInstanceOf(SpaceRoleAssignmentsMalformedError)
+      expect(unknownRoleError.message).toContain("unknown role assignment key")
+      expect(unknownRoleMixin.action).toBeUndefined()
+      expect(malformedMembersError).toBeInstanceOf(SpaceRoleAssignmentsMalformedError)
+      expect(malformedMembersError.message).toContain("expected an object")
+      expect(malformedMembersMixin.action).toBeUndefined()
     }))
 
   it.effect("space role member mutations resolve roles by id and by exact name scoped to the space type", () =>

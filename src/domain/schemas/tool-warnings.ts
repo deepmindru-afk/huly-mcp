@@ -1,12 +1,16 @@
 import { Schema } from "effect"
 
-export const ToolWarningCodeSchema = Schema.Literal("status_metadata_unresolved").annotations({
+export const ToolWarningCodeSchema = Schema.Literal(
+  "status_metadata_unresolved",
+  "space_role_assignments_degraded"
+).annotations({
   identifier: "ToolWarningCode",
   title: "ToolWarningCode",
   description: "Machine-readable code for an agent-visible MCP tool warning."
 })
 export type ToolWarningCode = Schema.Schema.Type<typeof ToolWarningCodeSchema>
 export const StatusMetadataUnresolvedWarningCode = ToolWarningCodeSchema.literals[0]
+export const SpaceRoleAssignmentsDegradedWarningCode = ToolWarningCodeSchema.literals[1]
 
 export const ToolWarningSchema = Schema.Struct({
   code: ToolWarningCodeSchema,

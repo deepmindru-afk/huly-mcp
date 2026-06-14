@@ -23,7 +23,9 @@ import type {
 } from "../../domain/schemas.js"
 import type { SpaceTypeIdentifier } from "../../domain/schemas/shared.js"
 import { AccountUuid, NonEmptyString, ObjectClassName, SpaceTypeId } from "../../domain/schemas/shared.js"
+import { SpaceRoleAssignmentsDegradedWarningCode } from "../../domain/schemas/tool-warnings.js"
 import { HulyClient, type HulyClientError } from "../client.js"
+import { Diagnostics } from "../diagnostics.js"
 import type { SpaceTypeIdentifierAmbiguousError, SpaceTypeNotFoundError } from "../errors.js"
 import {
   SpaceTypeIdentifierAmbiguousError as SpaceTypeIdentifierAmbiguous,
@@ -45,6 +47,8 @@ import {
   applySpaceFilters,
   findSpace,
   listTotal,
+  readSpaceRoleAssignmentEntries,
+  roleAssignmentDegradationMessage,
   sortStrings,
   spaceClass,
   type SpaceMutationError
@@ -122,11 +126,35 @@ export const listSpaces = (
 
 export const getSpace = (
   params: GetSpaceParams
-): Effect.Effect<ReturnType<typeof toSpaceDetail>, SpaceMutationError, HulyClient> =>
+): Effect.Effect<ReturnType<typeof toSpaceDetail>, SpaceMutationError, HulyClient | Diagnostics> =>
   Effect.gen(function*() {
     const client = yield* HulyClient
+    const diagnostics = yield* Diagnostics
     const space = yield* findSpace(client, params)
-    return toSpaceDetail(space)
+    const spaceType = space.type === undefined
+      ? undefined
+      : yield* client.findOne<HulySpaceType>(
+        core.class.SpaceType,
+        hulyQuery<HulySpaceType>({ _id: toRef<HulySpaceType>(space.type) })
+      )
+    const roles = spaceType === undefined
+      ? []
+      : yield* client.findAll<HulyRole>(
+        core.class.Role,
+        hulyQuery<HulyRole>({ attachedTo: spaceType._id }),
+        { limit: Math.max(spaceType.roles, 1) }
+      )
+    const validRoleIds = new Set(roles.map((role) => role._id))
+    if (spaceType !== undefined) {
+      const readResult = readSpaceRoleAssignmentEntries(space, spaceType, validRoleIds)
+      if (readResult.degradationReasons.length > 0) {
+        yield* diagnostics.warnAgent({
+          code: SpaceRoleAssignmentsDegradedWarningCode,
+          message: roleAssignmentDegradationMessage(readResult.degradationReasons)
+        })
+      }
+    }
+    return toSpaceDetail(space, spaceType, validRoleIds)
   })
 
 export const listSpaceTypes = (

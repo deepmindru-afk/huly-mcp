@@ -8,10 +8,14 @@ import {
   EventId,
   FloorId,
   MeetingMinutesId,
+  NonEmptyString,
   ObjectClassName,
   RelationId,
+  RoleId,
   RoomId,
-  ScheduleId
+  ScheduleId,
+  SpaceId,
+  SpaceTypeId
 } from "../../src/domain/schemas/shared.js"
 import {
   ActivityMessageNotFoundError,
@@ -110,6 +114,10 @@ import {
   SavedAttachmentNotFoundError,
   SavedMessageNotFoundError,
   ScheduleNotFoundError,
+  SpaceNotTypedError,
+  SpaceRoleAssignmentsMalformedError,
+  SpaceRoleIdentifierAmbiguousError,
+  SpaceRoleNotFoundError,
   TagCategoryNotFoundError,
   TagNotFoundError,
   TeamspaceNotFoundError,
@@ -960,6 +968,14 @@ describe("Huly Errors", () => {
               return `space-type:${error.identifier}`
             case "SpaceTypeIdentifierAmbiguousError":
               return `space-type-ambiguous:${error.identifier}:${error.matches.length}`
+            case "SpaceNotTypedError":
+              return `space-not-typed:${error.id}:${error.name}`
+            case "SpaceRoleNotFoundError":
+              return `space-role:${error.identifier}:${error.spaceType}`
+            case "SpaceRoleIdentifierAmbiguousError":
+              return `space-role-ambiguous:${error.identifier}:${error.spaceType}:${error.matches.length}`
+            case "SpaceRoleAssignmentsMalformedError":
+              return `space-role-assignments-malformed:${error.space}:${error.spaceType}:${error.targetClass}`
             case "NoUpdateFieldsError":
               return `no-update-fields:${error.operation}:${error.fields.length}`
             case "CannotDirectMessageSelfError":
@@ -1142,6 +1158,39 @@ describe("Huly Errors", () => {
         expect(matchError(new NotificationPersonSpaceNotFoundError({ user: "user-1" }))).toBe(
           "notif-person-space:user-1"
         )
+        expect(
+          matchError(new SpaceNotTypedError({ id: SpaceId.make("space-1"), name: NonEmptyString.make("General") }))
+        ).toBe("space-not-typed:space-1:General")
+        expect(
+          matchError(
+            new SpaceRoleNotFoundError({
+              identifier: NonEmptyString.make("Admins"),
+              spaceType: SpaceTypeId.make("space-type-1")
+            })
+          )
+        ).toBe("space-role:Admins:space-type-1")
+        expect(
+          matchError(
+            new SpaceRoleIdentifierAmbiguousError({
+              identifier: NonEmptyString.make("Admins"),
+              spaceType: SpaceTypeId.make("space-type-1"),
+              matches: [
+                { id: RoleId.make("role-a"), name: NonEmptyString.make("Admins") },
+                { id: RoleId.make("role-b"), name: NonEmptyString.make("Admins") }
+              ]
+            })
+          )
+        ).toBe("space-role-ambiguous:Admins:space-type-1:2")
+        expect(
+          matchError(
+            new SpaceRoleAssignmentsMalformedError({
+              space: SpaceId.make("space-1"),
+              spaceType: SpaceTypeId.make("space-type-1"),
+              targetClass: ObjectClassName.make("core:class:Space"),
+              reason: NonEmptyString.make("unknown role assignment key(s): role-missing")
+            })
+          )
+        ).toBe("space-role-assignments-malformed:space-1:space-type-1:core:class:Space")
         expect(matchError(new NotificationTypeNotFoundError({ typeId: "nt-1" }))).toBe("notiftype:nt-1")
         expect(
           matchError(new NotificationProviderNotConfigurableError({ providerId: "np-1", typeId: "nt-1" }))

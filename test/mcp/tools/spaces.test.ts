@@ -10,6 +10,7 @@ import { testMarkupUrlConfig } from "../../../src/huly/operations/markup.js"
 import { toAccountUuid, toRef } from "../../../src/huly/operations/sdk-boundary.js"
 import type { HulyStorageOperations } from "../../../src/huly/storage.js"
 import { testWorkbenchUrlConfig } from "../../../src/huly/url-builders.js"
+import { McpErrorCode } from "../../../src/mcp/error-mapping.js"
 import { TOOL_DEFINITIONS } from "../../../src/mcp/tools/index.js"
 import { spaceTools } from "../../../src/mcp/tools/spaces.js"
 import { corePersonId } from "../../helpers/huly-sdk.js"
@@ -96,7 +97,10 @@ describe("spaceTools", () => {
         "update_space",
         "add_space_members",
         "remove_space_members",
-        "set_space_owners"
+        "set_space_owners",
+        "set_space_role_members",
+        "add_space_role_members",
+        "remove_space_role_members"
       ])
       for (const tool of spaceTools) {
         expect(tool.category).toBe("spaces")
@@ -124,6 +128,24 @@ describe("spaceTools", () => {
 
       expect(result.isError).toBe(true)
       expect(result.content[0].text).toContain("Invalid parameters for update_space")
+    }))
+
+  it.effect("set_space_role_members handler maps non-typed spaces to invalid params", () =>
+    Effect.gen(function*() {
+      const result = yield* Effect.promise(() =>
+        findTool("set_space_role_members").handler(
+          { space: "space-1", role: "Admins", members: [accountUuid] },
+          hulyClient,
+          storageClient
+        )
+      )
+
+      expect(result.isError).toBe(true)
+      expect(result._meta?.errorCode).toBe(McpErrorCode.InvalidParams)
+      expect(result._meta?.errorTag).toBeUndefined()
+      expect(result.content[0].text).toBe(
+        "Space 'General' (space-1) is not typed; role members can only be changed on spaces with a SpaceType"
+      )
     }))
 
   it.effect("get_space handler maps domain errors to invalid params", () =>

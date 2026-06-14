@@ -9,6 +9,14 @@
  */
 export { getSpace, getSpaceType, listSpacePermissions, listSpaces, listSpaceTypes } from "./spaces-read.js"
 
-export { addSpaceMembers, removeSpaceMembers, setSpaceOwners, updateSpace } from "./spaces-write.js"
+export {
+  addSpaceMembers,
+  addSpaceRoleMembers,
+  removeSpaceMembers,
+  removeSpaceRoleMembers,
+  setSpaceOwners,
+  setSpaceRoleMembers,
+  updateSpace
+} from "./spaces-write.js"
 
 export { mergeUniqueSortedAccountUuids, removeAccountUuids } from "./spaces-shared.js"

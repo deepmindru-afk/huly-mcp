@@ -2,7 +2,6 @@ import type {
   Permission as HulyPermission,
   Ref,
   Role as HulyRole,
-  RolesAssignment,
   SpaceType as HulySpaceType,
   SpaceTypeDescriptor
 } from "@hcengineering/core"
@@ -25,11 +24,7 @@ import {
   SpaceTypeId
 } from "../../domain/schemas/shared.js"
 import type { GenericSpace } from "./spaces-shared.js"
-import { optionalObjectClassName, optionalString } from "./spaces-shared.js"
-
-type SpaceWithRoles = GenericSpace & {
-  readonly roles?: RolesAssignment
-}
+import { optionalObjectClassName, optionalString, spaceRoleAssignmentEntries } from "./spaces-shared.js"
 
 export const toPermissionSummary = (permission: HulyPermission): SpacePermissionSummary => ({
   id: PermissionId.make(permission._id),
@@ -56,15 +51,26 @@ export const toSpaceSummary = (space: GenericSpace): SpaceSummary => ({
   ownersCount: Count.make(space.owners?.length ?? 0)
 })
 
-const roleAssignments = (space: SpaceWithRoles): Array<SpaceRoleAssignment> | undefined => {
-  if (space.roles === undefined) return undefined
-  return Object.entries(space.roles).map(([roleId, members]) => ({
-    roleId: RoleId.make(roleId),
-    members: (members ?? []).map((member) => AccountUuid.make(member))
-  }))
+const roleAssignments = (
+  space: GenericSpace,
+  spaceType: HulySpaceType | undefined,
+  validRoleIds: ReadonlySet<Ref<HulyRole>>
+): Array<SpaceRoleAssignment> | undefined => {
+  if (spaceType === undefined) return undefined
+  const entries = spaceRoleAssignmentEntries(space, spaceType, validRoleIds)
+  return entries.length === 0
+    ? undefined
+    : entries.map(([roleId, members]) => ({
+      roleId: RoleId.make(roleId),
+      members: members.map((member) => AccountUuid.make(member))
+    }))
 }
 
-export const toSpaceDetail = (space: SpaceWithRoles): SpaceDetail => ({
+export const toSpaceDetail = (
+  space: GenericSpace,
+  spaceType?: HulySpaceType,
+  validRoleIds: ReadonlySet<Ref<HulyRole>> = new Set<Ref<HulyRole>>()
+): SpaceDetail => ({
   id: SpaceId.make(space._id),
   name: space.name,
   description: space.description,
@@ -75,7 +81,7 @@ export const toSpaceDetail = (space: SpaceWithRoles): SpaceDetail => ({
   autoJoin: space.autoJoin,
   members: space.members.map((member) => AccountUuid.make(member)),
   owners: (space.owners ?? []).map((owner) => AccountUuid.make(owner)),
-  roleAssignments: roleAssignments(space)
+  roleAssignments: roleAssignments(space, spaceType, validRoleIds)
 })
 
 export const spaceTypeSummary = (

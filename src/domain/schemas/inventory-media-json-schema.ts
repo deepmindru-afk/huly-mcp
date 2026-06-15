@@ -1,6 +1,7 @@
 import type { Schema } from "effect"
 import { JSONSchema } from "effect"
 
+import { withExactlyOneRequired, withJsonSchemaPropertyDescriptions } from "./json-schema.js"
 import { DEFAULT_LIMIT } from "./shared.js"
 
 export const INVENTORY_MEDIA_FILE_SOURCE_FIELDS = ["filePath", "fileUrl", "data"] as const
@@ -26,30 +27,8 @@ const INVENTORY_MEDIA_FIELD_DESCRIPTIONS: Readonly<Partial<Record<string, string
   body: "Comment body. Markdown is supported."
 }
 
-const isRecord = (value: unknown): value is Record<string, unknown> =>
-  typeof value === "object" && value !== null && !Array.isArray(value)
-
-const withInventoryMediaFieldDescriptions = (schema: object): object => {
-  const properties = isRecord(schema) ? schema.properties : undefined
-  if (!isRecord(properties)) return schema
-  return {
-    ...schema,
-    properties: Object.fromEntries(
-      Object.entries(properties).map(([key, value]) => {
-        const description = INVENTORY_MEDIA_FIELD_DESCRIPTIONS[key]
-        return [
-          key,
-          description === undefined || !isRecord(value) ? value : { ...value, description }
-        ]
-      })
-    )
-  }
-}
-
 export const inventoryMediaJsonSchema = <A, I, R>(schema: Schema.Schema<A, I, R>): object =>
-  withInventoryMediaFieldDescriptions(JSONSchema.make(schema))
+  withJsonSchemaPropertyDescriptions(JSONSchema.make(schema), INVENTORY_MEDIA_FIELD_DESCRIPTIONS)
 
-export const withExactlyOneInventoryMediaFileSource = (schema: object): object => ({
-  ...schema,
-  oneOf: INVENTORY_MEDIA_FILE_SOURCE_FIELDS.map((field) => ({ required: [field] }))
-})
+export const withExactlyOneInventoryMediaFileSource = (schema: object): object =>
+  withExactlyOneRequired(schema, INVENTORY_MEDIA_FILE_SOURCE_FIELDS)

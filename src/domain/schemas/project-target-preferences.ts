@@ -9,13 +9,25 @@ export type ProjectTargetPreferenceId = Schema.Schema.Type<typeof ProjectTargetP
 export const TrackerPreferencePropertyKey = NonEmptyString.pipe(Schema.brand("TrackerPreferencePropertyKey"))
 export type TrackerPreferencePropertyKey = Schema.Schema.Type<typeof TrackerPreferencePropertyKey>
 
+const ProjectTargetPreferencePropertyValueSchema = Schema.Unknown.annotations({
+  jsonSchema: {
+    description: "SDK-open target preference property value. Passed through to Huly without narrowing.",
+    anyOf: [
+      { type: "string" },
+      { type: "number" },
+      { type: "boolean" },
+      { type: "object", additionalProperties: true },
+      { type: "array", items: {} },
+      { type: "null" }
+    ]
+  }
+})
+
 export const ProjectTargetPreferencePropertySchema = Schema.Struct({
   key: TrackerPreferencePropertyKey.annotations({
     description: "Low-level tracker target preference property key. Huly stores arbitrary preference keys here."
   }),
-  value: Schema.Unknown.annotations({
-    description: "SDK-open target preference property value. Passed through to Huly without narrowing."
-  })
+  value: ProjectTargetPreferencePropertyValueSchema
 }).annotations({
   title: "ProjectTargetPreferenceProperty",
   description: "One SDK-open low-level ProjectTargetPreference props entry."

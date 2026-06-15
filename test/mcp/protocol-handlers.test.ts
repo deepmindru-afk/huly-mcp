@@ -135,6 +135,32 @@ describe("createMcpProtocolHandlers", () => {
       expect(listed).toBeDefined()
       expect(listed?.inputSchema).not.toHaveProperty("properties")
     })
+
+    it("lists every registered category tool after schema compatibility conversion", async () => {
+      const handlers = createMcpProtocolHandlers(
+        unusedResolveClients,
+        createTelemetryProbe().telemetry,
+        toolRegistry,
+        unusedGetHulyContext
+      )
+
+      const result = await handlers.listTools()
+      const listedNames = result.tools.map((tool) => tool.name)
+      const expectedNames = [
+        VERSION_TOOL_NAME,
+        GET_HULY_CONTEXT_TOOL_NAME,
+        ...toolRegistry.definitions.map((tool) => tool.name)
+      ]
+
+      expect(listedNames).toEqual(expectedNames)
+      expect(new Set(listedNames).size).toBe(listedNames.length)
+      expect(listedNames).toContain("get_person")
+      expect(listedNames).toContain("list_person_organizations")
+      expect(listedNames).toContain("unschedule_todo")
+      expect(listedNames).toContain("create_access_link")
+      expect(listedNames).toContain("list_project_types")
+      expect(result.tools.every((tool) => Object.hasOwn(tool.inputSchema, "type"))).toBe(true)
+    })
   })
 
   describe("callTool telemetry clock seam", () => {

@@ -1,11 +1,12 @@
 import { describe, it } from "@effect/vitest"
-import { Effect, Exit } from "effect"
+import { Effect, Exit, Predicate } from "effect"
 import { expect } from "vitest"
 
 import {
   parseGetDocumentSnapshotParams,
   parseSetRelatedIssueTargetParams,
-  parseUpsertProjectTargetPreferenceParams
+  parseUpsertProjectTargetPreferenceParams,
+  upsertProjectTargetPreferenceParamsJsonSchema
 } from "../../src/domain/schemas.js"
 
 describe("issue #102 schemas", () => {
@@ -33,6 +34,36 @@ describe("issue #102 schemas", () => {
 
       expect(parsed.props?.[0]?.value).toEqual({ id: 123, enabled: true })
     }))
+
+  it("emits client-safe JSON Schema for ProjectTargetPreference prop values", () => {
+    if (!Predicate.isRecord(upsertProjectTargetPreferenceParamsJsonSchema)) {
+      throw new Error("Expected root schema object")
+    }
+    const rootProperties = upsertProjectTargetPreferenceParamsJsonSchema.properties
+    if (!Predicate.isRecord(rootProperties)) {
+      throw new Error("Expected root schema properties")
+    }
+    const props = rootProperties.props
+    if (!Predicate.isRecord(props) || !Predicate.isRecord(props.items)) {
+      throw new Error("Expected props array schema")
+    }
+    const itemProperties = props.items.properties
+    if (!Predicate.isRecord(itemProperties)) {
+      throw new Error("Expected props item properties")
+    }
+
+    expect(itemProperties.value).toEqual({
+      description: "SDK-open target preference property value. Passed through to Huly without narrowing.",
+      anyOf: [
+        { type: "string" },
+        { type: "number" },
+        { type: "boolean" },
+        { type: "object", additionalProperties: true },
+        { type: "array", items: {} },
+        { type: "null" }
+      ]
+    })
+  })
 
   it.effect("requires exactly one related issue target locator", () =>
     Effect.gen(function*() {

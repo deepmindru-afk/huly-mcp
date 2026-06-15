@@ -25,7 +25,7 @@ import {
   VERSION_TOOL_NAME,
   versionToolDefinition
 } from "./huly-context-tool.js"
-import { isObjectSchema, toClientCompatibleInputSchema } from "./input-schema-compat.js"
+import { toClientCompatibleInputSchema } from "./input-schema-compat.js"
 import { listResources, listResourceTemplates, readHulyResource } from "./resources.js"
 import { defaultToolOutputSchema } from "./tool-output-schema.js"
 import type { ToolRegistry } from "./tools/index.js"
@@ -258,16 +258,13 @@ export const createMcpProtocolHandlers = (
       tools: [
         versionToolDefinition,
         getHulyContextToolDefinition,
-        ...registry.definitions.flatMap((tool) => {
-          if (!isObjectSchema(tool.inputSchema)) return []
-          return [{
-            name: tool.name,
-            description: tool.description,
-            inputSchema: toClientCompatibleInputSchema(tool.inputSchema),
-            outputSchema: defaultToolOutputSchema,
-            annotations: resolveAnnotations(tool)
-          }]
-        })
+        ...registry.definitions.map((tool) => ({
+          name: tool.name,
+          description: tool.description,
+          inputSchema: toClientCompatibleInputSchema(tool.inputSchema),
+          outputSchema: defaultToolOutputSchema,
+          annotations: resolveAnnotations(tool)
+        }))
       ].map(tool => ({
         ...tool,
         inputSchema: toProtocolObjectSchema(tool.inputSchema),

@@ -1,5 +1,11 @@
 # @firfi/huly-mcp
 
+## 0.33.1
+
+### Patch Changes
+
+- 1f40ccf: Fix MCP tool registration for root-composition input schemas and remove raw unknown input JSON Schema fragments.
+
 ## 0.33.0
 
 ### Minor Changes

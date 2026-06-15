@@ -13,8 +13,6 @@ const ROOT_COMPOSITION_KEYS = new Set(["anyOf", "oneOf", "allOf"])
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value)
 
-export const isObjectSchema = (schema: object): schema is McpInputSchema => "type" in schema && schema.type === "object"
-
 const mergeObjectFields = (
   sources: ReadonlyArray<unknown>
 ): Record<string, unknown> | undefined => {
@@ -25,30 +23,30 @@ const mergeObjectFields = (
   return Object.keys(merged).length > 0 ? merged : undefined
 }
 
-const rootCompositionBranches = (schema: Record<string, unknown>): ReadonlyArray<Record<string, unknown>> =>
+const rootCompositionBranches = (schema: object): ReadonlyArray<Record<string, unknown>> =>
   [...ROOT_COMPOSITION_KEYS].flatMap((key) => {
-    const branches = schema[key]
+    const branches = Reflect.get(schema, key)
     return Array.isArray(branches) ? branches.filter(isRecord) : []
   })
 
 const schemaAndCompositionDescendants = (
-  schema: Record<string, unknown>
-): ReadonlyArray<Record<string, unknown>> => [
+  schema: object
+): ReadonlyArray<object> => [
   schema,
   ...rootCompositionBranches(schema).flatMap(schemaAndCompositionDescendants)
 ]
 
 const mergedSchemaField = (
-  schema: McpInputSchema,
+  schema: object,
   field: ObjectSchemaField
 ): Record<string, unknown> | undefined =>
-  mergeObjectFields(schemaAndCompositionDescendants(schema).map((branch) => branch[field]))
+  mergeObjectFields(schemaAndCompositionDescendants(schema).map((branch) => Reflect.get(branch, field)))
 
 /**
  * Some tool clients reject root-level schema composition. Branch-only required
  * constraints stay runtime-only because union branches represent alternatives.
  */
-export const toClientCompatibleInputSchema = (schema: McpInputSchema): McpInputSchema => {
+export const toClientCompatibleInputSchema = (schema: object): McpInputSchema => {
   const rootFields = Object.fromEntries(
     Object.entries(schema).filter(([key]) => key !== "type" && !ROOT_COMPOSITION_KEYS.has(key))
   )

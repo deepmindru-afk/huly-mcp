@@ -71,4 +71,39 @@ describe("toClientCompatibleInputSchema", () => {
     expect(defs.IssueIdentifier).toBeDefined()
     expect(defs.DocumentIdentifier).toBeDefined()
   })
+
+  it("accepts root-composition schemas and flattens their object branches", () => {
+    const schema = {
+      $schema: "http://json-schema.org/draft-07/schema#",
+      anyOf: [
+        {
+          type: "object",
+          required: ["personId"],
+          properties: {
+            personId: { type: "string" }
+          },
+          additionalProperties: false
+        },
+        {
+          type: "object",
+          required: ["email"],
+          properties: {
+            email: { type: "string", format: "email" }
+          },
+          additionalProperties: false
+        }
+      ],
+      description: "Provide personId or email."
+    }
+
+    const sanitized = toClientCompatibleInputSchema(schema)
+    const properties = expectRecord(sanitized.properties)
+
+    expect(sanitized.type).toBe("object")
+    expect(sanitized.anyOf).toBeUndefined()
+    expect(sanitized.required).toBeUndefined()
+    expect(sanitized.description).toBe("Provide personId or email.")
+    expect(properties.personId).toBeDefined()
+    expect(properties.email).toBeDefined()
+  })
 })

@@ -1,5 +1,11 @@
 # @firfi/huly-mcp
 
+## 0.33.0
+
+### Minor Changes
+
+- 42141be: Add inventory product attachment, photo, comment, and activity wrapper tools.
+
 ## 0.32.0
 
 ### Minor Changes

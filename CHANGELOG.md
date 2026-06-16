@@ -1,5 +1,11 @@
 # @firfi/huly-mcp
 
+## 0.34.0
+
+### Minor Changes
+
+- a2485f1: Add first-class Recruiting MCP tools for vacancy workflows, vacancies, candidates, candidate skills, and applicants.
+
 ## 0.33.1
 
 ### Patch Changes

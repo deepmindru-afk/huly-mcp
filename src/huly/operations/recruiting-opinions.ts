@@ -71,7 +71,7 @@ const opinionIdentifierFromNumber = (number: number): OpinionIdentifier => Opini
 const opinionValue = (value: string) =>
   hulyNonEmptyTextOrFallback(RecruitingOpinionValue, value, UNTITLED_OPINION_VALUE)
 
-const opinionRefFromDoc = (
+export const opinionRefFromDoc = (
   client: HulyClient["Type"],
   opinion: Opinion,
   review: Review
@@ -104,7 +104,7 @@ const opinionDetail = (
     }
   })
 
-const findOpinion = (
+export const findOpinion = (
   client: HulyClient["Type"],
   identifier: OpinionIdentifier,
   review?: Review
@@ -138,7 +138,7 @@ const findOpinion = (
 const resolveReview = (client: HulyClient["Type"], review: OpinionReadParams["review"]) =>
   review === undefined ? Effect.succeed(undefined) : findReview(client, review)
 
-const parentReviewFromOpinion = (client: HulyClient["Type"], opinion: Opinion) =>
+export const parentReviewFromOpinion = (client: HulyClient["Type"], opinion: Opinion) =>
   findReview(client, ReviewIdentifierSchema.make(String(opinion.attachedTo)))
 
 export const listRecruitingOpinions = (

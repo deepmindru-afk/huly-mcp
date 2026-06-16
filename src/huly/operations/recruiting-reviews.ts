@@ -244,7 +244,7 @@ export const findReview = (
     return reviews[0]
   })
 
-const resolveReviewLocator = (
+export const resolveReviewLocator = (
   client: HulyClient["Type"],
   params: GetRecruitingReviewParams | DeleteRecruitingReviewParams
 ) =>

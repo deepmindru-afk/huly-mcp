@@ -85,6 +85,7 @@ import {
   updateRecruitingVacancy
 } from "../../huly/operations/recruiting-vacancies.js"
 import { recruitingExtendedTools } from "./recruiting-extended.js"
+import { recruitingMediaTools } from "./recruiting-media.js"
 import { createEncodedToolHandler, type RegisteredTool } from "./registry.js"
 
 const CATEGORY = "recruiting" as const
@@ -348,5 +349,6 @@ export const recruitingTools: ReadonlyArray<RegisteredTool> = [
       DeleteRecruitingApplicantResultSchema
     )
   },
-  ...recruitingExtendedTools
+  ...recruitingExtendedTools,
+  ...recruitingMediaTools
 ]

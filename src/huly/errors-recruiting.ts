@@ -8,7 +8,7 @@ import {
   ReviewIdentifier,
   VacancyIdentifier
 } from "../domain/schemas/recruiting-common.js"
-import { Count, NonEmptyString } from "../domain/schemas/shared.js"
+import { AttachmentId, CommentId, Count, IssueIdentifier, NonEmptyString } from "../domain/schemas/shared.js"
 
 export class RecruitingVacancyNotFoundError extends Schema.TaggedError<RecruitingVacancyNotFoundError>()(
   "RecruitingVacancyNotFoundError",
@@ -135,3 +135,30 @@ export class RecruitingMutationUnsupportedError extends Schema.TaggedError<Recru
   "RecruitingMutationUnsupportedError",
   { message: Schema.String }
 ) {}
+
+export class RecruitingCommentNotFoundError extends Schema.TaggedError<RecruitingCommentNotFoundError>()(
+  "RecruitingCommentNotFoundError",
+  { target: NonEmptyString, commentId: CommentId }
+) {
+  override get message(): string {
+    return `Comment '${this.commentId}' not found on ${this.target}`
+  }
+}
+
+export class RecruitingAttachmentNotFoundError extends Schema.TaggedError<RecruitingAttachmentNotFoundError>()(
+  "RecruitingAttachmentNotFoundError",
+  { target: NonEmptyString, attachmentId: AttachmentId }
+) {
+  override get message(): string {
+    return `Attachment '${this.attachmentId}' not found on ${this.target}`
+  }
+}
+
+export class RecruitingIssueLocatorInvalidError extends Schema.TaggedError<RecruitingIssueLocatorInvalidError>()(
+  "RecruitingIssueLocatorInvalidError",
+  { issue: IssueIdentifier, reason: Schema.String }
+) {
+  override get message(): string {
+    return `Recruiting related issue locator '${this.issue}' is invalid: ${this.reason}`
+  }
+}

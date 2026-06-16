@@ -14,6 +14,7 @@ import {
   CardId,
   Count,
   DocId,
+  IssueIdentifier,
   MasterTagId,
   NonEmptyString,
   ObjectClassName,
@@ -59,6 +60,7 @@ import {
   RecruitingApplicantNotFoundError,
   RecruitingCandidateNotFoundError,
   RecruitingDuplicateApplicantError,
+  RecruitingIssueLocatorInvalidError,
   RecruitingModelMissingError,
   RecruitingMutationUnsupportedError,
   RecruitingVacancyIdentifierAmbiguousError,
@@ -440,6 +442,10 @@ describe("Error Mapping to MCP", () => {
             new RecruitingDuplicateApplicantError({
               vacancy: VacancyIdentifier.make("VCN-1"),
               candidate: CandidateIdentifier.make("ada@example.com")
+            }),
+            new RecruitingIssueLocatorInvalidError({
+              issue: IssueIdentifier.make("1"),
+              reason: "issue locator without project must use a full project-prefixed identifier like HULY-123"
             }),
             new RecruitingModelMissingError({ message: "Recruiting model missing" }),
             new RecruitingMutationUnsupportedError({ message: "Recruiting deletion unsupported" })

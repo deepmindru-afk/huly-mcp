@@ -1,5 +1,9 @@
 /* eslint-disable no-restricted-syntax -- test fixtures bridge Huly SDK phantom refs and generic client operation signatures */
 import { describe, it } from "@effect/vitest"
+import type { ActivityMessage } from "@hcengineering/activity"
+import type { Attachment as HulyAttachment } from "@hcengineering/attachment"
+import { AccessLevel } from "@hcengineering/calendar"
+import type { ChatMessage } from "@hcengineering/chunter"
 import {
   AvatarType,
   type Channel,
@@ -13,12 +17,16 @@ import type {
   AttachedData,
   AttachedDoc,
   Attribute,
+  Blob,
   Class,
   Data,
   Doc,
   DocumentQuery,
+  DocumentUpdate,
   FindOptions,
+  Markup,
   Ref,
+  RelatedDocument,
   Sequence,
   Space,
   Status,
@@ -26,17 +34,29 @@ import type {
 } from "@hcengineering/core"
 import type { TagCategory, TagElement, TagReference } from "@hcengineering/tags"
 import type { ProjectType, TaskType } from "@hcengineering/task"
-import { Effect } from "effect"
+import type { Issue, Project } from "@hcengineering/tracker"
+import { Effect, Layer } from "effect"
 import { expect } from "vitest"
 
+import { AttachmentDescription, AttachmentFileName, Base64FileData } from "../../../src/domain/schemas/domain-values.js"
 import {
   ApplicantIdentifier,
+  ApplicantMatchIdentifier,
   CandidateIdentifier,
+  OpinionIdentifier,
+  ReviewIdentifier,
   VacancyIdentifier
 } from "../../../src/domain/schemas/recruiting-common.js"
 import {
+  AttachmentId,
   ColorCode,
+  CommentId,
+  Email,
+  IssueIdentifier,
+  MimeType,
+  NonEmptyString,
   PersonName,
+  ProjectIdentifier,
   StatusName,
   TagCategoryIdentifier,
   TagIdentifier,
@@ -48,16 +68,24 @@ import {
   PersonNotAnEmployeeError,
   PersonNotFoundError,
   RecruitingApplicantIdentifierAmbiguousError,
+  RecruitingApplicantMatchNotFoundError,
   RecruitingApplicantNotFoundError,
+  RecruitingAttachmentNotFoundError,
   RecruitingCandidateNotFoundError,
+  RecruitingCommentNotFoundError,
   RecruitingDuplicateApplicantError,
+  RecruitingIssueLocatorInvalidError,
   RecruitingModelMissingError,
   RecruitingMutationUnsupportedError,
+  RecruitingOpinionIdentifierAmbiguousError,
+  RecruitingOpinionNotFoundError,
+  RecruitingReviewIdentifierAmbiguousError,
+  RecruitingReviewNotFoundError,
   RecruitingVacancyIdentifierAmbiguousError,
   RecruitingVacancyNotFoundError,
   RecruitingVacancyTypeNotFoundError
 } from "../../../src/huly/errors.js"
-import { contact, core, tags, task } from "../../../src/huly/huly-plugins.js"
+import { activity, attachment, chunter, contact, core, tags, task, tracker } from "../../../src/huly/huly-plugins.js"
 import {
   createRecruitingApplicant,
   deleteRecruitingApplicant,
@@ -74,6 +102,41 @@ import {
   removeRecruitingCandidateSkill,
   setRecruitingCandidateProfile
 } from "../../../src/huly/operations/recruiting-candidates.js"
+import {
+  getRecruitingApplicantMatch,
+  listRecruitingApplicantMatches
+} from "../../../src/huly/operations/recruiting-matches.js"
+import {
+  addRecruitingAttachment,
+  addRecruitingComment,
+  deleteRecruitingAttachment,
+  deleteRecruitingComment,
+  getRecruitingAttachment,
+  listRecruitingActivity,
+  listRecruitingAttachments,
+  listRecruitingComments,
+  updateRecruitingAttachment,
+  updateRecruitingComment
+} from "../../../src/huly/operations/recruiting-media.js"
+import {
+  createRecruitingOpinion,
+  deleteRecruitingOpinion,
+  getRecruitingOpinion,
+  listRecruitingOpinions,
+  updateRecruitingOpinion
+} from "../../../src/huly/operations/recruiting-opinions.js"
+import {
+  addRecruitingRelatedIssue,
+  listRecruitingRelatedIssues,
+  removeRecruitingRelatedIssue
+} from "../../../src/huly/operations/recruiting-related-issues.js"
+import {
+  createRecruitingReview,
+  deleteRecruitingReview,
+  getRecruitingReview,
+  listRecruitingReviews,
+  updateRecruitingReview
+} from "../../../src/huly/operations/recruiting-reviews.js"
 import { resolveDefaultRecruitingStatus } from "../../../src/huly/operations/recruiting-shared.js"
 import {
   archiveRecruitingVacancy,
@@ -85,8 +148,17 @@ import {
   unarchiveRecruitingVacancy,
   updateRecruitingVacancy
 } from "../../../src/huly/operations/recruiting-vacancies.js"
+import { makeRelatedDocEntry } from "../../../src/huly/operations/relations.js"
 import { recruitIds } from "../../../src/huly/recruit-plugin.js"
-import type { Applicant, Candidate, Vacancy } from "../../../src/huly/types/recruiting.js"
+import { HulyStorageClient } from "../../../src/huly/storage.js"
+import type {
+  Applicant,
+  ApplicantMatch,
+  Candidate,
+  Opinion,
+  Review,
+  Vacancy
+} from "../../../src/huly/types/recruiting.js"
 import { withDiagnostics } from "../../helpers/diagnostics.js"
 import { corePersonId, docRef, findResult, personRef, spaceRef, statusRef } from "../../helpers/huly-sdk.js"
 
@@ -137,6 +209,13 @@ interface Captures {
     readonly attachedTo: string
     readonly collection: string
   }>
+  readonly updatedCollections: Array<{
+    readonly class: string
+    readonly id: string
+    readonly attachedTo: string
+    readonly collection: string
+    readonly operations: object
+  }>
   readonly removedDocs: Array<{
     readonly class: string
     readonly id: string
@@ -149,14 +228,22 @@ interface Captures {
 }
 
 interface RecruitingData {
+  readonly activityMessages?: ReadonlyArray<ActivityMessage>
+  readonly applicantMatches?: ReadonlyArray<ApplicantMatch>
   readonly applicants?: ReadonlyArray<Applicant>
+  readonly attachments?: ReadonlyArray<HulyAttachment>
   readonly candidates?: ReadonlyArray<Candidate>
   readonly channels?: ReadonlyArray<Channel>
+  readonly comments?: ReadonlyArray<ChatMessage>
   readonly employees?: ReadonlyArray<Employee>
+  readonly issues?: ReadonlyArray<Issue>
   readonly organizations?: ReadonlyArray<Organization>
   readonly people?: ReadonlyArray<Person>
+  readonly projects?: ReadonlyArray<Project>
   readonly sequences?: ReadonlyArray<Sequence>
   readonly socialIdentities?: ReadonlyArray<SocialIdentity>
+  readonly opinions?: ReadonlyArray<Opinion>
+  readonly reviews?: ReadonlyArray<Review>
   readonly statuses?: ReadonlyArray<Status>
   readonly tagCategories?: ReadonlyArray<TagCategory>
   readonly tagElements?: ReadonlyArray<TagElement>
@@ -164,6 +251,7 @@ interface RecruitingData {
   readonly vacancyTypes?: ReadonlyArray<ProjectType>
   readonly vacancies?: ReadonlyArray<Vacancy>
   readonly removeCollectionAvailable?: boolean
+  readonly updateCollectionAvailable?: boolean
   readonly sequenceUpdateResult?: TxResult
 }
 
@@ -302,6 +390,117 @@ const makeApplicant = (overrides: Partial<Applicant> = {}): Applicant => ({
   ...overrides
 })
 
+const markup = (text: string): Markup =>
+  `{"type":"doc","content":[{"type":"paragraph","content":[{"type":"text","text":"${text}"}]}]}`
+
+const makeReview = (overrides: Partial<Review> = {}): Review => ({
+  ...baseDoc(docRef<Review>("review-1"), recruitIds.class.Review, core.space.Workspace),
+  attachedTo: docRef<Candidate>("person-1"),
+  attachedToClass: recruitIds.mixin.Candidate,
+  collection: "reviews",
+  number: 1,
+  title: "Technical Interview",
+  description: markup("Review description"),
+  verdict: "",
+  application: docRef<Applicant>("applicant-1"),
+  company: docRef<Organization>("org-1"),
+  opinions: 1,
+  eventId: "",
+  calendar: docRef("calendar"),
+  location: "Room 1",
+  allDay: false,
+  date: 1701000000000,
+  dueDate: 1701001800000,
+  participants: [personRef("person-1")],
+  access: AccessLevel.Reader,
+  user: corePersonId("user"),
+  blockTime: false,
+  ...overrides
+})
+
+const makeOpinion = (overrides: Partial<Opinion> = {}): Opinion => ({
+  ...baseDoc(docRef<Opinion>("opinion-1"), recruitIds.class.Opinion, core.space.Workspace),
+  attachedTo: docRef<Review>("review-1"),
+  attachedToClass: recruitIds.class.Review,
+  collection: "opinions",
+  number: 1,
+  description: markup("Opinion description"),
+  value: "Strong hire",
+  comments: 1,
+  attachments: 0,
+  ...overrides
+})
+
+const makeApplicantMatch = (overrides: Partial<ApplicantMatch> = {}): ApplicantMatch => ({
+  ...baseDoc(docRef<ApplicantMatch>("match-1"), recruitIds.class.ApplicantMatch, core.space.Workspace),
+  attachedTo: docRef<Candidate>("person-1"),
+  attachedToClass: recruitIds.mixin.Candidate,
+  collection: "vacancyMatch",
+  complete: true,
+  vacancy: "Backend Engineer",
+  summary: "Strong fit",
+  response: markup("Generated match response"),
+  ...overrides
+})
+
+const makeComment = (overrides: Partial<ChatMessage> = {}): ChatMessage => ({
+  ...baseDoc(docRef<ChatMessage>("comment-1"), chunter.class.ChatMessage, core.space.Workspace),
+  attachedTo: docRef<Vacancy>("vacancy-1"),
+  attachedToClass: recruitIds.class.Vacancy,
+  collection: "comments",
+  message: markup("Initial comment"),
+  editedOn: 1700000000000,
+  ...overrides
+})
+
+const makeAttachment = (overrides: Partial<HulyAttachment> = {}): HulyAttachment => ({
+  ...baseDoc(docRef<HulyAttachment>("attachment-1"), attachment.class.Attachment, core.space.Workspace),
+  attachedTo: docRef<Vacancy>("vacancy-1"),
+  attachedToClass: recruitIds.class.Vacancy,
+  collection: "attachments",
+  name: "resume.txt",
+  file: docRef<Blob>("blob-1"),
+  size: 12,
+  type: "text/plain",
+  lastModified: 1700000000000,
+  description: "Candidate resume",
+  pinned: false,
+  ...overrides
+})
+
+const makeActivityMessage = (overrides: Partial<ActivityMessage> = {}): ActivityMessage => ({
+  ...baseDoc(docRef<ActivityMessage>("activity-1"), activity.class.ActivityMessage, core.space.Workspace),
+  attachedTo: docRef<Vacancy>("vacancy-1"),
+  attachedToClass: recruitIds.class.Vacancy,
+  collection: "activity",
+  replies: 1,
+  reactions: 2,
+  ...overrides
+})
+
+// eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- SDK fixture builder
+const makeProject = (overrides: Partial<Project> = {}): Project => ({
+  ...baseDoc(docRef<Project>("project-huly"), tracker.class.Project, core.space.Workspace),
+  name: "Huly",
+  identifier: "HULY",
+  sequence: 1,
+  defaultIssueStatus: docRef("status-issue"),
+  defaultTimeReportDay: "CurrentWorkDay",
+  ...overrides
+} as Project)
+
+// eslint-disable-next-line @typescript-eslint/consistent-type-assertions -- SDK fixture builder
+const makeIssue = (overrides: Partial<Issue> = {}): Issue => ({
+  ...baseDoc(docRef<Issue>("issue-1"), tracker.class.Issue, docRef<Project>("project-huly")),
+  attachedTo: docRef<Issue>("issue-1"),
+  attachedToClass: tracker.class.Issue,
+  collection: "issues",
+  title: "Related recruiting issue",
+  identifier: "HULY-1",
+  number: 1,
+  ...overrides
+} as Issue)
+
 const makeTagCategory = (): TagCategory => ({
   ...baseDoc(skillCategoryRef, tags.class.TagCategory),
   icon: tags.icon.Tags,
@@ -337,14 +536,35 @@ const makeTagReference = (overrides: Partial<TagReference> = {}): TagReference =
 const readQuery = (query: unknown): Record<string, unknown> => (query ?? {}) as Record<string, unknown>
 const readDoc = (doc: unknown): Record<string, unknown> => doc as Record<string, unknown>
 
+const isRelatedDocument = (value: unknown): value is RelatedDocument => {
+  if (typeof value !== "object" || value === null) return false
+  const doc = readDoc(value)
+  return "_id" in doc && "_class" in doc
+}
+
 const matchesValue = (actual: unknown, expected: unknown): boolean => {
   if (typeof expected === "object" && expected !== null && "$in" in expected) {
     const values = readDoc(expected).$in
     return Array.isArray(values) && values.includes(actual)
   }
+  if (typeof expected === "object" && expected !== null && "$gte" in expected) {
+    return typeof actual === "number" && actual >= Number(readDoc(expected).$gte)
+  }
+  if (typeof expected === "object" && expected !== null && "$lte" in expected) {
+    return typeof actual === "number" && actual <= Number(readDoc(expected).$lte)
+  }
   if (typeof expected === "object" && expected !== null && "$like" in expected) {
     const pattern = String(readDoc(expected).$like).replaceAll("%", "").replaceAll("\\", "")
     return String(actual).includes(pattern)
+  }
+  if (Array.isArray(actual) && typeof expected === "object" && expected !== null) {
+    const expectedDoc = readDoc(expected)
+    if (isRelatedDocument(expected)) {
+      return actual.some((value) => {
+        const actualDoc = readDoc(value)
+        return actualDoc._id === expectedDoc._id && actualDoc._class === expectedDoc._class
+      })
+    }
   }
   return actual === expected
 }
@@ -382,6 +602,7 @@ const createCaptures = (): Captures => ({
   createdMixins: [],
   updatedMixins: [],
   removedCollections: [],
+  updatedCollections: [],
   removedDocs: [],
   uploadedMarkup: []
 })
@@ -389,9 +610,17 @@ const createCaptures = (): Captures => ({
 const docsAs = <T extends Doc>(docs: ReadonlyArray<Doc>): Array<T> => [...docs] as unknown as Array<T>
 
 const createRecruitingLayer = (data: RecruitingData, captures = createCaptures()) => {
+  const activityMessages = [...(data.activityMessages ?? [])]
+  const applicantMatches = [...(data.applicantMatches ?? [makeApplicantMatch()])]
   const applicants = [...(data.applicants ?? [makeApplicant()])]
+  const attachments = [...(data.attachments ?? [])]
   const candidates = [...(data.candidates ?? [makeCandidate()])]
+  const comments = [...(data.comments ?? [])]
+  const issues = [...(data.issues ?? [])]
+  const opinions = [...(data.opinions ?? [makeOpinion()])]
   const people = [...(data.people ?? [makePerson("person-1", "Ada Lovelace")])]
+  const projects = [...(data.projects ?? [])]
+  const reviews = [...(data.reviews ?? [makeReview()])]
   const employees = [...(data.employees ?? people.map((person) => makeEmployee(person)))]
   const statuses = [
     ...(data.statuses ?? [
@@ -405,15 +634,29 @@ const createRecruitingLayer = (data: RecruitingData, captures = createCaptures()
   const sequences = [
     ...(data.sequences ?? [
       makeSequence("seq-vacancy", recruitIds.class.Vacancy, 1),
+      makeSequence("seq-review", recruitIds.class.Review, 1),
+      makeSequence("seq-opinion", recruitIds.class.Opinion, 1),
       makeSequence("seq-applicant", recruitIds.class.Applicant, 1)
     ])
   ]
   const docsForClass = <T extends Doc>(_class: Ref<Class<T>>): Array<T> => {
     switch (String(_class)) {
+      case String(activity.class.ActivityMessage):
+        return docsAs<T>(activityMessages)
+      case String(attachment.class.Attachment):
+        return docsAs<T>(attachments)
+      case String(chunter.class.ChatMessage):
+        return docsAs<T>(comments)
       case String(recruitIds.class.Vacancy):
         return docsAs<T>(data.vacancies ?? [makeVacancy()])
       case String(recruitIds.class.Applicant):
         return docsAs<T>(applicants)
+      case String(recruitIds.class.ApplicantMatch):
+        return docsAs<T>(applicantMatches)
+      case String(recruitIds.class.Opinion):
+        return docsAs<T>(opinions)
+      case String(recruitIds.class.Review):
+        return docsAs<T>(reviews)
       case String(recruitIds.mixin.Candidate):
         return docsAs<T>(candidates)
       case String(contact.class.Person):
@@ -428,6 +671,10 @@ const createRecruitingLayer = (data: RecruitingData, captures = createCaptures()
         return docsAs<T>(data.organizations ?? [makeOrganization()])
       case String(task.class.ProjectType):
         return docsAs<T>(data.vacancyTypes ?? [makeVacancyType()])
+      case String(tracker.class.Issue):
+        return docsAs<T>(issues)
+      case String(tracker.class.Project):
+        return docsAs<T>(projects)
       case String(core.class.Status):
         return docsAs<T>(statuses)
       case String(core.class.Sequence):
@@ -467,6 +714,37 @@ const createRecruitingLayer = (data: RecruitingData, captures = createCaptures()
     if (String(_class) === String(recruitIds.class.Applicant)) {
       const applicant = applicants.find((candidate) => String(candidate._id) === String(objectId))
       if (applicant !== undefined) Object.assign(applicant, operations)
+    }
+    if (String(_class) === String(chunter.class.ChatMessage)) {
+      const comment = comments.find((candidate) => String(candidate._id) === String(objectId))
+      if (comment !== undefined) Object.assign(comment, operations)
+    }
+    if (String(_class) === String(attachment.class.Attachment)) {
+      const attachedFile = attachments.find((candidate) => String(candidate._id) === String(objectId))
+      if (attachedFile !== undefined) Object.assign(attachedFile, operations)
+    }
+    if (String(_class) === String(tracker.class.Issue)) {
+      const issue = issues.find((candidate) => String(candidate._id) === String(objectId))
+      if (issue !== undefined) {
+        const operationDoc = readDoc(operations)
+        const pushDoc = typeof operationDoc.$push === "object" && operationDoc.$push !== null
+          ? readDoc(operationDoc.$push)
+          : {}
+        const pullDoc = typeof operationDoc.$pull === "object" && operationDoc.$pull !== null
+          ? readDoc(operationDoc.$pull)
+          : {}
+        if (isRelatedDocument(pushDoc.relations)) {
+          issue.relations = [...(issue.relations ?? []), pushDoc.relations]
+        }
+        const pulledRelation = typeof pullDoc.relations === "object" && pullDoc.relations !== null
+          ? readDoc(pullDoc.relations)
+          : {}
+        if ("_id" in pulledRelation) {
+          issue.relations = (issue.relations ?? []).filter(
+            (relation) => String(relation._id) !== String(pulledRelation._id)
+          )
+        }
+      }
     }
     const emptyResult: TxResult = {}
     return Effect.succeed(emptyResult)
@@ -512,6 +790,42 @@ const createRecruitingLayer = (data: RecruitingData, captures = createCaptures()
         collection,
         ...attributes
       } as unknown as Applicant)
+    }
+    if (String(_class) === String(recruitIds.class.Review) && id !== undefined) {
+      reviews.push({
+        ...baseDoc(id as unknown as Ref<Review>, recruitIds.class.Review, space),
+        attachedTo: attachedTo as unknown as Ref<Candidate>,
+        attachedToClass: recruitIds.mixin.Candidate,
+        collection,
+        ...attributes
+      } as unknown as Review)
+    }
+    if (String(_class) === String(recruitIds.class.Opinion) && id !== undefined) {
+      opinions.push({
+        ...baseDoc(id as unknown as Ref<Opinion>, recruitIds.class.Opinion, space),
+        attachedTo: attachedTo as unknown as Ref<Review>,
+        attachedToClass: recruitIds.class.Review,
+        collection,
+        ...attributes
+      } as unknown as Opinion)
+    }
+    if (String(_class) === String(chunter.class.ChatMessage) && id !== undefined) {
+      comments.push({
+        ...baseDoc(id as unknown as Ref<ChatMessage>, chunter.class.ChatMessage, space),
+        attachedTo: attachedTo as unknown as Ref<Doc>,
+        attachedToClass: _attachedToClass,
+        collection,
+        ...attributes
+      } as unknown as ChatMessage)
+    }
+    if (String(_class) === String(attachment.class.Attachment) && id !== undefined) {
+      attachments.push({
+        ...baseDoc(id as unknown as Ref<HulyAttachment>, attachment.class.Attachment, space),
+        attachedTo: attachedTo as unknown as Ref<Doc>,
+        attachedToClass: _attachedToClass,
+        collection,
+        ...attributes
+      } as unknown as HulyAttachment)
     }
     if (String(_class) === String(tags.class.TagReference)) {
       const tagRefId = docRef<TagReference>("created-tag-ref")
@@ -572,11 +886,48 @@ const createRecruitingLayer = (data: RecruitingData, captures = createCaptures()
       attachedTo: String(attachedTo),
       collection
     })
+    if (String(_class) === String(attachment.class.Attachment)) {
+      const index = attachments.findIndex((candidate) => String(candidate._id) === String(objectId))
+      if (index >= 0) attachments.splice(index, 1)
+    }
+    return Effect.succeed(attachedTo)
+  }
+
+  const updateCollection: NonNullable<HulyClientOperations["updateCollection"]> = <
+    T extends Doc,
+    P extends AttachedDoc
+  >(
+    _class: Ref<Class<P>>,
+    _space: Ref<Space>,
+    objectId: Ref<P>,
+    attachedTo: Ref<T>,
+    _attachedToClass: Ref<Class<T>>,
+    collection: Extract<keyof T, string> | string,
+    operations: DocumentUpdate<P>
+  ) => {
+    captures.updatedCollections.push({
+      class: String(_class),
+      id: String(objectId),
+      attachedTo: String(attachedTo),
+      collection,
+      operations
+    })
+    const mutableDocs = String(_class) === String(recruitIds.class.Review)
+      ? reviews
+      : String(_class) === String(recruitIds.class.Opinion)
+      ? opinions
+      : []
+    const doc = mutableDocs.find((candidate) => String(candidate._id) === String(objectId))
+    if (doc !== undefined) Object.assign(doc, operations)
     return Effect.succeed(attachedTo)
   }
 
   const removeDoc: HulyClientOperations["removeDoc"] = (_class, _space, objectId) => {
     captures.removedDocs.push({ class: String(_class), id: String(objectId) })
+    if (String(_class) === String(chunter.class.ChatMessage)) {
+      const index = comments.findIndex((candidate) => String(candidate._id) === String(objectId))
+      if (index >= 0) comments.splice(index, 1)
+    }
     return Effect.succeed({} as TxResult)
   }
 
@@ -593,6 +944,7 @@ const createRecruitingLayer = (data: RecruitingData, captures = createCaptures()
       findAllInModel: findAll,
       findOne,
       updateDoc,
+      ...(data.updateCollectionAvailable === false ? {} : { updateCollection }),
       createDoc,
       addCollection,
       createMixin,
@@ -604,6 +956,17 @@ const createRecruitingLayer = (data: RecruitingData, captures = createCaptures()
     })
   }
 }
+
+const storageLayer = HulyStorageClient.testLayer({
+  uploadFile: (_filename, data, contentType) =>
+    Effect.succeed({
+      blobId: docRef<Blob>("uploaded-blob"),
+      contentType,
+      size: data.length,
+      url: "https://test.huly.io/files?workspace=test&file=uploaded-blob"
+    }),
+  getFileUrl: (blobId) => `https://test.huly.io/files?workspace=test&file=${blobId}`
+})
 
 describe("Recruiting Operations", () => {
   it.effect("resolves vacancies by identifier and detects ambiguous names", () =>
@@ -1503,5 +1866,855 @@ describe("Recruiting Operations", () => {
         attachedTo: "person-1",
         collection: "applications"
       })
+    }))
+
+  it.effect("lists and gets read-only applicant matches", () =>
+    Effect.gen(function*() {
+      const { layer } = createRecruitingLayer({})
+
+      const listed = yield* listRecruitingApplicantMatches({
+        candidate: CandidateIdentifier.make("Ada Lovelace"),
+        complete: true,
+        query: "fit"
+      }).pipe(Effect.provide(layer))
+      expect(listed.matches).toEqual([{
+        id: "match-1",
+        candidate: { id: "person-1", name: "Ada Lovelace", email: "ada@example.com" },
+        complete: true,
+        vacancy: "Backend Engineer"
+      }])
+
+      const detail = yield* getRecruitingApplicantMatch({
+        match: ApplicantMatchIdentifier.make("match-1")
+      }).pipe(Effect.provide(layer))
+      expect(detail.summary).toBe("Strong fit")
+      expect(detail.response).toContain("Generated match response")
+
+      const missing = yield* Effect.flip(
+        getRecruitingApplicantMatch({ match: ApplicantMatchIdentifier.make("missing-match") }).pipe(
+          Effect.provide(layer)
+        )
+      )
+      expect(missing).toBeInstanceOf(RecruitingApplicantMatchNotFoundError)
+    }))
+
+  it.effect("handles applicant-match sparse output and missing linked candidates", () =>
+    Effect.gen(function*() {
+      const sparseMatch = makeApplicantMatch({ summary: "", response: "" })
+      const { createdOn: _matchCreatedOn, ...matchWithoutCreatedOn } = sparseMatch
+      const { layer } = createRecruitingLayer({ applicantMatches: [matchWithoutCreatedOn] })
+
+      const unfiltered = yield* listRecruitingApplicantMatches({}).pipe(Effect.provide(layer))
+      expect(unfiltered.matches).toHaveLength(1)
+
+      const filteredOut = yield* listRecruitingApplicantMatches({ query: "not-a-fit" }).pipe(Effect.provide(layer))
+      expect(filteredOut.matches).toEqual([])
+
+      const detail = yield* getRecruitingApplicantMatch({
+        match: ApplicantMatchIdentifier.make("match-1")
+      }).pipe(Effect.provide(layer))
+      expect(detail).not.toHaveProperty("summary")
+      expect(detail).not.toHaveProperty("response")
+      expect(detail).not.toHaveProperty("createdOn")
+
+      const missingCandidate = yield* Effect.flip(
+        listRecruitingApplicantMatches({}).pipe(
+          Effect.provide(createRecruitingLayer({ people: [], applicantMatches: [makeApplicantMatch()] }).layer)
+        )
+      )
+      expect(missingCandidate).toBeInstanceOf(RecruitingModelMissingError)
+    }))
+
+  it.effect("lists, reads, creates, updates, and deletes recruiting reviews", () =>
+    Effect.gen(function*() {
+      const { captures, layer } = createRecruitingLayer({
+        candidates: [],
+        reviews: [makeReview()],
+        sequences: [makeSequence("seq-review", recruitIds.class.Review, 3)]
+      })
+
+      const listed = yield* listRecruitingReviews({
+        candidate: CandidateIdentifier.make("Ada Lovelace"),
+        application: ApplicantIdentifier.make("APP-1"),
+        query: "Technical",
+        from: Timestamp.make(1700000000000),
+        to: Timestamp.make(1702000000000)
+      }).pipe(Effect.provide(layer))
+      expect(listed.reviews[0]?.identifier).toBe("RVE-1")
+
+      const detail = yield* getRecruitingReview({
+        review: ReviewIdentifier.make("RVE-1"),
+        candidate: CandidateIdentifier.make("Ada Lovelace")
+      }).pipe(Effect.provide(layer), withDiagnostics)
+      expect(detail.description).toContain("Review description")
+      expect(detail.application?.identifier).toBe("APP-1")
+      expect(detail.company).toEqual({ id: "org-1", name: "Acme" })
+      expect(detail.participants[0]?.name).toBe("Ada Lovelace")
+      expect(detail.opinions).toBe(1)
+
+      const created = yield* createRecruitingReview({
+        candidate: CandidateIdentifier.make("Ada Lovelace"),
+        title: "Panel Interview",
+        date: Timestamp.make(1703000000000),
+        description: "Review notes",
+        application: ApplicantIdentifier.make("APP-1"),
+        company: "Acme",
+        location: "Room 2",
+        participants: [Email.make("ada@example.com")]
+      }).pipe(Effect.provide(layer))
+      expect(created.review.identifier).toBe("RVE-4")
+      expect(captures.createdMixins[0]?.mixin).toBe(String(recruitIds.mixin.Candidate))
+      expect(captures.addedCollections.at(-1)).toMatchObject({
+        class: String(recruitIds.class.Review),
+        attachedTo: "person-1",
+        collection: "reviews"
+      })
+      expect(captures.addedCollections.at(-1)?.attributes).toMatchObject({
+        number: 4,
+        title: "Panel Interview",
+        dueDate: 1703001800000,
+        application: "applicant-1",
+        company: "org-1"
+      })
+
+      const updated = yield* updateRecruitingReview({
+        review: ReviewIdentifier.make("RVE-1"),
+        title: "Updated Interview",
+        description: null,
+        verdict: null,
+        application: null,
+        company: null,
+        location: null,
+        participants: []
+      }).pipe(Effect.provide(layer))
+      expect(updated.review.title).toBe("Updated Interview")
+      expect(captures.updatedCollections.at(-1)?.operations).toMatchObject({
+        title: "Updated Interview",
+        description: "",
+        verdict: "",
+        location: "",
+        participants: [],
+        $unset: { application: "", company: "" }
+      })
+
+      const deleted = yield* deleteRecruitingReview({ review: ReviewIdentifier.make("RVE-1") }).pipe(
+        Effect.provide(layer)
+      )
+      expect(deleted.deleted).toBe(true)
+      expect(captures.removedCollections.at(-1)).toMatchObject({
+        class: String(recruitIds.class.Review),
+        id: "review-1",
+        collection: "reviews"
+      })
+    }))
+
+  it.effect("handles sparse review detail, default create values, and direct review updates", () =>
+    Effect.gen(function*() {
+      const sparseReview = makeReview({
+        description: "",
+        verdict: "",
+        participants: []
+      })
+      const {
+        application: _reviewApplication,
+        company: _reviewCompany,
+        createdOn: _reviewCreatedOn,
+        location: _reviewLocation,
+        opinions: _reviewOpinions,
+        ...reviewWithoutOptionalFields
+      } = sparseReview
+      const { captures, layer } = createRecruitingLayer({
+        candidates: [],
+        reviews: [reviewWithoutOptionalFields],
+        sequences: [makeSequence("seq-review", recruitIds.class.Review, 9)]
+      })
+
+      const unfiltered = yield* listRecruitingReviews({}).pipe(Effect.provide(layer))
+      expect(unfiltered.reviews).toHaveLength(1)
+
+      const noMatches = yield* listRecruitingReviews({ query: "not-present" }).pipe(Effect.provide(layer))
+      expect(noMatches.reviews).toEqual([])
+
+      const detail = yield* getRecruitingReview({ review: ReviewIdentifier.make("RVE-1") }).pipe(
+        Effect.provide(layer),
+        withDiagnostics
+      )
+      expect(detail).not.toHaveProperty("description")
+      expect(detail).not.toHaveProperty("verdict")
+      expect(detail).not.toHaveProperty("application")
+      expect(detail).not.toHaveProperty("company")
+      expect(detail).not.toHaveProperty("location")
+      expect(detail).not.toHaveProperty("opinions")
+      expect(detail).not.toHaveProperty("createdOn")
+      expect(detail.participants).toEqual([])
+
+      const created = yield* createRecruitingReview({
+        candidate: CandidateIdentifier.make("Ada Lovelace"),
+        title: "Defaulted Review",
+        date: Timestamp.make(1704000000000),
+        dueDate: Timestamp.make(1704000100000)
+      }).pipe(Effect.provide(layer))
+      expect(created.review.identifier).toBe("RVE-10")
+      expect(captures.addedCollections.at(-1)?.attributes).toMatchObject({
+        description: "",
+        dueDate: 1704000100000,
+        participants: ["test-primary-social-id"],
+        location: ""
+      })
+
+      yield* updateRecruitingReview({
+        review: ReviewIdentifier.make("RVE-1"),
+        description: "Updated review notes",
+        verdict: "Advance",
+        application: ApplicantIdentifier.make("APP-1"),
+        company: "Acme",
+        location: "Room 3",
+        date: Timestamp.make(1705000000000),
+        dueDate: Timestamp.make(1705001800000)
+      }).pipe(Effect.provide(layer))
+      expect(captures.updatedCollections.at(-1)?.operations).toMatchObject({
+        verdict: "Advance",
+        application: "applicant-1",
+        company: "org-1",
+        location: "Room 3",
+        date: 1705000000000,
+        dueDate: 1705001800000
+      })
+      expect(captures.updatedCollections.at(-1)?.operations).not.toHaveProperty("$unset")
+
+      yield* updateRecruitingReview({
+        review: ReviewIdentifier.make("RVE-1"),
+        verdict: "Final"
+      }).pipe(Effect.provide(layer))
+      expect(captures.updatedCollections.at(-1)?.operations).toEqual({ verdict: "Final" })
+
+      yield* updateRecruitingReview({
+        review: ReviewIdentifier.make("RVE-1"),
+        description: "Description only"
+      }).pipe(Effect.provide(layer))
+      expect(captures.updatedCollections.at(-1)?.operations).toHaveProperty("description")
+    }))
+
+  it.effect("reports review model gaps, locator mismatches, and unsupported deletes", () =>
+    Effect.gen(function*() {
+      const linkedMissingDetail = yield* getRecruitingReview({ review: ReviewIdentifier.make("RVE-1") }).pipe(
+        Effect.provide(
+          createRecruitingLayer({
+            applicants: [],
+            organizations: [],
+            reviews: [makeReview({ verdict: "Hire" })]
+          }).layer
+        ),
+        withDiagnostics
+      )
+      expect(linkedMissingDetail.verdict).toBe("Hire")
+      expect(linkedMissingDetail).not.toHaveProperty("application")
+      expect(linkedMissingDetail).not.toHaveProperty("company")
+
+      const missingCandidate = yield* Effect.flip(
+        getRecruitingReview({ review: ReviewIdentifier.make("RVE-1") }).pipe(
+          Effect.provide(createRecruitingLayer({ people: [], reviews: [makeReview()] }).layer),
+          withDiagnostics
+        )
+      )
+      expect(missingCandidate).toBeInstanceOf(RecruitingModelMissingError)
+
+      const applicationScoped = createRecruitingLayer({
+        applicants: [
+          makeApplicant(),
+          makeApplicant({
+            _id: docRef("applicant-2"),
+            identifier: "APP-2",
+            number: 2
+          })
+        ],
+        reviews: [makeReview()]
+      }).layer
+      const rawIdWithApplication = yield* getRecruitingReview({
+        review: ReviewIdentifier.make("review-1"),
+        application: ApplicantIdentifier.make("APP-1")
+      }).pipe(Effect.provide(applicationScoped), withDiagnostics)
+      expect(rawIdWithApplication.id).toBe("review-1")
+
+      const applicationMismatch = yield* Effect.flip(
+        getRecruitingReview({
+          review: ReviewIdentifier.make("review-1"),
+          application: ApplicantIdentifier.make("APP-2")
+        }).pipe(Effect.provide(applicationScoped), withDiagnostics)
+      )
+      expect(applicationMismatch).toBeInstanceOf(RecruitingReviewNotFoundError)
+
+      const locatorMismatch = yield* Effect.flip(
+        getRecruitingReview({
+          review: ReviewIdentifier.make("review-1"),
+          candidate: CandidateIdentifier.make("Grace Hopper")
+        }).pipe(
+          Effect.provide(
+            createRecruitingLayer({
+              people: [
+                makePerson("person-1", "Ada Lovelace"),
+                makePerson("person-2", "Grace Hopper")
+              ],
+              reviews: [makeReview()]
+            }).layer
+          ),
+          withDiagnostics
+        )
+      )
+      expect(locatorMismatch).toBeInstanceOf(RecruitingReviewNotFoundError)
+
+      const missingNumber = yield* Effect.flip(
+        getRecruitingReview({ review: ReviewIdentifier.make("RVE-404") }).pipe(
+          Effect.provide(createRecruitingLayer({ reviews: [makeReview()] }).layer),
+          withDiagnostics
+        )
+      )
+      expect(missingNumber).toBeInstanceOf(RecruitingReviewNotFoundError)
+
+      const unsupportedDelete = yield* Effect.flip(
+        deleteRecruitingReview({ review: ReviewIdentifier.make("RVE-1") }).pipe(
+          Effect.provide(createRecruitingLayer({ removeCollectionAvailable: false }).layer)
+        )
+      )
+      expect(unsupportedDelete).toBeInstanceOf(RecruitingMutationUnsupportedError)
+    }))
+
+  it.effect("reports review ambiguity and unsupported collection updates", () =>
+    Effect.gen(function*() {
+      const ambiguous = yield* Effect.flip(
+        getRecruitingReview({ review: ReviewIdentifier.make("Technical Interview") }).pipe(
+          Effect.provide(
+            createRecruitingLayer({
+              reviews: [makeReview(), makeReview({ _id: docRef("review-2"), number: 2 })]
+            }).layer
+          ),
+          withDiagnostics
+        )
+      )
+      expect(ambiguous).toBeInstanceOf(RecruitingReviewIdentifierAmbiguousError)
+
+      const unsupported = yield* Effect.flip(
+        updateRecruitingReview({
+          review: ReviewIdentifier.make("RVE-1"),
+          title: "No Update Collection"
+        }).pipe(Effect.provide(createRecruitingLayer({ updateCollectionAvailable: false }).layer))
+      )
+      expect(unsupported).toBeInstanceOf(RecruitingMutationUnsupportedError)
+    }))
+
+  it.effect("lists, reads, creates, updates, and deletes recruiting opinions", () =>
+    Effect.gen(function*() {
+      const { captures, layer } = createRecruitingLayer({
+        opinions: [makeOpinion()],
+        sequences: [makeSequence("seq-opinion", recruitIds.class.Opinion, 6)]
+      })
+
+      const listed = yield* listRecruitingOpinions({ review: ReviewIdentifier.make("RVE-1") }).pipe(
+        Effect.provide(layer)
+      )
+      expect(listed.opinions[0]?.identifier).toBe("OPE-1")
+
+      const detail = yield* getRecruitingOpinion({ opinion: OpinionIdentifier.make("OPE-1") }).pipe(
+        Effect.provide(layer)
+      )
+      expect(detail.review.identifier).toBe("RVE-1")
+      expect(detail.description).toContain("Opinion description")
+      expect(detail.comments).toBe(1)
+      expect(detail.attachments).toBe(0)
+
+      const created = yield* createRecruitingOpinion({
+        review: ReviewIdentifier.make("RVE-1"),
+        value: "Hire",
+        description: "Detailed opinion"
+      }).pipe(Effect.provide(layer))
+      expect(created.opinion.identifier).toBe("OPE-7")
+      expect(captures.addedCollections.at(-1)).toMatchObject({
+        class: String(recruitIds.class.Opinion),
+        attachedTo: "review-1",
+        collection: "opinions"
+      })
+      expect(captures.addedCollections.at(-1)?.attributes).toMatchObject({
+        number: 7,
+        value: "Hire"
+      })
+
+      const updated = yield* updateRecruitingOpinion({
+        opinion: OpinionIdentifier.make("OPE-1"),
+        review: ReviewIdentifier.make("RVE-1"),
+        value: "Strong hire",
+        description: null
+      }).pipe(Effect.provide(layer))
+      expect(updated.opinion.value).toBe("Strong hire")
+      expect(captures.updatedCollections.at(-1)?.operations).toEqual({
+        value: "Strong hire",
+        description: ""
+      })
+
+      const deleted = yield* deleteRecruitingOpinion({
+        opinion: OpinionIdentifier.make("OPE-1"),
+        review: ReviewIdentifier.make("RVE-1")
+      }).pipe(Effect.provide(layer))
+      expect(deleted.deleted).toBe(true)
+      expect(captures.removedCollections.at(-1)).toMatchObject({
+        class: String(recruitIds.class.Opinion),
+        id: "opinion-1",
+        collection: "opinions"
+      })
+    }))
+
+  it.effect("handles sparse opinions, raw-id opinion lookup, and non-clear updates", () =>
+    Effect.gen(function*() {
+      const sparseOpinion = makeOpinion({ description: "" })
+      const {
+        attachments: _opinionAttachments,
+        comments: _opinionComments,
+        createdOn: _opinionCreatedOn,
+        ...opinionWithoutOptionalFields
+      } = sparseOpinion
+      const { captures, layer } = createRecruitingLayer({
+        opinions: [opinionWithoutOptionalFields],
+        sequences: [makeSequence("seq-opinion", recruitIds.class.Opinion, 10)]
+      })
+
+      const detail = yield* getRecruitingOpinion({ opinion: OpinionIdentifier.make("opinion-1") }).pipe(
+        Effect.provide(layer)
+      )
+      expect(detail).not.toHaveProperty("description")
+      expect(detail).not.toHaveProperty("comments")
+      expect(detail).not.toHaveProperty("attachments")
+      expect(detail).not.toHaveProperty("createdOn")
+
+      const created = yield* createRecruitingOpinion({
+        review: ReviewIdentifier.make("RVE-1"),
+        value: "Default description opinion"
+      }).pipe(Effect.provide(layer))
+      expect(created.opinion.identifier).toBe("OPE-11")
+      expect(captures.addedCollections.at(-1)?.attributes).toMatchObject({
+        value: "Default description opinion",
+        description: ""
+      })
+
+      yield* updateRecruitingOpinion({
+        opinion: OpinionIdentifier.make("OPE-1"),
+        description: "Updated opinion details"
+      }).pipe(Effect.provide(layer))
+      expect(captures.updatedCollections.at(-1)?.operations).toHaveProperty("description")
+
+      yield* updateRecruitingOpinion({
+        opinion: OpinionIdentifier.make("OPE-1"),
+        value: "Value only"
+      }).pipe(Effect.provide(layer))
+      expect(captures.updatedCollections.at(-1)?.operations).toEqual({ value: "Value only" })
+
+      const deleted = yield* deleteRecruitingOpinion({
+        opinion: OpinionIdentifier.make("OPE-1")
+      }).pipe(Effect.provide(layer))
+      expect(deleted.opinion.id).toBe("opinion-1")
+      expect(deleted.deleted).toBe(true)
+    }))
+
+  it.effect("reports opinion raw-id misses, review mismatches, and unsupported deletes", () =>
+    Effect.gen(function*() {
+      const missingRawId = yield* Effect.flip(
+        getRecruitingOpinion({ opinion: OpinionIdentifier.make("missing-opinion") }).pipe(
+          Effect.provide(createRecruitingLayer({ opinions: [makeOpinion()] }).layer)
+        )
+      )
+      expect(missingRawId).toBeInstanceOf(RecruitingOpinionNotFoundError)
+
+      const mismatchedReview = yield* Effect.flip(
+        getRecruitingOpinion({
+          opinion: OpinionIdentifier.make("opinion-1"),
+          review: ReviewIdentifier.make("RVE-2")
+        }).pipe(
+          Effect.provide(
+            createRecruitingLayer({
+              reviews: [makeReview(), makeReview({ _id: docRef("review-2"), number: 2 })],
+              opinions: [makeOpinion()]
+            }).layer
+          )
+        )
+      )
+      expect(mismatchedReview).toBeInstanceOf(RecruitingOpinionNotFoundError)
+
+      const unsupportedDelete = yield* Effect.flip(
+        deleteRecruitingOpinion({ opinion: OpinionIdentifier.make("OPE-1") }).pipe(
+          Effect.provide(createRecruitingLayer({ removeCollectionAvailable: false }).layer)
+        )
+      )
+      expect(unsupportedDelete).toBeInstanceOf(RecruitingMutationUnsupportedError)
+    }))
+
+  it.effect("reports opinion ambiguity and unsupported collection updates", () =>
+    Effect.gen(function*() {
+      const ambiguous = yield* Effect.flip(
+        getRecruitingOpinion({ opinion: OpinionIdentifier.make("OPE-1") }).pipe(
+          Effect.provide(
+            createRecruitingLayer({
+              opinions: [makeOpinion(), makeOpinion({ _id: docRef("opinion-2") })]
+            }).layer
+          )
+        )
+      )
+      expect(ambiguous).toBeInstanceOf(RecruitingOpinionIdentifierAmbiguousError)
+
+      const unsupported = yield* Effect.flip(
+        updateRecruitingOpinion({
+          opinion: OpinionIdentifier.make("OPE-1"),
+          value: "No Update Collection"
+        }).pipe(Effect.provide(createRecruitingLayer({ updateCollectionAvailable: false }).layer))
+      )
+      expect(unsupported).toBeInstanceOf(RecruitingMutationUnsupportedError)
+    }))
+
+  it.effect("resolves every recruiting media target through friendly locators", () =>
+    Effect.gen(function*() {
+      const { layer } = createRecruitingLayer({})
+
+      const vacancy = yield* listRecruitingComments({
+        target: { kind: "vacancy", vacancy: VacancyIdentifier.make("VCN-1") }
+      }).pipe(Effect.provide(layer), withDiagnostics)
+      const candidate = yield* listRecruitingComments({
+        target: { kind: "candidate", candidate: CandidateIdentifier.make("ada@example.com") }
+      }).pipe(Effect.provide(layer), withDiagnostics)
+      const applicant = yield* listRecruitingComments({
+        target: { kind: "applicant", applicant: ApplicantIdentifier.make("APP-1") }
+      }).pipe(Effect.provide(layer), withDiagnostics)
+      const applicantWithContext = yield* listRecruitingComments({
+        target: {
+          kind: "applicant",
+          applicant: ApplicantIdentifier.make("APP-1"),
+          vacancy: VacancyIdentifier.make("VCN-1"),
+          candidate: CandidateIdentifier.make("ada@example.com")
+        }
+      }).pipe(Effect.provide(layer), withDiagnostics)
+      const review = yield* listRecruitingComments({
+        target: { kind: "review", review: ReviewIdentifier.make("RVE-1") }
+      }).pipe(Effect.provide(layer), withDiagnostics)
+      const opinion = yield* listRecruitingComments({
+        target: { kind: "opinion", opinion: OpinionIdentifier.make("OPE-1") }
+      }).pipe(Effect.provide(layer), withDiagnostics)
+      const opinionWithReview = yield* listRecruitingComments({
+        target: {
+          kind: "opinion",
+          opinion: OpinionIdentifier.make("OPE-1"),
+          review: ReviewIdentifier.make("RVE-1")
+        }
+      }).pipe(Effect.provide(layer), withDiagnostics)
+
+      expect(vacancy.target.kind).toBe("vacancy")
+      expect(vacancy.target.id).toBe("vacancy-1")
+      expect(candidate.target.kind).toBe("candidate")
+      expect(candidate.target.id).toBe("person-1")
+      expect(applicant.target.kind).toBe("applicant")
+      expect(applicant.target.id).toBe("applicant-1")
+      expect(applicantWithContext.target.id).toBe("applicant-1")
+      expect(review.target.kind).toBe("review")
+      expect(review.target.id).toBe("review-1")
+      expect(opinion.target.kind).toBe("opinion")
+      expect(opinion.target.id).toBe("opinion-1")
+      expect(opinionWithReview.target.id).toBe("opinion-1")
+    }))
+
+  it.effect("lists, adds, updates, deletes, and target-scopes recruiting comments", () =>
+    Effect.gen(function*() {
+      const foreign = makeComment({
+        _id: docRef("comment-foreign"),
+        attachedTo: docRef<Candidate>("person-1"),
+        attachedToClass: recruitIds.mixin.Candidate
+      })
+      const { captures, layer } = createRecruitingLayer({ comments: [makeComment(), foreign] })
+      const target = { kind: "vacancy" as const, vacancy: VacancyIdentifier.make("VCN-1") }
+
+      const listed = yield* listRecruitingComments({ target }).pipe(Effect.provide(layer), withDiagnostics)
+      expect(listed.total).toBe(1)
+      expect(listed.comments[0]?.body).toBe("Initial comment")
+
+      const added = yield* addRecruitingComment({
+        target,
+        body: NonEmptyString.make("Added recruiting note")
+      }).pipe(Effect.provide(layer), withDiagnostics)
+      expect(added.target.id).toBe("vacancy-1")
+      expect(captures.addedCollections.at(-1)).toMatchObject({
+        class: String(chunter.class.ChatMessage),
+        attachedTo: "vacancy-1",
+        collection: "comments"
+      })
+
+      const updated = yield* updateRecruitingComment({
+        target,
+        commentId: CommentId.make("comment-1"),
+        body: NonEmptyString.make("Updated recruiting note")
+      }).pipe(Effect.provide(layer), withDiagnostics)
+      expect(updated.updated).toBe(true)
+      expect(captures.updatedDocs.at(-1)).toMatchObject({
+        class: String(chunter.class.ChatMessage),
+        id: "comment-1"
+      })
+
+      const deleted = yield* deleteRecruitingComment({
+        target,
+        commentId: CommentId.make("comment-1")
+      }).pipe(Effect.provide(layer), withDiagnostics)
+      expect(deleted.deleted).toBe(true)
+      expect(captures.removedDocs.at(-1)).toMatchObject({
+        class: String(chunter.class.ChatMessage),
+        id: "comment-1"
+      })
+
+      const scopedMiss = yield* Effect.flip(
+        updateRecruitingComment({
+          target,
+          commentId: CommentId.make("comment-foreign"),
+          body: NonEmptyString.make("Wrong target")
+        }).pipe(Effect.provide(layer), withDiagnostics)
+      )
+      expect(scopedMiss).toBeInstanceOf(RecruitingCommentNotFoundError)
+
+      const deleteScopedMiss = yield* Effect.flip(
+        deleteRecruitingComment({
+          target,
+          commentId: CommentId.make("comment-foreign")
+        }).pipe(Effect.provide(layer), withDiagnostics)
+      )
+      expect(deleteScopedMiss).toBeInstanceOf(RecruitingCommentNotFoundError)
+    }))
+
+  it.effect("lists, gets, adds, updates, deletes, and target-scopes recruiting attachments", () =>
+    Effect.gen(function*() {
+      const foreign = makeAttachment({
+        _id: docRef("attachment-foreign"),
+        attachedTo: docRef<Candidate>("person-1"),
+        attachedToClass: recruitIds.mixin.Candidate
+      })
+      const { captures, layer } = createRecruitingLayer({ attachments: [makeAttachment(), foreign] })
+      const testLayer = Layer.merge(layer, storageLayer)
+      const target = { kind: "vacancy" as const, vacancy: VacancyIdentifier.make("VCN-1") }
+
+      const listed = yield* listRecruitingAttachments({ target }).pipe(Effect.provide(testLayer), withDiagnostics)
+      expect(listed.total).toBe(1)
+      expect(listed.attachments[0]?.name).toBe("resume.txt")
+
+      const read = yield* getRecruitingAttachment({
+        target,
+        attachmentId: AttachmentId.make("attachment-1")
+      }).pipe(Effect.provide(testLayer), withDiagnostics)
+      expect(read.attachment.url).toBe("https://test.huly.io/files?workspace=test&file=blob-1")
+
+      const added = yield* addRecruitingAttachment({
+        target,
+        filename: AttachmentFileName.make("portfolio.txt"),
+        contentType: MimeType.make("text/plain"),
+        data: Base64FileData.make("cG9ydGZvbGlv"),
+        description: AttachmentDescription.make("Portfolio"),
+        pinned: true
+      }).pipe(Effect.provide(testLayer), withDiagnostics)
+      expect(added.blobId).toBe("uploaded-blob")
+      expect(captures.addedCollections.at(-1)).toMatchObject({
+        class: String(attachment.class.Attachment),
+        attachedTo: "vacancy-1",
+        collection: "attachments"
+      })
+
+      const updated = yield* updateRecruitingAttachment({
+        target,
+        attachmentId: AttachmentId.make("attachment-1"),
+        description: AttachmentDescription.make("Updated resume"),
+        pinned: true
+      }).pipe(Effect.provide(testLayer), withDiagnostics)
+      expect(updated.updated).toBe(true)
+      expect(captures.updatedDocs.at(-1)?.operations).toMatchObject({
+        description: "Updated resume",
+        pinned: true
+      })
+
+      const deleted = yield* deleteRecruitingAttachment({
+        target,
+        attachmentId: AttachmentId.make("attachment-1")
+      }).pipe(Effect.provide(testLayer), withDiagnostics)
+      expect(deleted.deleted).toBe(true)
+      expect(captures.removedCollections.at(-1)).toMatchObject({
+        class: String(attachment.class.Attachment),
+        id: "attachment-1",
+        attachedTo: "vacancy-1",
+        collection: "attachments"
+      })
+
+      const scopedMiss = yield* Effect.flip(
+        getRecruitingAttachment({
+          target,
+          attachmentId: AttachmentId.make("attachment-foreign")
+        }).pipe(Effect.provide(testLayer), withDiagnostics)
+      )
+      expect(scopedMiss).toBeInstanceOf(RecruitingAttachmentNotFoundError)
+
+      const updateScopedMiss = yield* Effect.flip(
+        updateRecruitingAttachment({
+          target,
+          attachmentId: AttachmentId.make("attachment-foreign"),
+          pinned: false
+        }).pipe(Effect.provide(testLayer), withDiagnostics)
+      )
+      expect(updateScopedMiss).toBeInstanceOf(RecruitingAttachmentNotFoundError)
+
+      const deleteScopedMiss = yield* Effect.flip(
+        deleteRecruitingAttachment({
+          target,
+          attachmentId: AttachmentId.make("attachment-foreign")
+        }).pipe(Effect.provide(testLayer), withDiagnostics)
+      )
+      expect(deleteScopedMiss).toBeInstanceOf(RecruitingAttachmentNotFoundError)
+
+      const unsupported = yield* Effect.flip(
+        deleteRecruitingAttachment({
+          target,
+          attachmentId: AttachmentId.make("attachment-1")
+        }).pipe(
+          Effect.provide(
+            createRecruitingLayer({
+              attachments: [makeAttachment()],
+              removeCollectionAvailable: false
+            }).layer
+          ),
+          withDiagnostics
+        )
+      )
+      expect(unsupported).toBeInstanceOf(RecruitingMutationUnsupportedError)
+    }))
+
+  it.effect("lists recruiting activity for supported target kinds", () =>
+    Effect.gen(function*() {
+      const messages = [
+        makeActivityMessage(),
+        makeActivityMessage({
+          _id: docRef("activity-candidate"),
+          attachedTo: docRef<Candidate>("person-1"),
+          attachedToClass: recruitIds.mixin.Candidate
+        }),
+        makeActivityMessage({
+          _id: docRef("activity-applicant"),
+          attachedTo: docRef<Applicant>("applicant-1"),
+          attachedToClass: recruitIds.class.Applicant
+        }),
+        makeActivityMessage({
+          _id: docRef("activity-review"),
+          attachedTo: docRef<Review>("review-1"),
+          attachedToClass: recruitIds.class.Review
+        })
+      ]
+      const { layer } = createRecruitingLayer({ activityMessages: messages })
+
+      const vacancy = yield* listRecruitingActivity({
+        target: { kind: "vacancy", vacancy: VacancyIdentifier.make("VCN-1") }
+      }).pipe(Effect.provide(layer), withDiagnostics)
+      const candidate = yield* listRecruitingActivity({
+        target: { kind: "candidate", candidate: CandidateIdentifier.make("Ada Lovelace") }
+      }).pipe(Effect.provide(layer), withDiagnostics)
+      const applicant = yield* listRecruitingActivity({
+        target: { kind: "applicant", applicant: ApplicantIdentifier.make("APP-1") }
+      }).pipe(Effect.provide(layer), withDiagnostics)
+      const review = yield* listRecruitingActivity({
+        target: { kind: "review", review: ReviewIdentifier.make("RVE-1") }
+      }).pipe(Effect.provide(layer), withDiagnostics)
+
+      expect(vacancy.activity.map((message) => message.id)).toEqual(["activity-1"])
+      expect(candidate.activity.map((message) => message.id)).toEqual(["activity-candidate"])
+      expect(applicant.activity.map((message) => message.id)).toEqual(["activity-applicant"])
+      expect(review.activity.map((message) => message.id)).toEqual(["activity-review"])
+    }))
+
+  it.effect("adds, lists, removes, and idempotently reuses recruiting related issue refs", () =>
+    Effect.gen(function*() {
+      const { captures, layer } = createRecruitingLayer({
+        issues: [makeIssue()],
+        projects: [makeProject()]
+      })
+      const target = { kind: "vacancy" as const, vacancy: VacancyIdentifier.make("VCN-1") }
+      const issue = IssueIdentifier.make("HULY-1")
+
+      const added = yield* addRecruitingRelatedIssue({ target, issue }).pipe(
+        Effect.provide(layer),
+        withDiagnostics
+      )
+      expect(added.created).toBe(true)
+      expect(added.existing).toBe(false)
+      expect(added.issueId).toBe("issue-1")
+      expect(captures.updatedDocs.at(-1)).toMatchObject({
+        class: String(tracker.class.Issue),
+        id: "issue-1",
+        operations: { $push: { relations: { _id: "vacancy-1", _class: String(recruitIds.class.Vacancy) } } }
+      })
+
+      const existing = yield* addRecruitingRelatedIssue({ target, issue }).pipe(
+        Effect.provide(layer),
+        withDiagnostics
+      )
+      expect(existing.created).toBe(false)
+      expect(existing.existing).toBe(true)
+
+      const listed = yield* listRecruitingRelatedIssues({ target }).pipe(
+        Effect.provide(layer),
+        withDiagnostics
+      )
+      expect(listed.total).toBe(1)
+      expect(listed.relatedIssues[0]?.issue.display).toBe("HULY-1")
+
+      const removed = yield* removeRecruitingRelatedIssue({ target, issue }).pipe(
+        Effect.provide(layer),
+        withDiagnostics
+      )
+      expect(removed.deleted).toBe(true)
+      expect(removed.issueId).toBe("issue-1")
+      expect(captures.updatedDocs.at(-1)).toMatchObject({
+        class: String(tracker.class.Issue),
+        id: "issue-1",
+        operations: { $pull: { relations: { _id: "vacancy-1" } } }
+      })
+
+      const removedAgain = yield* removeRecruitingRelatedIssue({ target, issue }).pipe(
+        Effect.provide(layer),
+        withDiagnostics
+      )
+      expect(removedAgain.deleted).toBe(false)
+    }))
+
+  it.effect("lists existing recruiting related issue refs and validates unscoped issue locators", () =>
+    Effect.gen(function*() {
+      const target = { kind: "vacancy" as const, vacancy: VacancyIdentifier.make("VCN-1") }
+      const project = ProjectIdentifier.make("HULY")
+      const issue = IssueIdentifier.make("1")
+      const existing = createRecruitingLayer({
+        issues: [
+          makeIssue({
+            relations: [makeRelatedDocEntry("vacancy-1", recruitIds.class.Vacancy)]
+          })
+        ],
+        projects: [makeProject()]
+      })
+
+      const listed = yield* listRecruitingRelatedIssues({
+        target,
+        limit: 5
+      }).pipe(Effect.provide(existing.layer), withDiagnostics)
+      expect(listed.total).toBe(1)
+      expect(listed.relatedIssues[0]?.issue.id).toBe("issue-1")
+
+      const removed = yield* removeRecruitingRelatedIssue({
+        target,
+        project,
+        issue
+      }).pipe(Effect.provide(existing.layer), withDiagnostics)
+      expect(removed.deleted).toBe(true)
+
+      const invalidIssueLocator = yield* Effect.flip(
+        removeRecruitingRelatedIssue({
+          target,
+          issue
+        }).pipe(Effect.provide(existing.layer), withDiagnostics)
+      )
+      expect(invalidIssueLocator).toBeInstanceOf(RecruitingIssueLocatorInvalidError)
+      if (invalidIssueLocator._tag === "RecruitingIssueLocatorInvalidError") {
+        expect(invalidIssueLocator.issue).toBe("1")
+      }
     }))
 })

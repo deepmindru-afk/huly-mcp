@@ -1,7 +1,14 @@
 import { Schema } from "effect"
 
-import { ApplicantIdentifier, CandidateIdentifier, VacancyIdentifier } from "../domain/schemas/recruiting-common.js"
-import { Count, NonEmptyString } from "../domain/schemas/shared.js"
+import {
+  ApplicantIdentifier,
+  ApplicantMatchIdentifier,
+  CandidateIdentifier,
+  OpinionIdentifier,
+  ReviewIdentifier,
+  VacancyIdentifier
+} from "../domain/schemas/recruiting-common.js"
+import { AttachmentId, CommentId, Count, IssueIdentifier, NonEmptyString } from "../domain/schemas/shared.js"
 
 export class RecruitingVacancyNotFoundError extends Schema.TaggedError<RecruitingVacancyNotFoundError>()(
   "RecruitingVacancyNotFoundError",
@@ -70,6 +77,55 @@ export class RecruitingDuplicateApplicantError extends Schema.TaggedError<Recrui
   }
 }
 
+export class RecruitingReviewNotFoundError extends Schema.TaggedError<RecruitingReviewNotFoundError>()(
+  "RecruitingReviewNotFoundError",
+  { identifier: ReviewIdentifier }
+) {
+  override get message(): string {
+    return `Recruiting review '${this.identifier}' not found`
+  }
+}
+
+export class RecruitingReviewIdentifierAmbiguousError
+  extends Schema.TaggedError<RecruitingReviewIdentifierAmbiguousError>()(
+    "RecruitingReviewIdentifierAmbiguousError",
+    { identifier: ReviewIdentifier, matches: Count }
+  )
+{
+  override get message(): string {
+    return `Recruiting review identifier '${this.identifier}' matched ${this.matches} reviews; use the review ID`
+  }
+}
+
+export class RecruitingOpinionNotFoundError extends Schema.TaggedError<RecruitingOpinionNotFoundError>()(
+  "RecruitingOpinionNotFoundError",
+  { identifier: OpinionIdentifier }
+) {
+  override get message(): string {
+    return `Recruiting opinion '${this.identifier}' not found`
+  }
+}
+
+export class RecruitingOpinionIdentifierAmbiguousError
+  extends Schema.TaggedError<RecruitingOpinionIdentifierAmbiguousError>()(
+    "RecruitingOpinionIdentifierAmbiguousError",
+    { identifier: OpinionIdentifier, matches: Count }
+  )
+{
+  override get message(): string {
+    return `Recruiting opinion identifier '${this.identifier}' matched ${this.matches} opinions; pass review`
+  }
+}
+
+export class RecruitingApplicantMatchNotFoundError extends Schema.TaggedError<RecruitingApplicantMatchNotFoundError>()(
+  "RecruitingApplicantMatchNotFoundError",
+  { identifier: ApplicantMatchIdentifier }
+) {
+  override get message(): string {
+    return `Recruiting applicant match '${this.identifier}' not found`
+  }
+}
+
 export class RecruitingModelMissingError extends Schema.TaggedError<RecruitingModelMissingError>()(
   "RecruitingModelMissingError",
   { message: Schema.String }
@@ -79,3 +135,30 @@ export class RecruitingMutationUnsupportedError extends Schema.TaggedError<Recru
   "RecruitingMutationUnsupportedError",
   { message: Schema.String }
 ) {}
+
+export class RecruitingCommentNotFoundError extends Schema.TaggedError<RecruitingCommentNotFoundError>()(
+  "RecruitingCommentNotFoundError",
+  { target: NonEmptyString, commentId: CommentId }
+) {
+  override get message(): string {
+    return `Comment '${this.commentId}' not found on ${this.target}`
+  }
+}
+
+export class RecruitingAttachmentNotFoundError extends Schema.TaggedError<RecruitingAttachmentNotFoundError>()(
+  "RecruitingAttachmentNotFoundError",
+  { target: NonEmptyString, attachmentId: AttachmentId }
+) {
+  override get message(): string {
+    return `Attachment '${this.attachmentId}' not found on ${this.target}`
+  }
+}
+
+export class RecruitingIssueLocatorInvalidError extends Schema.TaggedError<RecruitingIssueLocatorInvalidError>()(
+  "RecruitingIssueLocatorInvalidError",
+  { issue: IssueIdentifier, reason: Schema.String }
+) {
+  override get message(): string {
+    return `Recruiting related issue locator '${this.issue}' is invalid: ${this.reason}`
+  }
+}

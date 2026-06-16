@@ -9,6 +9,14 @@ import {
   parseUpdateRecruitingReviewParams
 } from "../../src/domain/schemas/recruiting-extended.js"
 import {
+  parseAddRecruitingAttachmentParams,
+  parseListRecruitingActivityParams,
+  parseListRecruitingAttachmentsParams,
+  parseListRecruitingCommentsParams,
+  parseListRecruitingRelatedIssuesParams,
+  parseUpdateRecruitingAttachmentParams
+} from "../../src/domain/schemas/recruiting-media.js"
+import {
   parseCreateRecruitingVacancyParams,
   parseGetRecruitingApplicantParams,
   parseGetRecruitingVacancyParams,
@@ -59,6 +67,95 @@ describe("Recruiting Schemas", () => {
       expect(exactTitle.review).toBe("Technical Interview")
       expect(bareOpinion.opinion).toBe("OPE-7")
       expect(prefixedOpinion.opinion).toBe("OPE-8")
+    }))
+
+  it.effect("validates recruiting media target support by surface", () =>
+    Effect.gen(function*() {
+      const emptyTarget = yield* Effect.flip(
+        parseListRecruitingCommentsParams({ target: { kind: "vacancy", vacancy: "" } })
+      )
+      const reviewAttachments = yield* Effect.flip(
+        parseListRecruitingAttachmentsParams({ target: { kind: "review", review: "RVE-1" } })
+      )
+      const opinionActivity = yield* Effect.flip(
+        parseListRecruitingActivityParams({ target: { kind: "opinion", opinion: "OPE-1" } })
+      )
+      const reviewRelatedIssues = yield* Effect.flip(
+        parseListRecruitingRelatedIssuesParams({ target: { kind: "review", review: "RVE-1" } })
+      )
+
+      expect(emptyTarget._tag).toBe("ParseError")
+      expect(reviewAttachments._tag).toBe("ParseError")
+      expect(opinionActivity._tag).toBe("ParseError")
+      expect(reviewRelatedIssues._tag).toBe("ParseError")
+    }))
+
+  it.effect("normalizes nested recruiting media target identifiers", () =>
+    Effect.gen(function*() {
+      const applicant = yield* parseListRecruitingCommentsParams({
+        target: { kind: "applicant", applicant: "7", vacancy: "2" }
+      })
+      const review = yield* parseListRecruitingActivityParams({
+        target: { kind: "review", review: "5", application: "3" }
+      })
+      const opinion = yield* parseListRecruitingCommentsParams({
+        target: { kind: "opinion", opinion: "6", review: "5" }
+      })
+
+      expect(applicant.target).toEqual({ kind: "applicant", applicant: "APP-7", vacancy: "VCN-2" })
+      expect(review.target).toEqual({ kind: "review", review: "RVE-5", application: "APP-3" })
+      expect(opinion.target).toEqual({ kind: "opinion", opinion: "OPE-6", review: "RVE-5" })
+    }))
+
+  it.effect("requires exactly one recruiting attachment source", () =>
+    Effect.gen(function*() {
+      const missing = yield* Effect.flip(
+        parseAddRecruitingAttachmentParams({
+          target: { kind: "vacancy", vacancy: "VCN-1" },
+          filename: "resume.txt",
+          contentType: "text/plain"
+        })
+      )
+      const multiple = yield* Effect.flip(
+        parseAddRecruitingAttachmentParams({
+          target: { kind: "vacancy", vacancy: "VCN-1" },
+          filename: "resume.txt",
+          contentType: "text/plain",
+          filePath: "/tmp/resume.txt",
+          data: "cmVzdW1l"
+        })
+      )
+      const parsed = yield* parseAddRecruitingAttachmentParams({
+        target: { kind: "vacancy", vacancy: "VCN-1" },
+        filename: "resume.txt",
+        contentType: "text/plain",
+        data: "cmVzdW1l"
+      })
+
+      expect(missing._tag).toBe("ParseError")
+      expect(multiple._tag).toBe("ParseError")
+      expect(parsed.data).toBe("cmVzdW1l")
+    }))
+
+  it.effect("rejects no-op recruiting attachment updates", () =>
+    Effect.gen(function*() {
+      const error = yield* Effect.flip(
+        parseUpdateRecruitingAttachmentParams({
+          target: { kind: "candidate", candidate: "ada@example.com" },
+          attachmentId: "attachment-1"
+        })
+      )
+      expect(error._tag).toBe("ParseError")
+    }))
+
+  it.effect("accepts recruiting attachment updates with mutable fields", () =>
+    Effect.gen(function*() {
+      const result = yield* parseUpdateRecruitingAttachmentParams({
+        target: { kind: "candidate", candidate: "ada@example.com" },
+        attachmentId: "attachment-1",
+        pinned: false
+      })
+      expect(result.pinned).toBe(false)
     }))
 
   it.effect("rejects vacancy updates with no mutable fields", () =>

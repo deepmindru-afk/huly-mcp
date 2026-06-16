@@ -36,6 +36,9 @@ RECRUITING_CLEANUP_VACANCY_ID=""
 RECRUITING_CLEANUP_APPLICANT_ID=""
 RECRUITING_CLEANUP_REVIEW_ID=""
 RECRUITING_CLEANUP_OPINION_ID=""
+RECRUITING_CLEANUP_COMMENT_ID=""
+RECRUITING_CLEANUP_ATTACHMENT_ID=""
+RECRUITING_CLEANUP_RELATED_ISSUE_ID=""
 RECRUITING_CLEANUP_PERSON_ID=""
 RECRUITING_CLEANUP_PERSON_EMAIL=""
 RECRUITING_CLEANUP_SKILL=""
@@ -186,6 +189,25 @@ cleanup_inventory_artifacts() {
 }
 
 cleanup_recruiting_artifacts() {
+  if [ -n "$RECRUITING_CLEANUP_COMMENT_ID" ] && [ -n "$RECRUITING_CLEANUP_VACANCY_ID" ]; then
+    vacancy_json=$(json_string "$RECRUITING_CLEANUP_VACANCY_ID")
+    comment_json=$(json_string "$RECRUITING_CLEANUP_COMMENT_ID")
+    call_tool "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_recruiting_comment\",\"arguments\":{\"target\":{\"kind\":\"vacancy\",\"vacancy\":$vacancy_json},\"commentId\":$comment_json}},\"id\":2}" >/dev/null 2>&1 || true
+  fi
+  if [ -n "$RECRUITING_CLEANUP_ATTACHMENT_ID" ] && [ -n "$RECRUITING_CLEANUP_VACANCY_ID" ]; then
+    vacancy_json=$(json_string "$RECRUITING_CLEANUP_VACANCY_ID")
+    attachment_json=$(json_string "$RECRUITING_CLEANUP_ATTACHMENT_ID")
+    call_tool "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_recruiting_attachment\",\"arguments\":{\"target\":{\"kind\":\"vacancy\",\"vacancy\":$vacancy_json},\"attachmentId\":$attachment_json}},\"id\":2}" >/dev/null 2>&1 || true
+  fi
+  if [ -n "$RECRUITING_CLEANUP_RELATED_ISSUE_ID" ] && [ -n "$RECRUITING_CLEANUP_VACANCY_ID" ]; then
+    vacancy_json=$(json_string "$RECRUITING_CLEANUP_VACANCY_ID")
+    issue_json=$(json_string "$RECRUITING_CLEANUP_RELATED_ISSUE_ID")
+    call_tool "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"remove_recruiting_related_issue\",\"arguments\":{\"target\":{\"kind\":\"vacancy\",\"vacancy\":$vacancy_json},\"issue\":$issue_json}},\"id\":2}" >/dev/null 2>&1 || true
+  fi
+  if [ -n "$RECRUITING_CLEANUP_RELATED_ISSUE_ID" ]; then
+    issue_json=$(json_string "$RECRUITING_CLEANUP_RELATED_ISSUE_ID")
+    call_tool "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_issue\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":$issue_json}},\"id\":2}" >/dev/null 2>&1 || true
+  fi
   if [ -n "$RECRUITING_CLEANUP_OPINION_ID" ]; then
     opinion_json=$(json_string "$RECRUITING_CLEANUP_OPINION_ID")
     call_tool "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_recruiting_opinion\",\"arguments\":{\"opinion\":$opinion_json}},\"id\":2}" >/dev/null 2>&1 || true
@@ -1088,6 +1110,10 @@ elif [ "$RECRUITING_PROBE_IS_ERROR" = "true" ] &&
     "get_recruiting_opinion" \
     "update_recruiting_opinion" \
     "delete_recruiting_opinion" \
+    "add/list/update/delete recruiting comment" \
+    "add/list/get/update/delete recruiting attachment" \
+    "list_recruiting_activity" \
+    "add/list/remove recruiting related issue" \
     "delete_recruiting_review" \
     "delete_recruiting_applicant" \
     "remove_recruiting_candidate_skill" \
@@ -1124,6 +1150,10 @@ else
       "get_recruiting_opinion" \
       "update_recruiting_opinion" \
       "delete_recruiting_opinion" \
+      "add/list/update/delete recruiting comment" \
+      "add/list/get/update/delete recruiting attachment" \
+      "list_recruiting_activity" \
+      "add/list/remove recruiting related issue" \
       "delete_recruiting_review" \
       "delete_recruiting_applicant" \
       "remove_recruiting_candidate_skill" \
@@ -1156,6 +1186,82 @@ else
         "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_recruiting_vacancy_statuses\",\"arguments\":{\"vacancy\":$RECRUITING_VACANCY_ID_JSON}},\"id\":2}"
       RECRUITING_CREATE_STATUS=$(echo "$RECRUITING_STATUSES_TEXT" | jq -r '.statuses[0].name // empty' 2>/dev/null)
       RECRUITING_UPDATE_STATUS=$(echo "$RECRUITING_STATUSES_TEXT" | jq -r '.statuses[1].name // .statuses[0].name // empty' 2>/dev/null)
+      RECRUITING_VACANCY_TARGET_JSON="{\"kind\":\"vacancy\",\"vacancy\":$RECRUITING_VACANCY_ID_JSON}"
+
+      RECRUITING_COMMENT_BODY_JSON=$(json_string "Recruiting vacancy integration comment $RUN_ID")
+      RECRUITING_COMMENT_BODY_UPDATED_JSON=$(json_string "Updated recruiting vacancy integration comment $RUN_ID")
+      run_capture_to_var RECRUITING_COMMENT_TEXT "add_recruiting_comment(vacancy)" \
+        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"add_recruiting_comment\",\"arguments\":{\"target\":$RECRUITING_VACANCY_TARGET_JSON,\"body\":$RECRUITING_COMMENT_BODY_JSON}},\"id\":2}"
+      RECRUITING_CLEANUP_COMMENT_ID=$(echo "$RECRUITING_COMMENT_TEXT" | jq -r '.commentId // empty' 2>/dev/null)
+      if [ -n "$RECRUITING_CLEANUP_COMMENT_ID" ]; then
+        RECRUITING_COMMENT_ID_JSON=$(json_string "$RECRUITING_CLEANUP_COMMENT_ID")
+        wait_for_json_array_contains_to_var RECRUITING_LIST_COMMENTS_TEXT "list_recruiting_comments includes comment" \
+          "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_recruiting_comments\",\"arguments\":{\"target\":$RECRUITING_VACANCY_TARGET_JSON,\"limit\":20}},\"id\":2}" \
+          ".comments | map(.id)" "$RECRUITING_CLEANUP_COMMENT_ID"
+        run_capture_to_var RECRUITING_UPDATE_COMMENT_TEXT "update_recruiting_comment($RECRUITING_CLEANUP_COMMENT_ID)" \
+          "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"update_recruiting_comment\",\"arguments\":{\"target\":$RECRUITING_VACANCY_TARGET_JSON,\"commentId\":$RECRUITING_COMMENT_ID_JSON,\"body\":$RECRUITING_COMMENT_BODY_UPDATED_JSON}},\"id\":2}"
+        assert_json_field_equals "update_recruiting_comment updated" "$RECRUITING_UPDATE_COMMENT_TEXT" ".updated" "true"
+        run_capture_to_var RECRUITING_DELETE_COMMENT_TEXT "delete_recruiting_comment($RECRUITING_CLEANUP_COMMENT_ID)" \
+          "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_recruiting_comment\",\"arguments\":{\"target\":$RECRUITING_VACANCY_TARGET_JSON,\"commentId\":$RECRUITING_COMMENT_ID_JSON}},\"id\":2}"
+        if assert_json_field_equals "delete_recruiting_comment deleted" "$RECRUITING_DELETE_COMMENT_TEXT" ".deleted" "true"; then
+          RECRUITING_CLEANUP_COMMENT_ID=""
+        fi
+      else
+        skip_test "list/update/delete recruiting comment" "add_recruiting_comment did not return a comment id"
+      fi
+
+      RECRUITING_ATTACHMENT_DATA_JSON=$(json_string "cmVjcnVpdGluZyBhdHRhY2htZW50")
+      RECRUITING_ATTACHMENT_FILENAME_JSON=$(json_string "recruiting-attachment.txt")
+      RECRUITING_ATTACHMENT_DESC_JSON=$(json_string "Recruiting attachment")
+      RECRUITING_ATTACHMENT_DESC_UPDATED_JSON=$(json_string "Updated recruiting attachment")
+      run_capture_to_var RECRUITING_ATTACHMENT_TEXT "add_recruiting_attachment(vacancy)" \
+        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"add_recruiting_attachment\",\"arguments\":{\"target\":$RECRUITING_VACANCY_TARGET_JSON,\"filename\":$RECRUITING_ATTACHMENT_FILENAME_JSON,\"contentType\":\"text/plain\",\"data\":$RECRUITING_ATTACHMENT_DATA_JSON,\"description\":$RECRUITING_ATTACHMENT_DESC_JSON}},\"id\":2}"
+      RECRUITING_CLEANUP_ATTACHMENT_ID=$(echo "$RECRUITING_ATTACHMENT_TEXT" | jq -r '.attachmentId // empty' 2>/dev/null)
+      if [ -n "$RECRUITING_CLEANUP_ATTACHMENT_ID" ]; then
+        RECRUITING_ATTACHMENT_ID_JSON=$(json_string "$RECRUITING_CLEANUP_ATTACHMENT_ID")
+        wait_for_json_array_contains_to_var RECRUITING_LIST_ATTACHMENTS_TEXT "list_recruiting_attachments includes attachment" \
+          "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_recruiting_attachments\",\"arguments\":{\"target\":$RECRUITING_VACANCY_TARGET_JSON,\"limit\":20}},\"id\":2}" \
+          ".attachments | map(.id)" "$RECRUITING_CLEANUP_ATTACHMENT_ID"
+        run_capture_to_var RECRUITING_GET_ATTACHMENT_TEXT "get_recruiting_attachment($RECRUITING_CLEANUP_ATTACHMENT_ID)" \
+          "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"get_recruiting_attachment\",\"arguments\":{\"target\":$RECRUITING_VACANCY_TARGET_JSON,\"attachmentId\":$RECRUITING_ATTACHMENT_ID_JSON}},\"id\":2}"
+        assert_json_field_equals "get_recruiting_attachment returns id" "$RECRUITING_GET_ATTACHMENT_TEXT" ".attachment.id" "$RECRUITING_CLEANUP_ATTACHMENT_ID"
+        run_capture_to_var RECRUITING_UPDATE_ATTACHMENT_TEXT "update_recruiting_attachment($RECRUITING_CLEANUP_ATTACHMENT_ID)" \
+          "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"update_recruiting_attachment\",\"arguments\":{\"target\":$RECRUITING_VACANCY_TARGET_JSON,\"attachmentId\":$RECRUITING_ATTACHMENT_ID_JSON,\"description\":$RECRUITING_ATTACHMENT_DESC_UPDATED_JSON,\"pinned\":true}},\"id\":2}"
+        assert_json_field_equals "update_recruiting_attachment updated" "$RECRUITING_UPDATE_ATTACHMENT_TEXT" ".updated" "true"
+        run_capture_to_var RECRUITING_DELETE_ATTACHMENT_TEXT "delete_recruiting_attachment($RECRUITING_CLEANUP_ATTACHMENT_ID)" \
+          "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_recruiting_attachment\",\"arguments\":{\"target\":$RECRUITING_VACANCY_TARGET_JSON,\"attachmentId\":$RECRUITING_ATTACHMENT_ID_JSON}},\"id\":2}"
+        if assert_json_field_equals "delete_recruiting_attachment deleted" "$RECRUITING_DELETE_ATTACHMENT_TEXT" ".deleted" "true"; then
+          RECRUITING_CLEANUP_ATTACHMENT_ID=""
+        fi
+      else
+        skip_test "list/get/update/delete recruiting attachment" "add_recruiting_attachment did not return an attachment id"
+      fi
+
+      run_capture_to_var RECRUITING_ACTIVITY_TEXT "list_recruiting_activity(vacancy)" \
+        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_recruiting_activity\",\"arguments\":{\"target\":$RECRUITING_VACANCY_TARGET_JSON,\"limit\":5}},\"id\":2}"
+      assert_json_field_equals "list_recruiting_activity returns target" "$RECRUITING_ACTIVITY_TEXT" ".target.id" "$RECRUITING_CLEANUP_VACANCY_ID"
+
+      run_capture_to_var RECRUITING_RELATED_ISSUE_TEXT "create_issue(for_recruiting_related_issue)" \
+        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"create_issue\",\"arguments\":{\"project\":\"$PROJECT\",\"title\":\"Recruiting Related Issue $RUN_ID\"}},\"id\":2}"
+      RECRUITING_CLEANUP_RELATED_ISSUE_ID=$(echo "$RECRUITING_RELATED_ISSUE_TEXT" | jq -r '.identifier // empty' 2>/dev/null)
+      if [ -n "$RECRUITING_CLEANUP_RELATED_ISSUE_ID" ]; then
+        RECRUITING_RELATED_ISSUE_ID_JSON=$(json_string "$RECRUITING_CLEANUP_RELATED_ISSUE_ID")
+        run_capture_to_var RECRUITING_ADD_RELATED_TEXT "add_recruiting_related_issue(vacancy)" \
+          "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"add_recruiting_related_issue\",\"arguments\":{\"target\":$RECRUITING_VACANCY_TARGET_JSON,\"issue\":$RECRUITING_RELATED_ISSUE_ID_JSON}},\"id\":2}"
+        assert_json_field_equals "add_recruiting_related_issue created" "$RECRUITING_ADD_RELATED_TEXT" ".created" "true"
+        run_capture_to_var RECRUITING_LIST_RELATED_TEXT "list_recruiting_related_issues(vacancy)" \
+          "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"list_recruiting_related_issues\",\"arguments\":{\"target\":$RECRUITING_VACANCY_TARGET_JSON,\"limit\":20}},\"id\":2}"
+        assert_json_array_contains "list_recruiting_related_issues includes issue" "$RECRUITING_LIST_RELATED_TEXT" ".relatedIssues | map(.issue.display)" "$RECRUITING_CLEANUP_RELATED_ISSUE_ID"
+        run_capture_to_var RECRUITING_REMOVE_RELATED_TEXT "remove_recruiting_related_issue(vacancy)" \
+          "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"remove_recruiting_related_issue\",\"arguments\":{\"target\":$RECRUITING_VACANCY_TARGET_JSON,\"issue\":$RECRUITING_RELATED_ISSUE_ID_JSON}},\"id\":2}"
+        if assert_json_field_equals "remove_recruiting_related_issue deleted" "$RECRUITING_REMOVE_RELATED_TEXT" ".deleted" "true"; then
+          run_test "delete_issue(recruiting_related:$RECRUITING_CLEANUP_RELATED_ISSUE_ID)" \
+            "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"delete_issue\",\"arguments\":{\"project\":\"$PROJECT\",\"identifier\":$RECRUITING_RELATED_ISSUE_ID_JSON}},\"id\":2}"
+          RECRUITING_CLEANUP_RELATED_ISSUE_ID=""
+        fi
+      else
+        skip_test "add/list/remove recruiting related issue" "create_issue did not return an issue identifier"
+      fi
 
       if [ -z "$RECRUITING_CREATE_STATUS" ]; then
         for recruiting_test in \
@@ -1306,6 +1412,10 @@ else
       assert_json_field_equals "archive_recruiting_vacancy archived" "$RECRUITING_ARCHIVE_TEXT" ".vacancy.archived" "true"
     else
       skip_test "get/list/update recruiting vacancy workflow" "create_recruiting_vacancy did not return an id"
+      skip_test "add/list/update/delete recruiting comment" "create_recruiting_vacancy did not return an id"
+      skip_test "add/list/get/update/delete recruiting attachment" "create_recruiting_vacancy did not return an id"
+      skip_test "list_recruiting_activity" "create_recruiting_vacancy did not return an id"
+      skip_test "add/list/remove recruiting related issue" "create_recruiting_vacancy did not return an id"
     fi
 
     if [ -n "$RECRUITING_CLEANUP_PERSON_ID" ]; then

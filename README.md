@@ -765,6 +765,19 @@ SDK upgrade revisit:
 | `create_recruiting_opinion` | Create a Recruiting opinion on one review. Increments the OPE sequence, attaches to the review opinions collection, and stores markdown description as Huly markup. |
 | `update_recruiting_opinion` | Update a Recruiting opinion value and/or markdown description. opinion accepts raw _id, OPE-<number>, or number; review can disambiguate. Pass null for description to clear it. |
 | `delete_recruiting_opinion` | Delete a Recruiting opinion with Huly removeCollection. opinion accepts raw _id, OPE-<number>, or number; review can disambiguate. |
+| `list_recruiting_comments` | List comments attached directly to a Recruiting vacancy, candidate, applicant, review, or opinion target. The target locator resolves friendly Recruiting identifiers and returns the resolved target ref. |
+| `add_recruiting_comment` | Add a Markdown comment directly to a Recruiting vacancy, candidate, applicant, review, or opinion target resolved by the shared target locator. |
+| `update_recruiting_comment` | Update one comment attached directly to a Recruiting vacancy, candidate, applicant, review, or opinion. The commentId must belong to the resolved target. |
+| `delete_recruiting_comment` | Delete one comment attached directly to a Recruiting vacancy, candidate, applicant, review, or opinion. The commentId must belong to the resolved target. |
+| `list_recruiting_attachments` | List files attached directly to a Recruiting vacancy, candidate, applicant, or opinion target. Review attachments are intentionally unsupported unless the model exposes that collection. |
+| `get_recruiting_attachment` | Get one file attached directly to a Recruiting vacancy, candidate, applicant, or opinion. The attachmentId must belong to the resolved target. |
+| `add_recruiting_attachment` | Attach a file to a Recruiting vacancy, candidate, applicant, or opinion target. Provide exactly one of filePath, fileUrl, or data, plus filename and contentType. |
+| `update_recruiting_attachment` | Update description and/or pinned state for a file attached directly to a Recruiting vacancy, candidate, applicant, or opinion. The attachmentId must belong to the resolved target. |
+| `delete_recruiting_attachment` | Delete one file attached directly to a Recruiting vacancy, candidate, applicant, or opinion. The attachmentId must belong to the resolved target. |
+| `list_recruiting_activity` | List read-only activity messages for a Recruiting vacancy, candidate, applicant, or review target resolved by friendly Recruiting identifiers. Opinions are intentionally unsupported. |
+| `list_recruiting_related_issues` | List tracker issues whose Huly Related Issues entries (`Issue.relations`) point at a Recruiting vacancy, candidate, or applicant target. |
+| `add_recruiting_related_issue` | Idempotently add a Huly Related Issues entry (`Issue.relations`) from a tracker issue to a Recruiting vacancy, candidate, or applicant target. |
+| `remove_recruiting_related_issue` | Idempotently remove a Huly Related Issues entry (`Issue.relations`) from a tracker issue to a Recruiting vacancy, candidate, or applicant target. |
 | `list_recruiting_vacancy_types` | List Huly Recruiting vacancy workflow types. Use the returned type ID or exact type name in create_recruiting_vacancy. Defaults vacancy creation to Huly's Default vacancy type when omitted. |
 | `list_recruiting_vacancy_statuses` | List applicant workflow statuses for one vacancy. vacancy accepts raw _id, VCN-<number>, bare number, or exact name. Statuses are read from the vacancy's ProjectType; they are workspace data, not hardcoded names. |
 | `list_recruiting_vacancies` | List Recruiting vacancies as stable refs. Supports includeArchived, name query, type ID/name, company organization ID/name, and limit. Vacancy refs include both raw id and derived VCN-<number> identifier. |

@@ -11,10 +11,13 @@ import {
 } from "../../src/domain/schemas/recruiting.js"
 import {
   AssociationId,
+  AttachmentId,
+  CommentId,
   Count,
   DocId,
   EventId,
   FloorId,
+  IssueIdentifier,
   MeetingMinutesId,
   NonEmptyString,
   ObjectClassName,
@@ -124,8 +127,11 @@ import {
   RecruitingApplicantIdentifierAmbiguousError,
   RecruitingApplicantMatchNotFoundError,
   RecruitingApplicantNotFoundError,
+  RecruitingAttachmentNotFoundError,
   RecruitingCandidateNotFoundError,
+  RecruitingCommentNotFoundError,
   RecruitingDuplicateApplicantError,
+  RecruitingIssueLocatorInvalidError,
   RecruitingModelMissingError,
   RecruitingMutationUnsupportedError,
   RecruitingOpinionIdentifierAmbiguousError,
@@ -1042,6 +1048,8 @@ describe("Huly Errors", () => {
               return `recruiting-applicant-ambiguous:${error.identifier}:${error.matches}`
             case "RecruitingDuplicateApplicantError":
               return `recruiting-applicant-duplicate:${error.vacancy}:${error.candidate}`
+            case "RecruitingIssueLocatorInvalidError":
+              return `recruiting-issue-invalid:${error.issue}:${error.reason}`
             case "RecruitingReviewNotFoundError":
               return `recruiting-review:${error.identifier}`
             case "RecruitingReviewIdentifierAmbiguousError":
@@ -1056,6 +1064,10 @@ describe("Huly Errors", () => {
               return `recruiting-model-missing:${error.message}`
             case "RecruitingMutationUnsupportedError":
               return `recruiting-mutation-unsupported:${error.message}`
+            case "RecruitingCommentNotFoundError":
+              return `recruiting-comment:${error.target}:${error.commentId}`
+            case "RecruitingAttachmentNotFoundError":
+              return `recruiting-attachment:${error.target}:${error.attachmentId}`
             case "NoUpdateFieldsError":
               return `no-update-fields:${error.operation}:${error.fields.length}`
             case "CannotDirectMessageSelfError":
@@ -1175,6 +1187,24 @@ describe("Huly Errors", () => {
         expect(matchError(new RecruitingMutationUnsupportedError({ message: "removeCollection missing" }))).toBe(
           "recruiting-mutation-unsupported:removeCollection missing"
         )
+        expect(matchError(
+          new RecruitingCommentNotFoundError({
+            target: NonEmptyString.make("Recruiting vacancy 'Backend Engineer'"),
+            commentId: CommentId.make("comment-1")
+          })
+        )).toBe("recruiting-comment:Recruiting vacancy 'Backend Engineer':comment-1")
+        expect(matchError(
+          new RecruitingAttachmentNotFoundError({
+            target: NonEmptyString.make("Recruiting vacancy 'Backend Engineer'"),
+            attachmentId: AttachmentId.make("attachment-1")
+          })
+        )).toBe("recruiting-attachment:Recruiting vacancy 'Backend Engineer':attachment-1")
+        expect(matchError(
+          new RecruitingIssueLocatorInvalidError({
+            issue: IssueIdentifier.make("1"),
+            reason: "project is required"
+          })
+        )).toBe("recruiting-issue-invalid:1:project is required")
         expect(new TodoIdentifierAmbiguousError({ locator: "title:Fix bug", matches: 2 }).message).toBe(
           "Planner ToDo locator is ambiguous: title:Fix bug matched 2 ToDos"
         )

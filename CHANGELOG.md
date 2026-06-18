@@ -1,5 +1,11 @@
 # @firfi/huly-mcp
 
+## 0.38.0
+
+### Minor Changes
+
+- c749440: Add Huly board and board card MCP tools for board discovery, safe board updates, card creation/update/archive, and archived-card deletion.
+
 ## 0.37.0
 
 ### Minor Changes

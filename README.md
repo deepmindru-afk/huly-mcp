@@ -1,4 +1,4 @@
-# @firfi/huly-mcp
+# Huly MCP
 
 [![npm](https://img.shields.io/npm/v/@firfi/huly-mcp)](https://www.npmjs.com/package/@firfi/huly-mcp)
 [![npm downloads](https://img.shields.io/npm/dm/@firfi/huly-mcp)](https://www.npmjs.com/package/@firfi/huly-mcp)
@@ -7,7 +7,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
 [![MCP Server](https://badge.mcpx.dev?type=server&features=tools)](https://github.com/dearlordylord/huly-mcp)[![cooked at Monadical](https://img.shields.io/endpoint?url=https://monadical.com/static/api/cooked-at-monadical.json)](https://monadical.com)
 
-MCP server for [Huly](https://huly.io/) integration.
+**Huly MCP** is a feature-complete MCP server for [Huly](https://huly.io/) integration. Published on npm as [`@firfi/huly-mcp`](https://www.npmjs.com/package/@firfi/huly-mcp).
 
 ## Installation
 

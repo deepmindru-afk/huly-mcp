@@ -80,6 +80,55 @@ const queuedClock = (readings: ReadonlyArray<number>): NowClock => {
   return { currentTimeMillis: () => queue.shift() ?? 0 }
 }
 
+const isJsonObject = (value: unknown): value is Record<string, unknown> =>
+  typeof value === "object" && value !== null && !Array.isArray(value)
+
+const decodeJsonPointerSegment = (segment: string): string => segment.replace(/~1/g, "/").replace(/~0/g, "~")
+
+const resolvesLocalJsonSchemaRef = (schema: unknown, ref: string): boolean => {
+  if (ref === "#") return true
+  if (!ref.startsWith("#/")) return false
+
+  let current = schema
+  for (const segment of ref.slice(2).split("/").map(decodeJsonPointerSegment)) {
+    if (Array.isArray(current)) {
+      const index = Number(segment)
+      if (!Number.isInteger(index) || index < 0 || index >= current.length) return false
+      current = current[index]
+    } else if (isJsonObject(current)) {
+      if (!(segment in current)) return false
+      current = current[segment]
+    } else {
+      return false
+    }
+  }
+
+  return current !== undefined
+}
+
+const collectJsonSchemaRefs = (
+  value: unknown,
+  path: string = "$"
+): ReadonlyArray<{ readonly path: string; readonly ref: string }> => {
+  if (Array.isArray(value)) {
+    return value.flatMap((item, index) => collectJsonSchemaRefs(item, `${path}[${index}]`))
+  }
+  if (!isJsonObject(value)) return []
+
+  const ownRefs = typeof value.$ref === "string" ? [{ path: `${path}.$ref`, ref: value.$ref }] : []
+  return [
+    ...ownRefs,
+    ...Object.entries(value).flatMap(([key, nested]) =>
+      key === "$ref" ? [] : collectJsonSchemaRefs(nested, `${path}.${key}`)
+    )
+  ]
+}
+
+const unresolvedLocalJsonSchemaRefs = (
+  schema: unknown
+): ReadonlyArray<{ readonly path: string; readonly ref: string }> =>
+  collectJsonSchemaRefs(schema).filter(({ ref }) => !resolvesLocalJsonSchemaRef(schema, ref))
+
 describe("createMcpProtocolHandlers", () => {
   describe("serverDiscover", () => {
     it("returns the 2026 capability envelope carrying the package version", () => {
@@ -118,6 +167,9 @@ describe("createMcpProtocolHandlers", () => {
         expect(tool.inputSchema.type).toBe("object")
         expect(tool.outputSchema?.type).toBe("object")
       }
+      const contextTool = result.tools.find(tool => tool.name === GET_HULY_CONTEXT_TOOL_NAME)
+      expect(contextTool?.outputSchema).toHaveProperty(["$defs", "NonEmptyTrimmedString"])
+      expect(contextTool?.outputSchema?.properties?.result).not.toHaveProperty("$defs")
       expect(probe.firstListTools).toHaveLength(1)
     })
 
@@ -160,6 +212,27 @@ describe("createMcpProtocolHandlers", () => {
       expect(listedNames).toContain("create_access_link")
       expect(listedNames).toContain("list_project_types")
       expect(result.tools.every((tool) => Object.hasOwn(tool.inputSchema, "type"))).toBe(true)
+    })
+
+    it("advertises tools/list schemas with resolvable local JSON Schema refs", async () => {
+      const handlers = createMcpProtocolHandlers(
+        unusedResolveClients,
+        createTelemetryProbe().telemetry,
+        toolRegistry,
+        unusedGetHulyContext
+      )
+
+      const result = await handlers.listTools()
+      const unresolvedRefs = result.tools.flatMap((tool) =>
+        [
+          { kind: "inputSchema", schema: tool.inputSchema },
+          { kind: "outputSchema", schema: tool.outputSchema }
+        ].flatMap(({ kind, schema }) =>
+          unresolvedLocalJsonSchemaRefs(schema).map(({ path, ref }) => `${tool.name}.${kind}${path}: ${ref}`)
+        )
+      )
+
+      expect(unresolvedRefs).toEqual([])
     })
   })
 

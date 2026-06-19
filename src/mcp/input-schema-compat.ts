@@ -1,3 +1,5 @@
+import { collectJsonSchemaDefinitions } from "./json-schema-refs.js"
+
 export interface McpInputSchema {
   readonly type: "object"
   readonly properties?: Record<string, unknown>
@@ -51,7 +53,7 @@ export const toClientCompatibleInputSchema = (schema: object): McpInputSchema =>
     Object.entries(schema).filter(([key]) => key !== "type" && !ROOT_COMPOSITION_KEYS.has(key))
   )
   const properties = mergedSchemaField(schema, "properties")
-  const defs = mergedSchemaField(schema, "$defs")
+  const defs = collectJsonSchemaDefinitions(schema)
 
   return {
     ...rootFields,

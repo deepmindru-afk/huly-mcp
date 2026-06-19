@@ -1,5 +1,6 @@
 import { getHulyContextResultJsonSchema } from "../domain/schemas/index.js"
 import { ToolWarningCodeSchema } from "../domain/schemas/tool-warnings.js"
+import { collectJsonSchemaDefinitions, omitJsonSchemaDocumentMetadata } from "./json-schema-refs.js"
 
 // eslint-disable-next-line import-x/no-unused-modules -- exported to give output schema constants a stable declaration name
 export interface McpOutputSchema {
@@ -10,6 +11,22 @@ export interface McpOutputSchema {
 }
 
 const toolWarningCodeEnum = [...ToolWarningCodeSchema.literals]
+
+const wrapResultOutputSchema = (resultSchema: object): McpOutputSchema => {
+  const resultDefs = collectJsonSchemaDefinitions(resultSchema)
+  const resultJsonSchemaDialect = "$schema" in resultSchema ? resultSchema["$schema"] : undefined
+  const embeddedResultSchema = omitJsonSchemaDocumentMetadata(resultSchema)
+
+  return {
+    ...(resultJsonSchemaDialect === undefined ? {} : { $schema: resultJsonSchemaDialect }),
+    ...(resultDefs === undefined ? {} : { $defs: resultDefs }),
+    type: "object",
+    properties: {
+      result: embeddedResultSchema
+    },
+    required: ["result"]
+  }
+}
 
 export const defaultToolOutputSchema: McpOutputSchema = {
   type: "object",
@@ -42,25 +59,15 @@ export const defaultToolOutputSchema: McpOutputSchema = {
   required: ["result"]
 }
 
-export const versionToolOutputSchema: McpOutputSchema = {
+export const versionToolOutputSchema: McpOutputSchema = wrapResultOutputSchema({
   type: "object",
   properties: {
-    result: {
-      type: "object",
-      properties: {
-        current: { type: "string", minLength: 1 },
-        latest: { type: "string", minLength: 1 }
-      },
-      required: ["current", "latest"]
-    }
+    current: { type: "string", minLength: 1 },
+    latest: { type: "string", minLength: 1 }
   },
-  required: ["result"]
-}
+  required: ["current", "latest"]
+})
 
-export const hulyContextToolOutputSchema: McpOutputSchema = {
-  type: "object",
-  properties: {
-    result: getHulyContextResultJsonSchema
-  },
-  required: ["result"]
-}
+// Effect JSONSchema emits refs rooted at its own schema document. The MCP output
+// wrapper becomes that document, so shared definitions must live on the wrapper root.
+export const hulyContextToolOutputSchema: McpOutputSchema = wrapResultOutputSchema(getHulyContextResultJsonSchema)

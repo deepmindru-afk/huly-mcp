@@ -804,18 +804,18 @@ describe("createMcpProtocolHandlers — resource handlers", () => {
     await expect(handlers.listResources()).rejects.toThrow(McpError)
   })
 
-  it("does not hide client config errors when a Huly config source is present", async () => {
+  it("returns an empty resource list when registry inspection provides empty Huly config placeholders", async () => {
     const handlers = createMcpProtocolHandlers(
       rejectingFiberConfigResolveClients,
       createTelemetryProbe().telemetry,
       emptyRegistry,
-      () => makeContextFromEnv({ HULY_URL: "https://huly.example" })
+      () => makeContextFromEnv({ HULY_URL: "", HULY_WORKSPACE: "", HULY_TOKEN: "" })
     )
 
-    await expect(handlers.listResources()).rejects.toThrow(McpError)
+    await expect(handlers.listResources()).resolves.toEqual({ resources: [] })
   })
 
-  it("does not hide client config errors when runtime context construction fails", async () => {
+  it("returns an empty resource list for config validation failures even when runtime context construction fails", async () => {
     const handlers = createMcpProtocolHandlers(
       rejectingFiberConfigResolveClients,
       createTelemetryProbe().telemetry,
@@ -823,7 +823,7 @@ describe("createMcpProtocolHandlers — resource handlers", () => {
       unusedGetHulyContext
     )
 
-    await expect(handlers.listResources()).rejects.toThrow(McpError)
+    await expect(handlers.listResources()).resolves.toEqual({ resources: [] })
   })
 
   it("surfaces an McpError when the backend fails while listing resources", async () => {

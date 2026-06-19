@@ -211,18 +211,6 @@ const createResourceListClientResolutionError = (_error: unknown): McpError =>
     "Failed to initialize Huly clients while listing resources. Verify Huly URL, workspace, and authentication configuration."
   )
 
-const hasAnyHulyConfigSource = (context: GetHulyContextResult): boolean => {
-  const env = context.configSources.env
-  const headersPresent = context.configSources.headers?.present === true
-  return headersPresent
-    || env.hulyUrl
-    || env.hulyWorkspace
-    || env.hulyToken
-    || env.hulyEmail
-    || env.hulyPassword
-    || env.hulyConnectionTimeout
-}
-
 const isConfigValidationFailure = (error: unknown): boolean => {
   if (error instanceof ConfigValidationError) return true
   if (!Runtime.isFiberFailure(error)) return false
@@ -234,16 +222,8 @@ const isConfigValidationFailure = (error: unknown): boolean => {
 
 const shouldReturnEmptyResourceListOnClientResolutionFailure = (
   error: unknown,
-  getHulyContext: () => GetHulyContextResult
-): boolean => {
-  if (!isConfigValidationFailure(error)) return false
-
-  try {
-    return !hasAnyHulyConfigSource(validateHulyContextResult(getHulyContext()))
-  } catch {
-    return false
-  }
-}
+  _getHulyContext: () => GetHulyContextResult
+): boolean => isConfigValidationFailure(error)
 
 const resolveResourceClientsOrThrow = async (
   resolveClients: () => Promise<ClientBundle>,

@@ -69,14 +69,15 @@ const assertNoError = (label, response) => {
   }
 }
 
-const startLocalServer = async () => {
+const startLocalServer = async (envOverrides = {}) => {
   const port = await findFreePort()
   const endpoint = `http://127.0.0.1:${port}/mcp`
   const env = {
     ...removeHulyEnv(process.env),
     MCP_TRANSPORT: "http",
     MCP_HTTP_HOST: "127.0.0.1",
-    MCP_HTTP_PORT: String(port)
+    MCP_HTTP_PORT: String(port),
+    ...envOverrides
   }
   const child = spawn(process.execPath, ["dist/index.cjs"], {
     env,
@@ -139,39 +140,54 @@ const waitForInitialize = async (endpoint, serverLogs) => {
   )
 }
 
+const runProbe = async (endpoint, serverLogs, label) => {
+  await waitForInitialize(endpoint, serverLogs)
+
+  const ping = await postJsonRpc(endpoint, {
+    jsonrpc: "2.0",
+    method: "ping",
+    id: 2
+  })
+  assertNoError("ping", ping)
+
+  const resources = await postJsonRpc(endpoint, {
+    jsonrpc: "2.0",
+    method: "resources/list",
+    id: 3
+  })
+  assertNoError("resources/list", resources)
+  if (!Array.isArray(resources.result?.resources)) {
+    throw new Error(`resources/list did not return a resources array: ${JSON.stringify(resources)}`)
+  }
+  if (resources.result.resources.length !== 0) {
+    throw new Error(`expected no-config resources/list to return [], got ${JSON.stringify(resources.result)}`)
+  }
+
+  console.log(`HTTP no-config MCP smoke passed at ${endpoint}${label === undefined ? "" : ` (${label})`}`)
+}
+
+const runLocalScenario = async (label, envOverrides = {}) => {
+  const local = await startLocalServer(envOverrides)
+  try {
+    await runProbe(local.endpoint, local.serverLogs, label)
+  } finally {
+    await local.stop()
+  }
+}
+
 const run = async () => {
   const externalEndpoint = process.env["MCP_SMOKE_ENDPOINT"]
-  const local = externalEndpoint === undefined ? await startLocalServer() : undefined
-  const endpoint = externalEndpoint ?? local?.endpoint
-  if (endpoint === undefined) throw new Error("No MCP endpoint available for smoke test")
-
-  try {
-    await waitForInitialize(endpoint, local?.serverLogs)
-
-    const ping = await postJsonRpc(endpoint, {
-      jsonrpc: "2.0",
-      method: "ping",
-      id: 2
-    })
-    assertNoError("ping", ping)
-
-    const resources = await postJsonRpc(endpoint, {
-      jsonrpc: "2.0",
-      method: "resources/list",
-      id: 3
-    })
-    assertNoError("resources/list", resources)
-    if (!Array.isArray(resources.result?.resources)) {
-      throw new Error(`resources/list did not return a resources array: ${JSON.stringify(resources)}`)
-    }
-    if (resources.result.resources.length !== 0) {
-      throw new Error(`expected no-config resources/list to return [], got ${JSON.stringify(resources.result)}`)
-    }
-
-    console.log(`HTTP no-config MCP smoke passed at ${endpoint}`)
-  } finally {
-    await local?.stop()
+  if (externalEndpoint !== undefined) {
+    await runProbe(externalEndpoint, undefined, "external endpoint")
+    return
   }
+
+  await runLocalScenario("Huly env absent")
+  await runLocalScenario("empty Huly env placeholders", {
+    HULY_URL: "",
+    HULY_WORKSPACE: "",
+    HULY_TOKEN: ""
+  })
 }
 
 run().catch((error) => {

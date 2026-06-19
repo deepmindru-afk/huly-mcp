@@ -159,7 +159,12 @@ jobs:
         run: |
           set -euo pipefail
 
-          container_id="$(docker run -d -p 127.0.0.1::8080 huly-mcp:package-smoke)"
+          container_id="$(docker run -d \
+            -e HULY_URL= \
+            -e HULY_WORKSPACE= \
+            -e HULY_TOKEN= \
+            -p 127.0.0.1::8080 \
+            huly-mcp:package-smoke)"
           cleanup() {
             docker logs "$container_id" || true
             docker rm -f "$container_id" || true

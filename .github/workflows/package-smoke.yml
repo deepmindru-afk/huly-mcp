@@ -64,6 +64,17 @@ jobs:
           printf '{"private":true,"type":"module"}\n' > package.json
           pnpm add "$tarball"
 
+          node <<'NODE'
+          const { readFileSync } = require("node:fs")
+
+          const packageJson = JSON.parse(readFileSync("node_modules/@firfi/huly-mcp/package.json", "utf8"))
+          const expectedBin = { "huly-mcp": "./dist/index.cjs" }
+
+          if (JSON.stringify(packageJson.bin) !== JSON.stringify(expectedBin)) {
+            throw new Error(`Unexpected package bin metadata: ${JSON.stringify(packageJson.bin)}`)
+          }
+          NODE
+
           if ! printf '%s\n' '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"package-smoke","version":"1.0.0"}},"id":1}' \
             | env LAZY_ENVS=true MCP_AUTO_EXIT=true timeout 10 pnpm exec huly-mcp > stdout.log 2> stderr.log; then
             echo "::group::stdout"
@@ -89,5 +100,38 @@ jobs:
 
           if (serverInfo?.version !== expectedVersion) {
             throw new Error(`Unexpected server version: ${serverInfo?.version}; expected ${expectedVersion}`)
+          }
+          NODE
+
+          npm_smoke_dir="$(mktemp -d)"
+          cd "$npm_smoke_dir"
+          printf '{"private":true,"type":"module"}\n' > package.json
+          npm install "$tarball"
+
+          if ! printf '%s\n' '{"jsonrpc":"2.0","method":"initialize","params":{"protocolVersion":"2024-11-05","capabilities":{},"clientInfo":{"name":"package-smoke-npm","version":"1.0.0"}},"id":1}' \
+            | env LAZY_ENVS=true MCP_AUTO_EXIT=true timeout 10 ./node_modules/.bin/huly-mcp > stdout.log 2> stderr.log; then
+            echo "::group::npm stdout"
+            cat stdout.log
+            echo "::endgroup::"
+            echo "::group::npm stderr"
+            cat stderr.log
+            echo "::endgroup::"
+            exit 1
+          fi
+
+          node - "$expected_version" <<'NODE'
+          const { readFileSync } = require("node:fs")
+
+          const expectedVersion = process.argv[2]
+          const stdout = readFileSync("stdout.log", "utf8").trim()
+          const response = JSON.parse(stdout)
+          const serverInfo = response.result?.serverInfo
+
+          if (serverInfo?.name !== "huly-mcp") {
+            throw new Error(`Unexpected npm server name: ${serverInfo?.name}`)
+          }
+
+          if (serverInfo?.version !== expectedVersion) {
+            throw new Error(`Unexpected npm server version: ${serverInfo?.version}; expected ${expectedVersion}`)
           }
           NODE

@@ -44,8 +44,7 @@
     "verify-readme": "tsx scripts/update-readme-tools.mjs --check"
   },
   "bin": {
-    "huly-mcp": "./dist/index.cjs",
-    "@firfi/huly-mcp": "./dist/index.cjs"
+    "huly-mcp": "./dist/index.cjs"
   },
   "keywords": [
     "mcp",

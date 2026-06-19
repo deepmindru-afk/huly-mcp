@@ -5,6 +5,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![MCP](https://img.shields.io/badge/MCP-compatible-blue)](https://modelcontextprotocol.io)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-blue.svg)](https://www.typescriptlang.org/)
+[![Glama score](https://glama.ai/mcp/servers/@dearlordylord/huly-mcp/badges/score.svg)](https://glama.ai/mcp/servers/@dearlordylord/huly-mcp)
 [![MCP Server](https://badge.mcpx.dev?type=server&features=tools)](https://github.com/dearlordylord/huly-mcp)[![cooked at Monadical](https://img.shields.io/endpoint?url=https://monadical.com/static/api/cooked-at-monadical.json)](https://monadical.com)
 
 **Huly MCP** is a feature-complete MCP server for [Huly](https://huly.io/) integration. Published on npm as [`@firfi/huly-mcp`](https://www.npmjs.com/package/@firfi/huly-mcp).

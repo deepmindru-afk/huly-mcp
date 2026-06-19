@@ -60,6 +60,13 @@ export const assertFirst = <T>(arr: ReadonlyArray<T>, message?: string): T => {
 }
 
 /**
+ * Asserts array has a defined item at the index. Returns the item or throws.
+ */
+export const assertAt = <T>(arr: ReadonlyArray<T>, index: number, message?: string): T => {
+  return assertExists(arr[index], message ?? `Expected array item at index ${index}`)
+}
+
+/**
  * Asserts array is non-empty. Returns the array with narrowed type.
  */
 export const assertNonEmpty = <T>(
@@ -80,7 +87,12 @@ export const isNonEmpty = <T>(arr: ReadonlyArray<T>): arr is readonly [T, ...Arr
 /**
  * Type guard for arrays with exactly one element.
  */
-const isSingle = <T>(arr: ReadonlyArray<T>): arr is readonly [T] => arr.length === 1
+export const isSingle = <T>(arr: ReadonlyArray<T>): arr is readonly [T] => arr.length === 1
+
+/**
+ * Type guard for arrays with exactly two elements.
+ */
+export const isPair = <T>(arr: ReadonlyArray<T>): arr is readonly [T, T] => arr.length === 2
 
 /**
  * Gets the single element if array has exactly 0 or 1 elements.

@@ -2,4 +2,4 @@
 "@firfi/huly-mcp": patch
 ---
 
-Fix npm executable metadata so package runners such as `npx @firfi/huly-mcp` and registry builders can resolve the `huly-mcp` binary.
+Fix Glama and registry-builder compatibility by correcting npm executable metadata and allowing unauthenticated `resources/list` inspection to return an empty list when no Huly configuration has been supplied.

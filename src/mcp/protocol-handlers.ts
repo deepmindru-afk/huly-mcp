@@ -6,8 +6,9 @@ import type {
   ReadResourceResult
 } from "@modelcontextprotocol/sdk/types.js"
 import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js"
-import { Cause, Chunk, Clock, Effect, Exit, Schema } from "effect"
+import { Cause, Chunk, Clock, Effect, Exit, Runtime, Schema } from "effect"
 
+import { ConfigValidationError } from "../config/config.js"
 import { type GetHulyContextResult, GetHulyContextResultSchema } from "../domain/schemas/index.js"
 import type { ToolWarning } from "../domain/schemas/tool-warnings.js"
 import { HulyClient } from "../huly/client.js"
@@ -210,6 +211,40 @@ const createResourceListClientResolutionError = (_error: unknown): McpError =>
     "Failed to initialize Huly clients while listing resources. Verify Huly URL, workspace, and authentication configuration."
   )
 
+const hasAnyHulyConfigSource = (context: GetHulyContextResult): boolean => {
+  const env = context.configSources.env
+  const headersPresent = context.configSources.headers?.present === true
+  return headersPresent
+    || env.hulyUrl
+    || env.hulyWorkspace
+    || env.hulyToken
+    || env.hulyEmail
+    || env.hulyPassword
+    || env.hulyConnectionTimeout
+}
+
+const isConfigValidationFailure = (error: unknown): boolean => {
+  if (error instanceof ConfigValidationError) return true
+  if (!Runtime.isFiberFailure(error)) return false
+
+  return Chunk.toArray(Cause.failures(error[Runtime.FiberFailureCauseId])).some(
+    (failure) => failure instanceof ConfigValidationError
+  )
+}
+
+const shouldReturnEmptyResourceListOnClientResolutionFailure = (
+  error: unknown,
+  getHulyContext: () => GetHulyContextResult
+): boolean => {
+  if (!isConfigValidationFailure(error)) return false
+
+  try {
+    return !hasAnyHulyConfigSource(validateHulyContextResult(getHulyContext()))
+  } catch {
+    return false
+  }
+}
+
 const resolveResourceClientsOrThrow = async (
   resolveClients: () => Promise<ClientBundle>,
   mapError: (error: unknown) => McpError
@@ -385,7 +420,14 @@ export const createMcpProtocolHandlers = (
   const listResourcesHandler = async (): Promise<ListResourcesResult> => {
     enter()
     try {
-      const clients = await resolveResourceClientsOrThrow(resolveClients, createResourceListClientResolutionError)
+      let clients: ClientBundle
+      try {
+        clients = await resolveClients()
+      } catch (e) {
+        if (shouldReturnEmptyResourceListOnClientResolutionFailure(e, getHulyContext)) return { resources: [] }
+        throw createResourceListClientResolutionError(e)
+      }
+
       const resourceList = await Effect.runPromiseExit(
         listResources().pipe(
           Effect.provideService(HulyClient, clients.hulyClient)

@@ -18,7 +18,7 @@ import { McpError } from "@modelcontextprotocol/sdk/types.js"
 import { Context, Effect, Layer, Schema } from "effect"
 import { describe, expect, it } from "vitest"
 
-import { sanitizeHulyRuntimeConfigFromEnv } from "../../src/config/config.js"
+import { ConfigValidationError, sanitizeHulyRuntimeConfigFromEnv } from "../../src/config/config.js"
 import { type GetHulyContextResult, GetHulyContextResultSchema } from "../../src/domain/schemas/index.js"
 import { HulyClient, type HulyClientOperations } from "../../src/huly/client.js"
 import { Diagnostics } from "../../src/huly/diagnostics.js"
@@ -360,6 +360,22 @@ const buildResourceWarningClients = (): () => Promise<ClientBundle> => {
 
 const rejectingResolveClients = (): Promise<ClientBundle> => Promise.reject(new Error("client init boom"))
 const rejectingResolveClientsWithString = (): Promise<ClientBundle> => Promise.reject("client init boom")
+const configValidationError = (): ConfigValidationError =>
+  new ConfigValidationError({
+    message: "Configuration error: Expected HULY_URL to exist",
+    field: "HULY_URL"
+  })
+const rejectingDirectConfigResolveClients = (): Promise<ClientBundle> => Promise.reject(configValidationError())
+const rejectingFiberConfigResolveClients = (): Promise<ClientBundle> =>
+  Effect.runPromise(Effect.fail(configValidationError()))
+
+const makeContextFromEnv = (env: Record<string, string>): GetHulyContextResult =>
+  buildHulyContext(
+    { transport: "stdio" },
+    emptyRegistry,
+    parseToolsets(undefined, () => {}),
+    sanitizeHulyRuntimeConfigFromEnv(env)
+  )
 
 const propertylessObjectRegistry: ToolRegistry = {
   tools: new Map([
@@ -756,6 +772,28 @@ describe("createMcpProtocolHandlers — resource handlers", () => {
     })
   })
 
+  it("returns an empty resource list when no Huly config is present during registry inspection", async () => {
+    const handlers = createMcpProtocolHandlers(
+      rejectingFiberConfigResolveClients,
+      createTelemetryProbe().telemetry,
+      emptyRegistry,
+      makeValidContext
+    )
+
+    await expect(handlers.listResources()).resolves.toEqual({ resources: [] })
+  })
+
+  it("returns an empty resource list for direct config validation failures without Huly config", async () => {
+    const handlers = createMcpProtocolHandlers(
+      rejectingDirectConfigResolveClients,
+      createTelemetryProbe().telemetry,
+      emptyRegistry,
+      makeValidContext
+    )
+
+    await expect(handlers.listResources()).resolves.toEqual({ resources: [] })
+  })
+
   it("throws an McpError when client resolution fails while listing resources", async () => {
     const handlers = createMcpProtocolHandlers(
       rejectingResolveClients,
@@ -763,6 +801,28 @@ describe("createMcpProtocolHandlers — resource handlers", () => {
       emptyRegistry,
       unusedGetHulyContext
     )
+    await expect(handlers.listResources()).rejects.toThrow(McpError)
+  })
+
+  it("does not hide client config errors when a Huly config source is present", async () => {
+    const handlers = createMcpProtocolHandlers(
+      rejectingFiberConfigResolveClients,
+      createTelemetryProbe().telemetry,
+      emptyRegistry,
+      () => makeContextFromEnv({ HULY_URL: "https://huly.example" })
+    )
+
+    await expect(handlers.listResources()).rejects.toThrow(McpError)
+  })
+
+  it("does not hide client config errors when runtime context construction fails", async () => {
+    const handlers = createMcpProtocolHandlers(
+      rejectingFiberConfigResolveClients,
+      createTelemetryProbe().telemetry,
+      emptyRegistry,
+      unusedGetHulyContext
+    )
+
     await expect(handlers.listResources()).rejects.toThrow(McpError)
   })
 

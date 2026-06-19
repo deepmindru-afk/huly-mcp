@@ -1,5 +1,11 @@
 # @firfi/huly-mcp
 
+## 0.39.1
+
+### Patch Changes
+
+- e90ac6d: Fix Glama and registry-builder compatibility by correcting npm executable metadata and allowing unauthenticated `resources/list` inspection to return an empty list when no Huly configuration has been supplied.
+
 ## 0.39.0
 
 ### Minor Changes

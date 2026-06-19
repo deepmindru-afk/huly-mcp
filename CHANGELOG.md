@@ -1,5 +1,11 @@
 # @firfi/huly-mcp
 
+## 0.39.3
+
+### Patch Changes
+
+- 9dd3b77: Keep MCP resource discovery available during registry inspection when Huly config validation fails, including empty placeholder environment variables.
+
 ## 0.39.2
 
 ### Patch Changes

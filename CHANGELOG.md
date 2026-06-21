@@ -1,5 +1,12 @@
 # @firfi/huly-mcp
 
+## 0.41.0
+
+### Minor Changes
+
+- bf0a1b1: Add generic read-only view discovery tools for saved filtered views and viewlets.
+- 0badb25: Add `render_message_template` for read-only rendering of Huly message templates with caller-provided placeholder values.
+
 ## 0.40.1
 
 ### Patch Changes

@@ -1,5 +1,11 @@
 # @firfi/huly-mcp
 
+## 0.42.0
+
+### Minor Changes
+
+- 7b5b9ea: Add read-only SpacePreference discovery tools.
+
 ## 0.41.0
 
 ### Minor Changes

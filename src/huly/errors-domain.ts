@@ -206,6 +206,12 @@ import {
   ProjectNotFoundError,
   TemplateChildNotFoundError
 } from "./errors-tracker.js"
+import {
+  FilteredViewIdentifierAmbiguousError,
+  FilteredViewNotFoundError,
+  ViewletIdentifierAmbiguousError,
+  ViewletNotFoundError
+} from "./errors-views.js"
 
 export const HulyDomainError = Schema.Union(
   HulyError,
@@ -233,6 +239,10 @@ export const HulyDomainError = Schema.Union(
   BoardMenuPageIdentifierAmbiguousError,
   BoardViewletNotFoundError,
   BoardViewletIdentifierAmbiguousError,
+  FilteredViewNotFoundError,
+  FilteredViewIdentifierAmbiguousError,
+  ViewletNotFoundError,
+  ViewletIdentifierAmbiguousError,
   IssueNotFoundError,
   ProjectNotFoundError,
   InvalidStatusError,

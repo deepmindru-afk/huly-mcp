@@ -597,6 +597,41 @@ export {
 } from "./board-views.js"
 
 export {
+  type FilteredViewDetail,
+  FilteredViewDetailSchema,
+  FilteredViewId,
+  FilteredViewIdentifier,
+  type FilteredViewSummary,
+  FilteredViewSummarySchema,
+  type FilteredViewVisibility,
+  FilteredViewVisibilitySchema,
+  type GetFilteredViewParams,
+  getFilteredViewParamsJsonSchema,
+  GetFilteredViewParamsSchema,
+  type ListFilteredViewsParams,
+  listFilteredViewsParamsJsonSchema,
+  ListFilteredViewsParamsSchema,
+  type ListFilteredViewsResult,
+  ListFilteredViewsResultSchema,
+  type ListViewletsParams,
+  listViewletsParamsJsonSchema,
+  ListViewletsParamsSchema,
+  type ListViewletsResult,
+  ListViewletsResultSchema,
+  parseGetFilteredViewParams,
+  parseListFilteredViewsParams,
+  parseListViewletsParams,
+  ViewletDescriptorId,
+  type ViewletDescriptorSummary,
+  ViewletId,
+  ViewletIdentifier,
+  type ViewletPreferenceConfig,
+  ViewletPreferenceId,
+  type ViewletSummary,
+  ViewletSummarySchema
+} from "./views.js"
+
+export {
   type CardDetail,
   type CardSpaceSummary,
   type CardSummary,

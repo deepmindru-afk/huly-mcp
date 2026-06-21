@@ -230,6 +230,12 @@ import {
   ProjectNotFoundError,
   TemplateChildNotFoundError
 } from "./errors-tracker.js"
+import {
+  FilteredViewIdentifierAmbiguousError,
+  FilteredViewNotFoundError,
+  ViewletIdentifierAmbiguousError,
+  ViewletNotFoundError
+} from "./errors-views.js"
 
 export const HulyDomainError = HulyDomainErrorSchema
 export type HulyDomainError = HulyDomainErrorUnion
@@ -309,6 +315,8 @@ export {
   FileNotFoundError,
   FileTooLargeError,
   FileUploadError,
+  FilteredViewIdentifierAmbiguousError,
+  FilteredViewNotFoundError,
   FloorNotFoundError,
   FunnelNotFoundError,
   GenericObjectIdentifierAmbiguousError,
@@ -423,5 +431,7 @@ export {
   ThreadReplyNotFoundError,
   TodoIdentifierAmbiguousError,
   TodoNotFoundError,
-  TodoWorkSlotNotFoundError
+  TodoWorkSlotNotFoundError,
+  ViewletIdentifierAmbiguousError,
+  ViewletNotFoundError
 }

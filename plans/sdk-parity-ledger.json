@@ -472,7 +472,7 @@
     {
       "package": "@hcengineering/preference",
       "status": "not-mcp-facing",
-      "rationale": "Use module-specific preference wrappers such as get_board_common_preference.",
+      "rationale": "Generic preference rows are broad SDK infrastructure. Use module-specific wrappers such as get_board_common_preference or the viewlet preference configs returned by list_viewlets.",
       "exports": [
         "Preference"
       ]
@@ -566,10 +566,11 @@
       "package": "@hcengineering/view",
       "status": "covered",
       "matrixLocation": "View / saved filtered views",
-      "rationale": "Current board tools cover board discovery, board create/update/archive, board card list/get/create/update, workflow status/type resolution, assignees, members, location, cover, dates, archived-card deletion, board labels, saved views, menu pages, viewlets, and common board preference reads. Provider integrations and board deletion remain deferred.",
+      "rationale": "Current view tools cover read-only saved filtered view discovery/get operations across modules plus viewlet descriptor and ViewletPreference configuration discovery. View and preference writes remain deferred.",
       "exports": [
         "FilteredView",
         "Viewlet",
+        "ViewletDescriptor",
         "ViewletPreference"
       ]
     },
@@ -577,7 +578,7 @@
       "package": "@hcengineering/view",
       "status": "gap",
       "matrixLocation": "View / saved filtered views",
-      "rationale": "User view preferences, viewlet descriptors, action metadata, reusable filters, reusable sorts, and reusable grouping/aggregation configuration remain matrix gaps.",
+      "rationale": "Action metadata, reusable filters, reusable sorts, and reusable grouping/aggregation configuration remain matrix gaps.",
       "exports": [
         "Action",
         "ActionCategory",
@@ -588,8 +589,7 @@
         "ClassSortFuncs",
         "FilterMode",
         "Groupping",
-        "IgnoreActions",
-        "ViewletDescriptor"
+        "IgnoreActions"
       ]
     },
     {

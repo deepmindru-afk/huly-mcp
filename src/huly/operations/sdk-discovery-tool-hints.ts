@@ -51,9 +51,10 @@ export const firstClassToolHints = new Map<string, ReadonlyArray<HulyClassToolHi
   ],
   [String(board.class.MenuPage), [toolHint("boards", ["list_board_menu_pages"])]],
   [String(board.class.CommonBoardPreference), [toolHint("boards", ["get_board_common_preference"])]],
-  [String(view.class.FilteredView), [toolHint("boards", ["list_board_saved_views", "get_board_saved_view"])]],
-  [String(view.class.Viewlet), [toolHint("boards", ["list_board_viewlets"])]],
-  [String(view.class.ViewletPreference), [toolHint("boards", ["list_board_viewlets"])]],
+  [String(view.class.FilteredView), [toolHint("views", ["list_filtered_views", "get_filtered_view"])]],
+  [String(view.class.Viewlet), [toolHint("views", ["list_viewlets"])]],
+  [String(view.class.ViewletDescriptor), [toolHint("views", ["list_viewlets"])]],
+  [String(view.class.ViewletPreference), [toolHint("views", ["list_viewlets"])]],
   [String(chunter.class.ChatMessage), [toolHint("channels", ["list_channel_messages", "send_channel_message"])]],
   [
     String(tracker.class.ProjectTargetPreference),
@@ -104,6 +105,8 @@ const contactCoveredRationale =
 const cardCoveredRationale = "Current card tools cover card spaces, master tags, and card CRUD."
 const boardCoveredRationale =
   "Current board tools cover board discovery, board create/update/archive, board card list/get/create/update, workflow status/type resolution, assignees, members, location, cover, dates, archived-card deletion, board labels, saved views, menu pages, viewlets, and common board preference reads. Provider integrations and board deletion remain deferred."
+const viewCoveredRationale =
+  "Current view tools cover read-only saved filtered view discovery/get operations across modules plus viewlet descriptor and ViewletPreference configuration discovery. View and preference writes remain deferred."
 const boardNotMcpFacingRationale =
   "Board card cover values are exposed through board card create/update fields. The CardCover SDK export is the underlying type metadata rather than a separate LLM-facing resource."
 const chunterCoveredRationale =
@@ -214,7 +217,9 @@ export const runtimeParityRoutingRows: ReadonlyArray<RuntimeParityRoutingRow> = 
     String(preference.class.Preference),
     "@hcengineering/preference",
     "Preference",
-    notMcpFacing("Use module-specific preference wrappers such as get_board_common_preference.")
+    notMcpFacing(
+      "Generic preference rows are broad SDK infrastructure. Use module-specific wrappers such as get_board_common_preference or the viewlet preference configs returned by list_viewlets."
+    )
   ),
   routingRow(
     String(board.class.MenuPage),
@@ -226,19 +231,25 @@ export const runtimeParityRoutingRows: ReadonlyArray<RuntimeParityRoutingRow> = 
     String(view.class.FilteredView),
     "@hcengineering/view",
     "FilteredView",
-    covered(["list_board_saved_views", "get_board_saved_view"], boardCoveredRationale)
+    covered(["list_filtered_views", "get_filtered_view"], viewCoveredRationale)
   ),
   routingRow(
     String(view.class.Viewlet),
     "@hcengineering/view",
     "Viewlet",
-    covered(["list_board_viewlets"], boardCoveredRationale)
+    covered(["list_viewlets"], viewCoveredRationale)
+  ),
+  routingRow(
+    String(view.class.ViewletDescriptor),
+    "@hcengineering/view",
+    "ViewletDescriptor",
+    covered(["list_viewlets"], viewCoveredRationale)
   ),
   routingRow(
     String(view.class.ViewletPreference),
     "@hcengineering/view",
     "ViewletPreference",
-    covered(["list_board_viewlets"], boardCoveredRationale)
+    covered(["list_viewlets"], viewCoveredRationale)
   ),
   routingRow(
     String(board.class.CardCover),

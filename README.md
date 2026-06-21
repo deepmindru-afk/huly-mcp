@@ -323,7 +323,7 @@ SDK upgrade revisit:
 <!-- AUTO-GENERATED from src/mcp/tools/ descriptions. Do not edit manually. Run `pnpm update-readme` to regenerate. -->
 ## Available Tools
 
-**`TOOLSETS` categories:** `projects`, `issues`, `comments`, `milestones`, `documents`, `storage`, `attachments`, `contacts`, `channels`, `calendar`, `time tracking`, `search`, `associations`, `activity`, `notifications`, `workspace`, `boards`, `cards`, `collaborators`, `custom-fields`, `drive`, `inventory`, `labels`, `leads`, `templates`, `planner`, `processes`, `recruiting`, `sdk-discovery`, `spaces`, `tag-categories`, `tags`, `task-management`, `test-management`, `user-statuses`, `virtual-office`
+**`TOOLSETS` categories:** `projects`, `issues`, `comments`, `milestones`, `documents`, `storage`, `attachments`, `contacts`, `channels`, `calendar`, `time tracking`, `search`, `associations`, `activity`, `notifications`, `workspace`, `boards`, `cards`, `collaborators`, `custom-fields`, `drive`, `inventory`, `labels`, `leads`, `templates`, `planner`, `processes`, `recruiting`, `sdk-discovery`, `spaces`, `tag-categories`, `tags`, `task-management`, `test-management`, `user-statuses`, `views`, `virtual-office`
 
 ### Projects
 
@@ -945,6 +945,14 @@ SDK upgrade revisit:
 | Tool | Description |
 |------|-------------|
 | `list_user_statuses` | List Huly user presence records. Returns account UUIDs, online status, and last modified timestamp. Use this to check who is currently connected; presence is maintained by Huly server sessions. Filter by online or account UUID. |
+
+### Views
+
+| Tool | Description |
+|------|-------------|
+| `list_filtered_views` | List saved filtered views from @hcengineering/view. Use attachedTo to scope by raw app/resource string such as board:app:Board; omit attachedTo to discover saved views across modules. Reports own/shared visibility from the current account's users membership. |
+| `get_filtered_view` | Get one saved filtered view by FilteredView _id or exact name. Pass attachedTo, such as board:app:Board, when an exact name may exist in more than one module. Read-only; no saved-view writes are performed. |
+| `list_viewlets` | List viewlets from @hcengineering/view model metadata. Use attachTo with a Huly class id such as board:class:Card to scope by rendered document class; use list_huly_classes when you need class ids. Includes descriptor metadata and matching ViewletPreference configs. |
 
 ### Virtual-Office
 

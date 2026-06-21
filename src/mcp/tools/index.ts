@@ -51,6 +51,7 @@ import { testManagementCoreTools } from "./test-management-core.js"
 import { testManagementPlansTools } from "./test-management-plans.js"
 import { timeTools } from "./time.js"
 import { userStatusTools } from "./user-statuses.js"
+import { viewTools } from "./views.js"
 import { virtualOfficeTools } from "./virtual-office.js"
 import { workspaceTools } from "./workspace.js"
 
@@ -80,6 +81,7 @@ const allTools: ReadonlyArray<RegisteredTool> = [
   ...contactTools,
   ...channelTools,
   ...boardTools,
+  ...viewTools,
   ...cardTools,
   ...leadTools,
   ...recruitingTools,

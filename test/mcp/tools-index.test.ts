@@ -51,6 +51,7 @@ describe("CATEGORY_NAMES", () => {
       expect(CATEGORY_NAMES.has("user-statuses")).toBe(true)
       expect(CATEGORY_NAMES.has("inventory")).toBe(true)
       expect(CATEGORY_NAMES.has("recruiting")).toBe(true)
+      expect(CATEGORY_NAMES.has("views")).toBe(true)
       expect(CATEGORY_NAMES.size).toBeGreaterThan(5)
     }))
 
@@ -327,6 +328,7 @@ describe("TOOL_DEFINITIONS", () => {
       expect(keys).toContain("create_issue_status")
       expect(keys).toContain("list_associations")
       expect(keys).toContain("list_user_statuses")
+      expect(keys).toContain("list_filtered_views")
     }))
 
   it.effect("entries match toolRegistry", () =>

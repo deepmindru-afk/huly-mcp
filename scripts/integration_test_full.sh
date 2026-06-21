@@ -3983,6 +3983,26 @@ run_test "list_board_viewlets" \
   '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_board_viewlets","arguments":{}},"id":2}'
 run_test "get_board_common_preference" \
   '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"get_board_common_preference","arguments":{}},"id":2}'
+run_test "list_filtered_views" \
+  '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_filtered_views","arguments":{"limit":3}},"id":2}'
+run_capture_to_var FILTERED_VIEWS_TEXT "list_filtered_views(get probe)" \
+  '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_filtered_views","arguments":{"limit":1}},"id":2}'
+if [ $? -eq 0 ]; then
+  FILTERED_VIEW_ID=$(printf '%s\n' "$FILTERED_VIEWS_TEXT" | jq -r '.filteredViews[0].id // empty' 2>/dev/null)
+else
+  FILTERED_VIEW_ID=""
+fi
+if [ -n "$FILTERED_VIEW_ID" ]; then
+  FILTERED_VIEW_ID_JSON=$(json_string "$FILTERED_VIEW_ID")
+  run_test "get_filtered_view($FILTERED_VIEW_ID)" \
+    "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"get_filtered_view\",\"arguments\":{\"filteredView\":$FILTERED_VIEW_ID_JSON}},\"id\":2}"
+else
+  run_expect_error_contains "get_filtered_view(missing probe)" \
+    '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"get_filtered_view","arguments":{"filteredView":"IntTest Missing Filtered View"}},"id":2}' \
+    "Filtered view 'IntTest Missing Filtered View' not found"
+fi
+run_test "list_viewlets" \
+  '{"jsonrpc":"2.0","method":"tools/call","params":{"name":"list_viewlets","arguments":{"attachTo":"board:class:Card"}},"id":2}'
 
 BOARD_NAME="IntTest Board $RUN_ID"
 BOARD_UPDATED_NAME="IntTest Board Updated $RUN_ID"

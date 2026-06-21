@@ -103,6 +103,8 @@ import {
   FileNotFoundError,
   FileTooLargeError,
   FileUploadError,
+  FilteredViewIdentifierAmbiguousError,
+  FilteredViewNotFoundError,
   FloorNotFoundError,
   FunnelNotFoundError,
   GenericObjectIdentifierAmbiguousError,
@@ -197,7 +199,9 @@ import {
   ThreadReplyNotFoundError,
   TodoIdentifierAmbiguousError,
   TodoNotFoundError,
-  TodoWorkSlotNotFoundError
+  TodoWorkSlotNotFoundError,
+  ViewletIdentifierAmbiguousError,
+  ViewletNotFoundError
 } from "../../src/huly/errors.js"
 import { funnelIdentifier, funnelReference, leadIdentifier } from "../helpers/brands.js"
 
@@ -304,6 +308,16 @@ describe("Huly Errors", () => {
         )
         expect(new BoardViewletIdentifierAmbiguousError({ identifier: "Table", matches: 2 }).message).toBe(
           "Board viewlet 'Table' matched 2 viewlets; pass a viewlet _id"
+        )
+        expect(new FilteredViewNotFoundError({ identifier: "Mine" }).message).toBe(
+          "Filtered view 'Mine' not found"
+        )
+        expect(new FilteredViewIdentifierAmbiguousError({ identifier: "Mine", matches: 2 }).message).toBe(
+          "Filtered view 'Mine' matched 2 filtered views; pass a filtered view _id"
+        )
+        expect(new ViewletNotFoundError({ identifier: "Table" }).message).toBe("Viewlet 'Table' not found")
+        expect(new ViewletIdentifierAmbiguousError({ identifier: "Table", matches: 2 }).message).toBe(
+          "Viewlet 'Table' matched 2 viewlets; pass a viewlet _id"
         )
       }))
   })
@@ -1210,6 +1224,14 @@ describe("Huly Errors", () => {
               return `board-viewlet:${error.identifier}`
             case "BoardViewletIdentifierAmbiguousError":
               return `board-viewlet-ambiguous:${error.identifier}:${error.matches}`
+            case "FilteredViewNotFoundError":
+              return `filtered-view:${error.identifier}`
+            case "FilteredViewIdentifierAmbiguousError":
+              return `filtered-view-ambiguous:${error.identifier}:${error.matches}`
+            case "ViewletNotFoundError":
+              return `viewlet:${error.identifier}`
+            case "ViewletIdentifierAmbiguousError":
+              return `viewlet-ambiguous:${error.identifier}:${error.matches}`
             case "NoUpdateFieldsError":
               return `no-update-fields:${error.operation}:${error.fields.length}`
             case "CannotDirectMessageSelfError":

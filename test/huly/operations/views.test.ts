@@ -13,7 +13,9 @@ import {
   ObjectClassName,
   ViewletIdentifier
 } from "../../../src/domain/schemas.js"
+import type { ToolWarning } from "../../../src/domain/schemas/tool-warnings.js"
 import { HulyClient, type HulyClientOperations } from "../../../src/huly/client.js"
+import { Diagnostics, makeDiagnosticsScope } from "../../../src/huly/diagnostics.js"
 import {
   FilteredViewIdentifierAmbiguousError,
   FilteredViewNotFoundError,
@@ -24,6 +26,8 @@ import { board, core, view } from "../../../src/huly/huly-plugins.js"
 import { toRef } from "../../../src/huly/operations/sdk-boundary.js"
 import { getFilteredView, listFilteredViews, listViewlets } from "../../../src/huly/operations/views.js"
 
+// Huly SDK brands, intl ids, and component handles are erased at runtime; these fixture casts restore
+// compile-time brands for stable literals that match the SDK shapes used by the fake client.
 const accountUuid = (value: string): AccountUuid => value as AccountUuid
 const personId = (value: string): PersonId => value as PersonId
 const intl = (value: string): IntlString => value as IntlString
@@ -95,7 +99,7 @@ interface Fixture {
 
 const fieldMatches = (actual: unknown, expected: unknown): boolean => {
   if (expected !== null && typeof expected === "object") {
-    // Fake SDK query matching inspects the DocumentQuery operators used by generic view operations.
+    // Safe because this fake matcher only reads the DocumentQuery operator subset emitted here.
     const op = expected as { readonly $in?: ReadonlyArray<unknown>; readonly $like?: string }
     if (op.$in !== undefined) return op.$in.includes(actual)
     if (op.$like !== undefined && typeof actual === "string") {
@@ -105,10 +109,12 @@ const fieldMatches = (actual: unknown, expected: unknown): boolean => {
   return actual === expected
 }
 
-const matchesQuery = <T extends Doc>(doc: T, query: DocumentQuery<T>): boolean =>
-  Object.entries(query as Record<string, unknown>).every(([key, expected]) =>
+const matchesQuery = <T extends Doc>(doc: T, query: DocumentQuery<T>): boolean => {
+  // Safe for this fake client: SDK queries/docs are open objects indexed by Huly field names.
+  return Object.entries(query as Record<string, unknown>).every(([key, expected]) =>
     fieldMatches((doc as Record<string, unknown>)[key], expected)
   )
+}
 
 const createLayer = (fixture: Fixture = {}) => {
   const filteredViews = [...(fixture.filteredViews ?? [makeFilteredView()])]
@@ -147,10 +153,10 @@ const createLayer = (fixture: Fixture = {}) => {
   }
   const makeFindAll =
     (select: (classId: string) => Array<Doc>): HulyClientOperations["findAll"] => (_class, query, options) => {
-      // The fake SDK stores heterogeneous docs; each call narrows by class before applying the query.
+      // Safe because the fake SDK stores heterogeneous docs but narrows by class before query matching.
       const matched = select(String(_class)).filter((doc) => matchesQuery(doc, query as DocumentQuery<Doc>))
       const limited = options?.limit === undefined ? matched : matched.slice(0, options.limit)
-      // Huly's toFindResult generic is stricter than this class-indexed fake storage can express.
+      // Safe because class narrowing already selected docs compatible with the SDK-generic result.
       return Effect.succeed(toFindResult(limited as Array<never>, matched.length))
     }
   const findAll = makeFindAll(selectSource)
@@ -163,6 +169,33 @@ const createLayer = (fixture: Fixture = {}) => {
     findOne: (_class, query, options) => Effect.map(findAll(_class, query, options), (result) => result[0])
   })
 }
+
+const runWithDiagnostics = <A, E>(
+  effect: Effect.Effect<A, E, HulyClient | Diagnostics>,
+  layer: ReturnType<typeof createLayer>
+): Effect.Effect<A, E> =>
+  Effect.gen(function*() {
+    const diagnostics = yield* makeDiagnosticsScope
+    return yield* effect.pipe(
+      Effect.provide(layer),
+      Effect.provideService(Diagnostics, diagnostics.service)
+    )
+  })
+
+const runWithWarnings = <A, E>(
+  effect: Effect.Effect<A, E, HulyClient | Diagnostics>,
+  layer: ReturnType<typeof createLayer>
+): Effect.Effect<{ readonly result: A; readonly warnings: ReadonlyArray<ToolWarning> }, E> =>
+  Effect.gen(function*() {
+    const diagnostics = yield* makeDiagnosticsScope
+    const result = yield* effect.pipe(
+      Effect.provide(layer),
+      Effect.provideService(Diagnostics, diagnostics.service)
+    )
+    const warnings = yield* diagnostics.drainWarnings
+
+    return { result, warnings }
+  })
 
 describe("generic view discovery operations", () => {
   it.effect("lists filtered views by attachedTo, search, visibility, and limit", () =>
@@ -277,8 +310,9 @@ describe("generic view discovery operations", () => {
     Effect.gen(function*() {
       const fixture = createLayer()
 
-      const listed = yield* listViewlets({ attachTo: attachTo(String(board.class.Card)) }).pipe(
-        Effect.provide(fixture)
+      const listed = yield* runWithDiagnostics(
+        listViewlets({ attachTo: attachTo(String(board.class.Card)) }),
+        fixture
       )
 
       expect(listed.viewlets.map((item) => item.title)).toEqual(["Kanban", "Table"])
@@ -322,6 +356,12 @@ describe("generic view discovery operations", () => {
             title: "Table",
             variant: "table"
           }),
+          makeViewlet({
+            _id: toRef<Viewlet>("viewlet-table-list"),
+            descriptor: view.viewlet.Table,
+            title: "Table list",
+            variant: "table-list"
+          }),
           blankViewlet
         ],
         descriptors: [
@@ -336,7 +376,7 @@ describe("generic view discovery operations", () => {
         preferences: []
       })
 
-      const byId = yield* listViewlets({ viewlet: v("viewlet-kanban") }).pipe(Effect.provide(fixture))
+      const byId = yield* runWithDiagnostics(listViewlets({ viewlet: v("viewlet-kanban") }), fixture)
       expect(byId.viewlets[0]?.baseQuery).toEqual({ title: "Planning" })
       expect(byId.viewlets[0]?.descriptorInfo).toMatchObject({
         hidden: true,
@@ -344,15 +384,16 @@ describe("generic view discovery operations", () => {
         readonly: true
       })
 
-      const byVariant = yield* listViewlets({ viewlet: v("table") }).pipe(Effect.provide(fixture))
+      const byVariant = yield* runWithDiagnostics(listViewlets({ viewlet: v("table") }), fixture)
       expect(byVariant.viewlets[0]?.id).toBe("viewlet-table")
 
-      const byDescriptor = yield* listViewlets({ viewlet: v(String(view.viewlet.Table)) }).pipe(
-        Effect.provide(fixture)
+      const byDescriptor = yield* runWithDiagnostics(
+        listViewlets({ viewlet: v(String(view.viewlet.Table)) }),
+        fixture
       )
-      expect(byDescriptor.viewlets[0]?.variant).toBe("table")
+      expect(byDescriptor.viewlets.map((item) => item.id)).toEqual(["viewlet-table", "viewlet-table-list"])
 
-      const blank = yield* listViewlets({ viewlet: v("viewlet-blank") }).pipe(Effect.provide(fixture))
+      const blank = yield* runWithDiagnostics(listViewlets({ viewlet: v("viewlet-blank") }), fixture)
       expect(blank.viewlets[0]).not.toHaveProperty("title")
       expect(blank.viewlets[0]).not.toHaveProperty("variant")
       expect(blank.viewlets[0]).not.toHaveProperty("props")
@@ -367,21 +408,26 @@ describe("generic view discovery operations", () => {
       })
 
       expect(
-        yield* Effect.flip(listViewlets({ viewlet: v("Kanban") }).pipe(Effect.provide(ambiguous)))
+        yield* Effect.flip(runWithDiagnostics(listViewlets({ viewlet: v("Kanban") }), ambiguous))
       ).toBeInstanceOf(ViewletIdentifierAmbiguousError)
 
       expect(
-        yield* Effect.flip(listViewlets({ viewlet: v("Missing") }).pipe(Effect.provide(createLayer())))
+        yield* Effect.flip(runWithDiagnostics(listViewlets({ viewlet: v("Missing") }), createLayer()))
       ).toBeInstanceOf(ViewletNotFoundError)
 
-      const empty = yield* listViewlets({}).pipe(
-        Effect.provide(createLayer({ viewlets: [], descriptors: [], preferences: [] }))
+      const empty = yield* runWithDiagnostics(
+        listViewlets({}),
+        createLayer({ viewlets: [], descriptors: [], preferences: [] })
       )
       expect(empty).toEqual({ viewlets: [], total: 0 })
 
-      const missingDescriptor = yield* listViewlets({ limit: 1 }).pipe(
-        Effect.provide(createLayer({ descriptors: [], preferences: [] }))
+      const { result: missingDescriptor, warnings } = yield* runWithWarnings(
+        listViewlets({ limit: 1 }),
+        createLayer({ descriptors: [], preferences: [] })
       )
       expect(missingDescriptor.viewlets[0]).not.toHaveProperty("descriptorInfo")
+      expect(warnings).toHaveLength(1)
+      expect(warnings[0]?.code).toBe("viewlet_descriptor_metadata_degraded")
+      expect(warnings[0]?.message).toContain("descriptor-kanban")
     }))
 })

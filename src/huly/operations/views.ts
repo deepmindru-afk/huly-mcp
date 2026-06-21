@@ -15,8 +15,18 @@ import type {
   ViewletIdentifier,
   ViewletSummary
 } from "../../domain/schemas.js"
-import { Count, FilteredViewId, ViewletDescriptorId, ViewletId, ViewletPreferenceId } from "../../domain/schemas.js"
+import {
+  Count,
+  FilteredViewId,
+  ObjectClassName,
+  PersonId,
+  ViewletDescriptorId,
+  ViewletId,
+  ViewletPreferenceId
+} from "../../domain/schemas.js"
+import { ViewletDescriptorMetadataDegradedWarningCode } from "../../domain/schemas/tool-warnings.js"
 import { HulyClient, type HulyClientError } from "../client.js"
+import { Diagnostics } from "../diagnostics.js"
 import {
   FilteredViewIdentifierAmbiguousError,
   FilteredViewNotFoundError,
@@ -66,11 +76,13 @@ const toFilteredViewDetail = (filteredView: FilteredView, account: string): Filt
   location: filteredView.location,
   filters: filteredView.filters,
   ...(filteredView.viewOptions === undefined ? {} : { viewOptions: filteredView.viewOptions }),
-  ...(filteredView.filterClass === undefined ? {} : { filterClass: String(filteredView.filterClass) }),
+  ...(filteredView.filterClass === undefined
+    ? {}
+    : { filterClass: ObjectClassName.make(String(filteredView.filterClass)) }),
   ...viewletIdField(filteredView.viewletId),
   ...(filteredView.sharable === undefined ? {} : { sharable: filteredView.sharable }),
   users: Count.make(filteredView.users.length),
-  createdBy: String(filteredView.createdBy)
+  createdBy: PersonId.make(String(filteredView.createdBy))
 })
 
 const resolveFilteredView = (
@@ -100,9 +112,9 @@ const resolveViewlets = (
     const value = String(identifier)
     const byId = viewlets.filter((item) => item._id === value)
     if (byId.length > 0) return byId
-    const matches = viewlets.filter((item) =>
-      item.title === value || item.variant === value || item.descriptor === value
-    )
+    const descriptorMatches = viewlets.filter((item) => item.descriptor === value)
+    if (descriptorMatches.length > 0) return descriptorMatches
+    const matches = viewlets.filter((item) => item.title === value || item.variant === value)
     if (matches.length === 1) return matches
     if (matches.length > 1) {
       return yield* new ViewletIdentifierAmbiguousError({ identifier: value, matches: matches.length })
@@ -126,7 +138,7 @@ const toViewletSummary = (
   preferences: ReadonlyArray<ViewletPreference>
 ): ViewletSummary => ({
   id: ViewletId.make(item._id),
-  attachTo: String(item.attachTo),
+  attachTo: ObjectClassName.make(String(item.attachTo)),
   descriptor: ViewletDescriptorId.make(item.descriptor),
   ...stringField("title", item.title),
   ...stringField("variant", item.variant),
@@ -144,6 +156,26 @@ const toViewletSummary = (
     config: [...preference.config]
   }))
 })
+
+const missingDescriptorIds = (
+  viewlets: ReadonlyArray<Viewlet>,
+  descriptorsById: ReadonlyMap<ViewletDescriptor["_id"], ViewletDescriptor>
+): Array<ViewletDescriptor["_id"]> =>
+  [...new Set(viewlets.map((viewlet) => viewlet.descriptor))]
+    .filter((descriptorId) => !descriptorsById.has(descriptorId))
+
+const warnMissingDescriptorMetadata = (
+  diagnostics: Diagnostics["Type"],
+  ids: ReadonlyArray<ViewletDescriptor["_id"]>
+): Effect.Effect<void> =>
+  ids.length === 0
+    ? Effect.void
+    : diagnostics.warnAgent({
+      code: ViewletDescriptorMetadataDegradedWarningCode,
+      message: `Huly did not return descriptor metadata for ${ids.length} viewlet descriptor ref(s): ${
+        ids.join(", ")
+      }. The affected viewlets omit descriptorInfo; use descriptor ids, titles, and variants instead of inferring label or component metadata.`
+    })
 
 export const listFilteredViews = (
   params: ListFilteredViewsParams
@@ -187,9 +219,10 @@ export const getFilteredView = (
 
 export const listViewlets = (
   params: ListViewletsParams
-): Effect.Effect<ListViewletsResult, ViewletError, HulyClient> =>
+): Effect.Effect<ListViewletsResult, ViewletError, HulyClient | Diagnostics> =>
   Effect.gen(function*() {
     const client = yield* HulyClient
+    const diagnostics = yield* Diagnostics
     const query: StrictDocumentQuery<Viewlet> = {
       ...(params.attachTo === undefined ? {} : { attachTo: toClassRef<Doc>(params.attachTo) })
     }
@@ -213,6 +246,7 @@ export const listViewlets = (
         hulyQuery<ViewletPreference>({ attachedTo: { $in: limited.map((item) => item._id) } })
       )
     const descriptorsById = new Map(descriptors.map((descriptor) => [descriptor._id, descriptor]))
+    yield* warnMissingDescriptorMetadata(diagnostics, missingDescriptorIds(limited, descriptorsById))
     const preferencesFor = (viewletId: Viewlet["_id"]) =>
       preferences.filter((preference) => preference.attachedTo === viewletId)
 

@@ -1,7 +1,7 @@
 import { JSONSchema, Schema } from "effect"
 
 import { withJsonSchemaPropertyDescriptions } from "./json-schema.js"
-import { Count, DEFAULT_LIMIT, DocId, LimitParam, NonEmptyString, ObjectClassName } from "./shared.js"
+import { Count, DEFAULT_LIMIT, DocId, LimitParam, NonEmptyString, ObjectClassName, PersonId } from "./shared.js"
 
 const SdkOpenPayload = Schema.Unknown.annotations({
   description: "Raw SDK-owned payload passed through without inventing a closed MCP-side schema."
@@ -29,7 +29,8 @@ export type FilteredViewIdentifier = Schema.Schema.Type<typeof FilteredViewIdent
 export const ViewletIdentifier = NonEmptyString.pipe(Schema.brand("ViewletIdentifier")).annotations({
   identifier: "ViewletIdentifier",
   title: "ViewletIdentifier",
-  description: "Viewlet locator: Viewlet _id, exact title, variant, or descriptor _id."
+  description:
+    "Viewlet locator: Viewlet _id, exact title, exact variant, or descriptor _id. Descriptor _id matches may return multiple viewlets; title and variant matches must be unique."
 })
 export type ViewletIdentifier = Schema.Schema.Type<typeof ViewletIdentifier>
 
@@ -78,7 +79,8 @@ export const ListViewletsParamsSchema = Schema.Struct({
       "Optional Huly class id that the viewlet renders, for example board:class:Card. Use list_huly_classes when you need class ids."
   })),
   viewlet: Schema.optional(ViewletIdentifier.annotations({
-    description: "Optional Viewlet _id, exact title, variant, or descriptor _id. Omit to list all matching viewlets."
+    description:
+      "Optional Viewlet _id, exact title, exact variant, or descriptor _id. Descriptor _id matches may return multiple viewlets; omit to list all matching viewlets."
   })),
   limit: Schema.optional(LimitParam.annotations({
     description: `Maximum number of viewlets to return (default: ${DEFAULT_LIMIT}).`
@@ -109,11 +111,11 @@ export const FilteredViewDetailSchema = Schema.Struct({
   location: SdkOpenPayload,
   filters: SdkOpenPayload,
   viewOptions: Schema.optional(SdkOpenPayload),
-  filterClass: Schema.optional(Schema.String),
+  filterClass: Schema.optional(ObjectClassName),
   viewletId: Schema.optional(ViewletId),
   sharable: Schema.optional(Schema.Boolean),
   users: Count,
-  createdBy: Schema.String
+  createdBy: PersonId
 })
 export type FilteredViewDetail = Schema.Schema.Type<typeof FilteredViewDetailSchema>
 
@@ -143,7 +145,7 @@ export type ViewletPreferenceConfig = Schema.Schema.Type<typeof ViewletPreferenc
 
 export const ViewletSummarySchema = Schema.Struct({
   id: ViewletId,
-  attachTo: NonEmptyString,
+  attachTo: ObjectClassName,
   descriptor: ViewletDescriptorId,
   title: Schema.optional(NonEmptyString),
   variant: Schema.optional(NonEmptyString),

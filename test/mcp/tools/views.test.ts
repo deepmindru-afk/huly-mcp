@@ -7,6 +7,7 @@ import type { FilteredView, Viewlet, ViewletDescriptor, ViewletPreference } from
 import { Effect } from "effect"
 import { expect } from "vitest"
 
+import { ViewletDescriptorMetadataDegradedWarningCode } from "../../../src/domain/schemas/tool-warnings.js"
 import type { HulyClientOperations } from "../../../src/huly/client.js"
 import { board, core, view } from "../../../src/huly/huly-plugins.js"
 import { testMarkupUrlConfig } from "../../../src/huly/operations/markup.js"
@@ -20,6 +21,8 @@ import { assertAt, assertExists } from "../../../src/utils/assertions.js"
 
 const toolDefinition = (name: string) => assertExists(TOOL_DEFINITIONS[name], `Expected tool definition for ${name}`)
 
+// Huly SDK brands, intl ids, and component handles are erased at runtime; these fixture casts restore
+// compile-time brands for stable literals that match the SDK shapes used by the fake client.
 const accountUuid = (value: string): AccountUuid => value as AccountUuid
 const personId = (value: string): PersonId => value as PersonId
 const intl = (value: string): IntlString => value as IntlString
@@ -125,7 +128,7 @@ const makeClient = (fixture: ClientFixture): HulyClientOperations => ({
 })
 
 const toTypedDocs = <T extends Doc>(docs: ReadonlyArray<Doc>): Array<T> => {
-  // The fake client selects the backing array by Huly class before returning it through the SDK-generic shape.
+  // Safe because makeClient selects a Huly class-specific fixture before restoring the SDK-generic shape.
   return docs as Array<T>
 }
 
@@ -206,6 +209,33 @@ describe("view MCP tools", () => {
           }]
         }],
         total: 1
+      })
+    }))
+
+  it.effect("surfaces descriptor metadata warnings in the MCP envelope", () =>
+    Effect.gen(function*() {
+      const registry = createFilteredRegistry(new Set(["views"]))
+      const result = yield* Effect.promise(() =>
+        registry.handleToolCall(
+          "list_viewlets",
+          { attachTo: String(board.class.Card) },
+          makeClient({
+            viewlets: [viewletDoc],
+            descriptors: [],
+            preferences: []
+          }),
+          storageClient
+        )
+      )
+
+      expect(result?.isError).toBeUndefined()
+      expect(result?.structuredContent?.warnings).toEqual([{
+        code: ViewletDescriptorMetadataDegradedWarningCode,
+        message:
+          "Huly did not return descriptor metadata for 1 viewlet descriptor ref(s): descriptor-kanban. The affected viewlets omit descriptorInfo; use descriptor ids, titles, and variants instead of inferring label or component metadata."
+      }])
+      expect(JSON.parse(assertAt(assertExists(result).content, 1).text)).toEqual({
+        warnings: result?.structuredContent?.warnings
       })
     }))
 

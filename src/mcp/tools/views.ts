@@ -43,7 +43,7 @@ export const viewTools: ReadonlyArray<RegisteredTool> = [
     {
       name: "list_viewlets",
       description:
-        "List viewlets from @hcengineering/view model metadata. Use attachTo with a Huly class id such as board:class:Card to scope by rendered document class; use list_huly_classes when you need class ids. Includes descriptor metadata and matching ViewletPreference configs.",
+        "List viewlets from @hcengineering/view model metadata. Use attachTo with a Huly class id such as board:class:Card to scope by rendered document class; use list_huly_classes when you need class ids. The optional viewlet locator accepts a Viewlet _id, exact title, exact variant, or descriptor _id; descriptor ids may return multiple viewlets. Includes descriptor metadata and matching ViewletPreference configs.",
       category: CATEGORY,
       inputSchema: listViewletsParamsJsonSchema,
       resultSchema: ListViewletsResultSchema

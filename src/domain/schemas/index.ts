@@ -41,6 +41,7 @@ export {
   ObjectClassName,
   ParticipantInfoId,
   PermissionId,
+  PersonId,
   PositiveDurationMinutes,
   PositiveInteger,
   PositiveNumber,
@@ -74,7 +75,8 @@ export {
   type ToolWarning,
   type ToolWarningCode,
   ToolWarningCodeSchema,
-  ToolWarningSchema
+  ToolWarningSchema,
+  ViewletDescriptorMetadataDegradedWarningCode
 } from "./tool-warnings.js"
 
 export {

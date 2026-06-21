@@ -3,7 +3,8 @@ import { Schema } from "effect"
 export const ToolWarningCodeSchema = Schema.Literal(
   "status_metadata_unresolved",
   "space_role_assignments_degraded",
-  "message_template_metadata_degraded"
+  "message_template_metadata_degraded",
+  "viewlet_descriptor_metadata_degraded"
 ).annotations({
   identifier: "ToolWarningCode",
   title: "ToolWarningCode",
@@ -13,6 +14,7 @@ export type ToolWarningCode = Schema.Schema.Type<typeof ToolWarningCodeSchema>
 export const StatusMetadataUnresolvedWarningCode = ToolWarningCodeSchema.literals[0]
 export const SpaceRoleAssignmentsDegradedWarningCode = ToolWarningCodeSchema.literals[1]
 export const MessageTemplateMetadataDegradedWarningCode = ToolWarningCodeSchema.literals[2]
+export const ViewletDescriptorMetadataDegradedWarningCode = ToolWarningCodeSchema.literals[3]
 
 export const ToolWarningSchema = Schema.Struct({
   code: ToolWarningCodeSchema,

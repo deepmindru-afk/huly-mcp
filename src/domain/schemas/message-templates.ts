@@ -135,6 +135,36 @@ export const MessageTemplateFieldSchema = Schema.Struct({
 })
 export type MessageTemplateField = Schema.Schema.Type<typeof MessageTemplateFieldSchema>
 
+export const MessageTemplateRenderValueSchema = Schema.Struct({
+  field: TemplateFieldId.annotations({
+    description: "Template field ID to replace when the template contains a matching dollar-brace token."
+  }),
+  value: Schema.String.annotations({
+    description: "Caller-provided replacement text for this template field ID."
+  })
+}).annotations({
+  title: "MessageTemplateRenderValue",
+  description: "Caller-provided value used to render a Huly message template placeholder."
+})
+export type MessageTemplateRenderValue = Schema.Schema.Type<typeof MessageTemplateRenderValueSchema>
+
+export const RenderMessageTemplateResultSchema = Schema.Struct({
+  id: MessageTemplateId,
+  title: NonEmptyString,
+  category: MessageTemplateCategoryRefSchema,
+  message: MessageTemplateMarkdown,
+  renderedMessage: MessageTemplateMarkdown,
+  placeholderFieldIds: Schema.Array(TemplateFieldId),
+  usedFields: Schema.Array(MessageTemplateRenderValueSchema),
+  unresolvedFieldIds: Schema.Array(TemplateFieldId),
+  unusedValueFields: Schema.Array(TemplateFieldId)
+}).annotations({
+  title: "RenderMessageTemplateResult",
+  description:
+    "Rendered global Huly message template with caller-provided placeholder substitutions and unresolved field IDs."
+})
+export type RenderMessageTemplateResult = Schema.Schema.Type<typeof RenderMessageTemplateResultSchema>
+
 export const ListMessageTemplateCategoriesParamsSchema = Schema.Struct({
   limit: Schema.optional(
     LimitParam.annotations({
@@ -182,6 +212,28 @@ export const GetMessageTemplateParamsSchema = Schema.Struct({
 })
 export type GetMessageTemplateParams = Schema.Schema.Type<typeof GetMessageTemplateParamsSchema>
 
+export const RenderMessageTemplateParamsSchema = Schema.Struct({
+  template: MessageTemplateIdentifier.annotations({
+    description: "Template ID or exact template title. If title is ambiguous, also provide category."
+  }),
+  category: Schema.optional(
+    MessageTemplateCategoryIdentifier.annotations({
+      description: "Optional category ID or exact category name used to disambiguate template title lookup."
+    })
+  ),
+  values: Schema.optional(
+    Schema.Array(MessageTemplateRenderValueSchema).annotations({
+      description:
+        "Optional caller-provided placeholder values. Each field is a template field ID from placeholderFieldIds; duplicate field entries use the last value."
+    })
+  )
+}).annotations({
+  title: "RenderMessageTemplateParams",
+  description:
+    "Render one global Huly message template by substituting caller-provided values for dollar-brace placeholder field IDs."
+})
+export type RenderMessageTemplateParams = Schema.Schema.Type<typeof RenderMessageTemplateParamsSchema>
+
 export const ListMessageTemplateFieldsParamsSchema = Schema.Struct({
   category: Schema.optional(
     TemplateFieldCategoryIdentifier.annotations({
@@ -223,6 +275,15 @@ export const getMessageTemplateParamsJsonSchema = withJsonSchemaPropertyDescript
     template: "Template ID or exact template title. If title is ambiguous, also provide category."
   }
 )
+export const renderMessageTemplateParamsJsonSchema = withJsonSchemaPropertyDescriptions(
+  JSONSchema.make(RenderMessageTemplateParamsSchema),
+  {
+    category: "Optional category ID or exact category name used to disambiguate template title lookup.",
+    template: "Template ID or exact template title. If title is ambiguous, also provide category.",
+    values:
+      "Optional caller-provided placeholder values. Each field is a template field ID from placeholderFieldIds; duplicate field entries use the last value."
+  }
+)
 export const listMessageTemplateFieldsParamsJsonSchema = withJsonSchemaPropertyDescriptions(
   JSONSchema.make(ListMessageTemplateFieldsParamsSchema),
   {
@@ -237,6 +298,7 @@ export const parseListMessageTemplateCategoriesParams = Schema.decodeUnknown(
 )
 export const parseListMessageTemplatesParams = Schema.decodeUnknown(ListMessageTemplatesParamsSchema)
 export const parseGetMessageTemplateParams = Schema.decodeUnknown(GetMessageTemplateParamsSchema)
+export const parseRenderMessageTemplateParams = Schema.decodeUnknown(RenderMessageTemplateParamsSchema)
 export const parseListMessageTemplateFieldsParams = Schema.decodeUnknown(ListMessageTemplateFieldsParamsSchema)
 
 export const ListMessageTemplateCategoriesResultSchema = Schema.Array(MessageTemplateCategorySummarySchema)

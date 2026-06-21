@@ -16,7 +16,8 @@ import { assertAt } from "../../utils/assertions.js"
 import {
   MessageTemplateCategoryIdentifier,
   MessageTemplateIdentifier,
-  TemplateFieldCategoryIdentifier
+  TemplateFieldCategoryIdentifier,
+  TemplateFieldId
 } from "../../domain/schemas/message-templates.js"
 import type { ToolWarning } from "../../domain/schemas/tool-warnings.js"
 import { HulyClient, type HulyClientOperations } from "../client.js"
@@ -35,7 +36,8 @@ import {
   getMessageTemplate,
   listMessageTemplateCategories,
   listMessageTemplateFields,
-  listMessageTemplates
+  listMessageTemplates,
+  renderMessageTemplate
 } from "./message-templates.js"
 
 const person = "person-1" as PersonId
@@ -45,6 +47,7 @@ const intl = (id: string): IntlString => id as IntlString
 const resource = (id: string): Resource<TemplateFieldFunc> => id as Resource<TemplateFieldFunc>
 const templateIdentifier = MessageTemplateIdentifier.make
 const templateCategoryIdentifier = MessageTemplateCategoryIdentifier.make
+const templateFieldId = TemplateFieldId.make
 const fieldCategoryIdentifier = TemplateFieldCategoryIdentifier.make
 
 interface Store {
@@ -405,6 +408,49 @@ describe("message template operations", () => {
 
       expect(result.title).toBe("tmpl-blank-title")
       expect(result.placeholderFieldIds).toEqual(["field-owner"])
+      expect(warnings).toHaveLength(1)
+      expect(assertAt(warnings, 0).code).toBe("message_template_metadata_degraded")
+    }))
+
+  it.effect("renders templates with caller-provided placeholder values", () =>
+    Effect.gen(function*() {
+      const result = yield* runOperation(renderMessageTemplate({
+        template: templateIdentifier("tmpl-sales-welcome"),
+        values: [
+          { field: templateFieldId("field-owner"), value: "First" },
+          { field: templateFieldId("field-owner"), value: "Ada ${field-company}" },
+          { field: templateFieldId("field-company"), value: "ACME" },
+          { field: templateFieldId("field-unused"), value: "Ignored" }
+        ]
+      }))
+
+      expect(result.message).toContain("Hello ${field-owner}")
+      expect(result.renderedMessage).toContain("Hello Ada ${field-company}, meet ACME.")
+      expect(result.placeholderFieldIds).toEqual(["field-owner", "field-company"])
+      expect(result.usedFields).toEqual([
+        { field: "field-owner", value: "Ada ${field-company}" },
+        { field: "field-company", value: "ACME" }
+      ])
+      expect(result.unresolvedFieldIds).toEqual([])
+      expect(result.unusedValueFields).toEqual(["field-unused"])
+    }))
+
+  it.effect("renders without values and preserves blank-title warnings", () =>
+    Effect.gen(function*() {
+      const store = testStore()
+      const { result, warnings } = yield* runOperationWithWarnings(
+        renderMessageTemplate({ template: templateIdentifier("tmpl-blank-title") }),
+        {
+          ...store,
+          templates: [messageTemplate("tmpl-blank-title", "", assertAt(store.categories, 0), "Hello ${field-owner}.")]
+        }
+      )
+
+      expect(result.title).toBe("tmpl-blank-title")
+      expect(result.renderedMessage).toContain("Hello ${field-owner}.")
+      expect(result.usedFields).toEqual([])
+      expect(result.unresolvedFieldIds).toEqual(["field-owner"])
+      expect(result.unusedValueFields).toEqual([])
       expect(warnings).toHaveLength(1)
       expect(assertAt(warnings, 0).code).toBe("message_template_metadata_degraded")
     }))

@@ -960,6 +960,8 @@ export {
   type MessageTemplateIdentifier as MessageTemplateIdentifierType,
   MessageTemplateMarkdown,
   type MessageTemplateMarkdown as MessageTemplateMarkdownType,
+  type MessageTemplateRenderValue,
+  MessageTemplateRenderValueSchema,
   MessageTemplateSchema,
   type MessageTemplateSummary,
   MessageTemplateSummarySchema,
@@ -967,6 +969,11 @@ export {
   parseListMessageTemplateCategoriesParams,
   parseListMessageTemplateFieldsParams,
   parseListMessageTemplatesParams,
+  parseRenderMessageTemplateParams,
+  type RenderMessageTemplateParams,
+  renderMessageTemplateParamsJsonSchema,
+  RenderMessageTemplateParamsSchema,
+  type RenderMessageTemplateResult,
   TemplateFieldCategoryId,
   type TemplateFieldCategoryId as TemplateFieldCategoryIdType,
   TemplateFieldCategoryIdentifier,
@@ -2702,7 +2709,8 @@ export {
   GetMessageTemplateResultSchema,
   ListMessageTemplateCategoriesResultSchema,
   ListMessageTemplateFieldsResultSchema,
-  ListMessageTemplatesResultSchema
+  ListMessageTemplatesResultSchema,
+  RenderMessageTemplateResultSchema
 } from "./message-templates.js"
 
 export { GetMilestoneResultSchema, ListMilestonesResultSchema } from "./milestones.js"

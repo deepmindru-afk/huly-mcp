@@ -9,7 +9,9 @@ import {
   parseGetMessageTemplateParams,
   parseListMessageTemplateCategoriesParams,
   parseListMessageTemplateFieldsParams,
-  parseListMessageTemplatesParams
+  parseListMessageTemplatesParams,
+  parseRenderMessageTemplateParams,
+  renderMessageTemplateParamsJsonSchema
 } from "../../src/domain/schemas/message-templates.js"
 
 const schemaPropertyDescription = (schema: unknown, name: string): string | undefined => {
@@ -39,26 +41,41 @@ describe("message template schemas", () => {
         search: "owner",
         limit: 5
       })
+      const rendered = yield* parseRenderMessageTemplateParams({
+        template: "Welcome",
+        category: "Sales",
+        values: [{ field: "field-owner", value: "Ada" }]
+      })
 
       expect(categories.limit).toBe(10)
       expect(templates.category).toBe("Sales")
       expect(template.template).toBe("Welcome")
       expect(fields.search).toBe("owner")
+      expect(rendered.values?.at(0)?.value).toBe("Ada")
     }))
 
   it.effect("rejects empty template, category, and field-category locators", () =>
     Effect.gen(function*() {
       const emptyTemplate = yield* Effect.either(parseGetMessageTemplateParams({ template: "  " }))
+      const emptyRenderTemplate = yield* Effect.either(parseRenderMessageTemplateParams({ template: "  " }))
       const emptyTemplateCategory = yield* Effect.either(
         parseListMessageTemplatesParams({ category: "  " })
       )
       const emptyFieldCategory = yield* Effect.either(
         parseListMessageTemplateFieldsParams({ category: "  " })
       )
+      const emptyRenderField = yield* Effect.either(
+        parseRenderMessageTemplateParams({
+          template: "Welcome",
+          values: [{ field: "  ", value: "Ada" }]
+        })
+      )
 
       expect(Either.isLeft(emptyTemplate)).toBe(true)
+      expect(Either.isLeft(emptyRenderTemplate)).toBe(true)
       expect(Either.isLeft(emptyTemplateCategory)).toBe(true)
       expect(Either.isLeft(emptyFieldCategory)).toBe(true)
+      expect(Either.isLeft(emptyRenderField)).toBe(true)
     }))
 
   it("emits LLM-useful JSON Schema descriptions for locator fields", () => {
@@ -67,6 +84,9 @@ describe("message template schemas", () => {
     )
     expect(schemaPropertyDescription(getMessageTemplateParamsJsonSchema, "template")).toContain(
       "Template ID or exact template title"
+    )
+    expect(schemaPropertyDescription(renderMessageTemplateParamsJsonSchema, "values")).toContain(
+      "template field ID from placeholderFieldIds"
     )
     expect(schemaPropertyDescription(listMessageTemplateFieldsParamsJsonSchema, "category")).toContain(
       "field category ID or exact raw label string"

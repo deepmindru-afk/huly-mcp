@@ -4,6 +4,7 @@ import type {
   TemplateCategory as HulyTemplateCategory,
   TemplateField as HulyTemplateField
 } from "@hcengineering/templates"
+import { templateFieldRegexp } from "@hcengineering/templates"
 import { Effect } from "effect"
 
 import type {
@@ -14,8 +15,12 @@ import type {
   MessageTemplate,
   MessageTemplateCategorySummary,
   MessageTemplateField,
-  MessageTemplateSummary
+  MessageTemplateRenderValue,
+  MessageTemplateSummary,
+  RenderMessageTemplateParams,
+  RenderMessageTemplateResult
 } from "../../domain/schemas/message-templates.js"
+import { MessageTemplateMarkdown, TemplateFieldId } from "../../domain/schemas/message-templates.js"
 import { Count } from "../../domain/schemas/shared.js"
 import { HulyClient, type HulyClientError } from "../client.js"
 import { Diagnostics } from "../diagnostics.js"
@@ -44,7 +49,78 @@ import { clampLimit, hulyQuery, type StrictDocumentQuery } from "./query-helpers
 type ListMessageTemplateCategoriesError = HulyClientError
 type ListMessageTemplatesError = ResolveCategoryError
 type GetMessageTemplateError = ResolveTemplateError
+type RenderMessageTemplateError = ResolveTemplateError
 type ListMessageTemplateFieldsError = ResolveFieldCategoryError
+
+interface RenderedTemplateMessage {
+  readonly renderedMessage: MessageTemplateMarkdown
+  readonly unresolvedFieldIds: Array<TemplateFieldId>
+  readonly unusedValueFields: Array<TemplateFieldId>
+  readonly usedFields: Array<MessageTemplateRenderValue>
+}
+
+const fieldValueEntryFor = (value: MessageTemplateRenderValue): readonly [TemplateFieldId, string] => [
+  value.field,
+  value.value
+]
+
+const fieldValueMapFor = (
+  values: ReadonlyArray<MessageTemplateRenderValue>
+): ReadonlyMap<TemplateFieldId, string> => new Map(values.map(fieldValueEntryFor))
+
+const uniqueFields = (fields: ReadonlyArray<TemplateFieldId>): Array<TemplateFieldId> => [...new Set(fields)]
+
+const renderTokenWith = (
+  valuesByField: ReadonlyMap<TemplateFieldId, string>
+): (token: string, rawField: string) => string => {
+  const renderToken = (token: string, rawField: string): string => {
+    const value = valuesByField.get(TemplateFieldId.make(rawField))
+    return value === undefined ? token : value
+  }
+
+  return renderToken
+}
+
+const renderTemplateTokens = (
+  message: MessageTemplateMarkdown,
+  valuesByField: ReadonlyMap<TemplateFieldId, string>
+): MessageTemplateMarkdown => {
+  const regexp = new RegExp(templateFieldRegexp.source, templateFieldRegexp.flags)
+
+  return MessageTemplateMarkdown.make(String(message).replace(regexp, renderTokenWith(valuesByField)))
+}
+
+const usedFieldValueFor = (
+  valuesByField: ReadonlyMap<TemplateFieldId, string>,
+  field: TemplateFieldId
+): Array<MessageTemplateRenderValue> => {
+  const value = valuesByField.get(field)
+  if (value === undefined) return []
+
+  return [{
+    field,
+    value
+  }]
+}
+
+const renderTemplateMessage = (
+  message: MessageTemplateMarkdown,
+  placeholderFieldIds: ReadonlyArray<TemplateFieldId>,
+  values: ReadonlyArray<MessageTemplateRenderValue>
+): RenderedTemplateMessage => {
+  const valuesByField = fieldValueMapFor(values)
+  const usedFields = placeholderFieldIds.flatMap((field) => usedFieldValueFor(valuesByField, field))
+  const placeholderFields = new Set(placeholderFieldIds)
+
+  return {
+    renderedMessage: renderTemplateTokens(message, valuesByField),
+    unresolvedFieldIds: placeholderFieldIds.filter((field) => !valuesByField.has(field)),
+    unusedValueFields: uniqueFields(values.map((fieldValue) => fieldValue.field)).filter(
+      (field) => !placeholderFields.has(field)
+    ),
+    usedFields
+  }
+}
 
 export const listMessageTemplateCategories = (
   params: ListMessageTemplateCategoriesParams
@@ -121,6 +197,29 @@ export const getMessageTemplate = (
     )
 
     return templateDetailFor(template, client, categories)
+  })
+
+export const renderMessageTemplate = (
+  params: RenderMessageTemplateParams
+): Effect.Effect<RenderMessageTemplateResult, RenderMessageTemplateError, HulyClient | Diagnostics> =>
+  Effect.gen(function*() {
+    const client = yield* HulyClient
+    const diagnostics = yield* Diagnostics
+    const template = yield* resolveTemplate(client, params)
+    const categories = yield* categoryMapFor(client, [template.space])
+    yield* warnMetadataFallbacks(
+      diagnostics,
+      Count.make(hasBlankTemplateTitle(template) ? 1 : 0),
+      "message template title row(s)",
+      "template IDs as titles"
+    )
+
+    const detail = templateDetailFor(template, client, categories)
+
+    return {
+      ...detail,
+      ...renderTemplateMessage(detail.message, detail.placeholderFieldIds, params.values ?? [])
+    }
   })
 
 export const listMessageTemplateFields = (

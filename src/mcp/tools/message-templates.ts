@@ -10,13 +10,17 @@ import {
   parseGetMessageTemplateParams,
   parseListMessageTemplateCategoriesParams,
   parseListMessageTemplateFieldsParams,
-  parseListMessageTemplatesParams
+  parseListMessageTemplatesParams,
+  parseRenderMessageTemplateParams,
+  renderMessageTemplateParamsJsonSchema,
+  RenderMessageTemplateResultSchema
 } from "../../domain/schemas/message-templates.js"
 import {
   getMessageTemplate,
   listMessageTemplateCategories,
   listMessageTemplateFields,
-  listMessageTemplates
+  listMessageTemplates,
+  renderMessageTemplate
 } from "../../huly/operations/message-templates.js"
 import { defineTool, type RegisteredTool } from "./registry.js"
 
@@ -58,6 +62,24 @@ export const messageTemplateTools: ReadonlyArray<RegisteredTool> = [
     },
     parseGetMessageTemplateParams,
     getMessageTemplate
+  ),
+  defineTool(
+    {
+      name: "render_message_template",
+      description:
+        "Render one global Huly message template by template ID or exact title. Substitutes only caller-provided values for matching dollar-brace placeholder field IDs from placeholderFieldIds; does not execute Huly TemplateField provider resources. Unresolved placeholders remain in renderedMessage and are reported in unresolvedFieldIds.",
+      category: CATEGORY,
+      inputSchema: renderMessageTemplateParamsJsonSchema,
+      resultSchema: RenderMessageTemplateResultSchema,
+      annotations: {
+        destructiveHint: false,
+        idempotentHint: true,
+        openWorldHint: false,
+        readOnlyHint: true
+      }
+    },
+    parseRenderMessageTemplateParams,
+    renderMessageTemplate
   ),
   defineTool(
     {

@@ -2022,9 +2022,29 @@ if [ $? -eq 0 ]; then
       assert_json_field_equals "get_message_template returns id" "$MSG_TEMPLATE_GET_TEXT" ".id" "$MSG_TEMPLATE_ID"
       assert_json_field_equals "get_message_template returns markdown string" "$MSG_TEMPLATE_GET_TEXT" ".message | type" "string"
       assert_json_field_equals "get_message_template returns placeholderFieldIds array" "$MSG_TEMPLATE_GET_TEXT" ".placeholderFieldIds | type" "array"
+
+      MSG_TEMPLATE_FIRST_FIELD=$(echo "$MSG_TEMPLATE_GET_TEXT" | jq -r '.placeholderFieldIds[0] // empty' 2>/dev/null)
+      MSG_TEMPLATE_RENDER_ARGUMENTS="{\"template\":$MSG_TEMPLATE_ID_JSON}"
+      if [ -n "$MSG_TEMPLATE_FIRST_FIELD" ]; then
+        MSG_TEMPLATE_FIRST_FIELD_JSON=$(json_string "$MSG_TEMPLATE_FIRST_FIELD")
+        MSG_TEMPLATE_RENDER_ARGUMENTS="{\"template\":$MSG_TEMPLATE_ID_JSON,\"values\":[{\"field\":$MSG_TEMPLATE_FIRST_FIELD_JSON,\"value\":\"Integration Value\"}]}"
+      fi
+
+      run_capture_to_var MSG_TEMPLATE_RENDER_TEXT "render_message_template($MSG_TEMPLATE_ID)" \
+        "{\"jsonrpc\":\"2.0\",\"method\":\"tools/call\",\"params\":{\"name\":\"render_message_template\",\"arguments\":$MSG_TEMPLATE_RENDER_ARGUMENTS},\"id\":2}"
+      if [ $? -eq 0 ]; then
+        assert_json_field_equals "render_message_template returns id" "$MSG_TEMPLATE_RENDER_TEXT" ".id" "$MSG_TEMPLATE_ID"
+        assert_json_field_equals "render_message_template returns rendered markdown string" "$MSG_TEMPLATE_RENDER_TEXT" ".renderedMessage | type" "string"
+        assert_json_field_equals "render_message_template returns unresolved field IDs array" "$MSG_TEMPLATE_RENDER_TEXT" ".unresolvedFieldIds | type" "array"
+        assert_json_field_equals "render_message_template returns unused value fields array" "$MSG_TEMPLATE_RENDER_TEXT" ".unusedValueFields | type" "array"
+        if [ -n "$MSG_TEMPLATE_FIRST_FIELD" ]; then
+          assert_json_field_equals "render_message_template reports used field" "$MSG_TEMPLATE_RENDER_TEXT" ".usedFields[0].field" "$MSG_TEMPLATE_FIRST_FIELD"
+          assert_json_field_contains "render_message_template substitutes provided value" "$MSG_TEMPLATE_RENDER_TEXT" ".renderedMessage" "Integration Value"
+        fi
+      fi
     fi
   else
-    echo "INFO: get_message_template not exercised (no live message templates in workspace)"
+    echo "INFO: get_message_template/render_message_template not exercised (no live message templates in workspace)"
   fi
 fi
 

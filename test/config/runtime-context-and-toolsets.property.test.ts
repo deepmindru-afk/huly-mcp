@@ -194,9 +194,8 @@ describe("tool scope parser properties", () => {
           const warnings: Array<string> = []
           const result = resolveToolScope(
             {
-              hulyToolsets: decoratedCsv(requestedCategories),
-              hulyTools: decoratedCsv(requestedTools),
-              legacyToolsets: ""
+              toolsets: decoratedCsv(requestedCategories),
+              tools: decoratedCsv(requestedTools)
             },
             toolRegistry.definitions,
             (message) => {
@@ -229,18 +228,16 @@ describe("tool scope parser properties", () => {
         (unknownCategories, unknownTools) => {
           const inactive = resolveToolScope(
             {
-              hulyToolsets: "",
-              hulyTools: "",
-              legacyToolsets: ""
+              toolsets: "",
+              tools: ""
             },
             toolRegistry.definitions,
             () => {}
           )
           const activeInvalid = resolveToolScope(
             {
-              hulyToolsets: decoratedCsv(unknownCategories),
-              hulyTools: decoratedCsv(unknownTools),
-              legacyToolsets: ""
+              toolsets: decoratedCsv(unknownCategories),
+              tools: decoratedCsv(unknownTools)
             },
             toolRegistry.definitions,
             () => {}

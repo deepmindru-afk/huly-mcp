@@ -4,15 +4,8 @@ interface ToolScopeToolDefinition {
 }
 
 interface ToolScopeRawEnv {
-  readonly hulyToolsets: string
-  readonly hulyTools: string
-  readonly legacyToolsets: string
-}
-
-interface LegacyToolsetsAliasUsage {
-  readonly provided: boolean
-  readonly used: boolean
-  readonly ignored: boolean
+  readonly toolsets: string
+  readonly tools: string
 }
 
 export interface ToolScopeSummary {
@@ -23,7 +16,6 @@ export interface ToolScopeSummary {
   readonly requestedTools: ReadonlyArray<string>
   readonly enabledTools: ReadonlyArray<string>
   readonly ignoredTools: ReadonlyArray<string>
-  readonly legacyToolsets: LegacyToolsetsAliasUsage
   readonly enabledCategories: ReadonlySet<string>
   readonly enabledToolNames: ReadonlySet<string>
   readonly availableCategories: ReadonlyArray<string>
@@ -75,22 +67,11 @@ export const resolveToolScope = (
   definitions: ReadonlyArray<ToolScopeToolDefinition>,
   writeError: (message: string) => void
 ): ToolScopeSummary => {
-  const hulyToolsets = normalizeCsv(rawEnv.hulyToolsets)
-  const hulyTools = normalizeCsv(rawEnv.hulyTools)
-  const legacyToolsets = normalizeCsv(rawEnv.legacyToolsets)
+  const requestedToolsets = normalizeCsv(rawEnv.toolsets)
+  const requestedTools = normalizeCsv(rawEnv.tools)
   const availableCategories = orderedCategories(definitions)
   const knownCategories = new Set(availableCategories)
   const knownToolNames = new Set(definitions.map((definition) => definition.name))
-  const legacyProvided = legacyToolsets.length > 0
-  const legacyIgnored = legacyProvided && hulyToolsets.length > 0
-  const legacyUsed = legacyProvided && hulyToolsets.length === 0
-  const requestedToolsets = hulyToolsets.length > 0 ? hulyToolsets : legacyToolsets
-
-  if (legacyIgnored) {
-    writeError("Warning: TOOLSETS is deprecated and ignored because HULY_TOOLSETS is set.")
-  } else if (legacyUsed) {
-    writeError("Warning: TOOLSETS is deprecated; use HULY_TOOLSETS instead.")
-  }
 
   const toolsets = resolveRequested(
     requestedToolsets,
@@ -100,12 +81,12 @@ export const resolveToolScope = (
     writeError
   )
   const tools = resolveRequested(
-    hulyTools,
+    requestedTools,
     knownToolNames,
     (tool) => `Warning: unknown tool name "${tool}", ignoring.`,
     writeError
   )
-  const filteringActive = requestedToolsets.length > 0 || hulyTools.length > 0
+  const filteringActive = requestedToolsets.length > 0 || requestedTools.length > 0
   const enabledCategories = new Set(toolsets.enabled)
   const enabledToolNames = new Set(tools.enabled)
   const visibleRegisteredToolCount = filteringActive
@@ -119,14 +100,9 @@ export const resolveToolScope = (
     requestedToolsets,
     enabledToolsets: toolsets.enabled,
     ignoredToolsets: toolsets.ignored,
-    requestedTools: hulyTools,
+    requestedTools,
     enabledTools: tools.enabled,
     ignoredTools: tools.ignored,
-    legacyToolsets: {
-      provided: legacyProvided,
-      used: legacyUsed,
-      ignored: legacyIgnored
-    },
     enabledCategories,
     enabledToolNames,
     availableCategories,

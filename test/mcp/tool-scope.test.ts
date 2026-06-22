@@ -10,18 +10,16 @@ import { createScopedRegistry, toolRegistry } from "../../src/mcp/tools/index.js
 import { createNoopTelemetry } from "../../src/telemetry/noop.js"
 
 interface PartialScopeEnv {
-  readonly hulyToolsets?: string
-  readonly hulyTools?: string
-  readonly legacyToolsets?: string
+  readonly toolsets?: string
+  readonly tools?: string
 }
 
 const resolveScoped = (env: PartialScopeEnv) => {
   const warnings: Array<string> = []
   const scope = resolveToolScope(
     {
-      hulyToolsets: env.hulyToolsets ?? "",
-      hulyTools: env.hulyTools ?? "",
-      legacyToolsets: env.legacyToolsets ?? ""
+      toolsets: env.toolsets ?? "",
+      tools: env.tools ?? ""
     },
     toolRegistry.definitions,
     (message) => {
@@ -47,8 +45,8 @@ describe("tool scope filtering", () => {
     expect(registry.tools.has("list_issues")).toBe(true)
   })
 
-  it("filters by HULY_TOOLSETS category", () => {
-    const { registry, scope } = resolveScoped({ hulyToolsets: "issues" })
+  it("filters by TOOLSETS category", () => {
+    const { registry, scope } = resolveScoped({ toolsets: "issues" })
 
     expect(scope.filteringActive).toBe(true)
     expect(scope.enabledToolsets).toEqual(["issues"])
@@ -57,17 +55,17 @@ describe("tool scope filtering", () => {
     expect(registry.tools.has("list_documents")).toBe(false)
   })
 
-  it("filters by exact HULY_TOOLS names", () => {
-    const { registry, scope } = resolveScoped({ hulyTools: "list_documents" })
+  it("filters by exact TOOLS names", () => {
+    const { registry, scope } = resolveScoped({ tools: "list_documents" })
 
     expect(scope.enabledTools).toEqual(["list_documents"])
     expect(registry.definitions.map((tool) => tool.name)).toEqual(["list_documents"])
   })
 
-  it("unions HULY_TOOLSETS and HULY_TOOLS while preserving registry order", () => {
+  it("unions TOOLSETS and TOOLS while preserving registry order", () => {
     const { registry } = resolveScoped({
-      hulyToolsets: "issues",
-      hulyTools: "list_documents"
+      toolsets: "issues",
+      tools: "list_documents"
     })
     const names = registry.definitions.map((tool) => tool.name)
     const expected = toolRegistry.definitions
@@ -81,8 +79,8 @@ describe("tool scope filtering", () => {
 
   it("keeps only built-in tools visible when an active scope is all invalid", async () => {
     const { registry, scope, warnings } = resolveScoped({
-      hulyToolsets: "missing_category",
-      hulyTools: "missing_tool"
+      toolsets: "missing_category",
+      tools: "missing_tool"
     })
     const handlers = createMcpProtocolHandlers(
       () => Promise.reject(new Error("clients must not resolve")),
@@ -104,33 +102,20 @@ describe("tool scope filtering", () => {
     ])
   })
 
-  it("prefers HULY_TOOLSETS over legacy TOOLSETS", () => {
-    const { registry, scope, warnings } = resolveScoped({
-      hulyToolsets: "documents",
-      legacyToolsets: "issues"
-    })
-
-    expect(scope.requestedToolsets).toEqual(["documents"])
-    expect(scope.legacyToolsets).toEqual({ provided: true, used: false, ignored: true })
-    expect(registry.definitions.every((tool) => tool.category === "documents")).toBe(true)
-    expect(warnings).toEqual([expect.stringContaining("TOOLSETS is deprecated and ignored")])
-  })
-
-  it("supports legacy TOOLSETS as a deprecated HULY_TOOLSETS alias", () => {
-    const { registry, scope, warnings } = resolveScoped({ legacyToolsets: "issues" })
+  it("uses TOOLSETS as the primary category scope without deprecation warnings", () => {
+    const { registry, scope, warnings } = resolveScoped({ toolsets: "issues" })
 
     expect(scope.requestedToolsets).toEqual(["issues"])
     expect(scope.enabledToolsets).toEqual(["issues"])
-    expect(scope.legacyToolsets).toEqual({ provided: true, used: true, ignored: false })
     expect(registry.tools.has("list_issues")).toBe(true)
     expect(registry.tools.has("list_documents")).toBe(false)
-    expect(warnings).toEqual([expect.stringContaining("TOOLSETS is deprecated")])
+    expect(warnings).toEqual([])
   })
 
   it("reports toolsets and tool-name scope in get_huly_context", () => {
     const { registry, scope } = resolveScoped({
-      hulyToolsets: "issues",
-      hulyTools: "list_documents,missing_tool"
+      toolsets: "issues",
+      tools: "list_documents,missing_tool"
     })
     const context = Schema.decodeUnknownSync(GetHulyContextResultSchema)(
       buildHulyContext({ transport: "stdio" }, registry, scope, sanitizeHulyRuntimeConfigFromEnv({}))
@@ -147,8 +132,7 @@ describe("tool scope filtering", () => {
       enabledToolsets: ["issues"],
       requestedTools: ["list_documents", "missing_tool"],
       enabledTools: ["list_documents"],
-      ignoredTools: ["missing_tool"],
-      legacyToolsets: { provided: false, used: false, ignored: false }
+      ignoredTools: ["missing_tool"]
     })
     expect(context.toolScope.visibleRegisteredToolCount).toBe(registry.definitions.length)
     expect(context.toolScope.totalRegisteredToolCount).toBe(toolRegistry.definitions.length)

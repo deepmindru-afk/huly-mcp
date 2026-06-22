@@ -501,11 +501,6 @@ const makeValidContext = (): GetHulyContextResult =>
       requestedTools: [],
       enabledTools: [],
       ignoredTools: [],
-      legacyToolsets: {
-        provided: false,
-        used: false,
-        ignored: false
-      },
       availableCategories: ["issues"],
       visibleRegisteredToolCount: 1,
       totalRegisteredToolCount: 1,

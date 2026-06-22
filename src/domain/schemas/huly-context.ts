@@ -84,12 +84,6 @@ const ToolsetsContextSchema = Schema.Struct({
   builtinTools: Schema.Array(Schema.Literal("get_version", "get_huly_context"))
 })
 
-const LegacyToolsetsAliasUsageSchema = Schema.Struct({
-  provided: Schema.Boolean,
-  used: Schema.Boolean,
-  ignored: Schema.Boolean
-})
-
 const ToolScopeContextSchema = Schema.Struct({
   active: Schema.Boolean,
   requestedToolsets: Schema.Array(NonEmptyTrimmedString),
@@ -98,7 +92,6 @@ const ToolScopeContextSchema = Schema.Struct({
   requestedTools: Schema.Array(NonEmptyTrimmedString),
   enabledTools: Schema.Array(NonEmptyTrimmedString),
   ignoredTools: Schema.Array(NonEmptyTrimmedString),
-  legacyToolsets: LegacyToolsetsAliasUsageSchema,
   availableCategories: Schema.Array(NonEmptyTrimmedString),
   visibleRegisteredToolCount: Count,
   totalRegisteredToolCount: Count,

@@ -147,6 +147,18 @@ NODE_OPTIONS="-r ./scripts/container-patch.cjs" bash scripts/integration_test_fu
 
 The patch (`scripts/container-patch.cjs`) rewrites `localhost:8087` → `nginx` in all `fetch` and `ws` calls at runtime. `.env.local` stays unchanged — same `HULY_URL=http://localhost:8087` as on the host.
 
+### Tool Scope Matrix
+
+Use the dedicated scope matrix when changing MCP tool discovery, client mode mapping, or `TOOLSETS` / `TOOLS` behavior:
+
+```bash
+pnpm build
+set -a && source .env.local && set +a
+HULY_URL="${HULY_URL/localhost/host.docker.internal}" pnpm integration:tool-scope
+```
+
+The matrix exercises stdio discovery with multiple representative clients and env permutations: default unscoped, `TOOLSETS` only, `TOOLS` only, union scope, and all-invalid active scope. It asserts visible and hidden tools through both `tools/list`, `get_huly_context`, and representative `tools/call` results.
+
 ### Running the full suite over HTTP
 
 The same full integration suite can exercise the HTTP MCP transport instead of stdio:

@@ -60,9 +60,8 @@ export const parseToolsets = (
 ): ToolScopeSummary =>
   resolveToolScope(
     {
-      hulyToolsets: raw ?? "",
-      hulyTools: "",
-      legacyToolsets: ""
+      toolsets: raw ?? "",
+      tools: ""
     },
     toolRegistry.definitions,
     writeError
@@ -121,7 +120,6 @@ export const buildHulyContext = (
     requestedTools: toolScope.requestedTools,
     enabledTools: toolScope.enabledTools,
     ignoredTools: toolScope.ignoredTools,
-    legacyToolsets: toolScope.legacyToolsets,
     availableCategories: toolScope.availableCategories,
     visibleRegisteredToolCount: Count.make(registry.definitions.length),
     totalRegisteredToolCount: Count.make(toolScope.totalRegisteredToolCount),

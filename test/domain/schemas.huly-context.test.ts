@@ -80,11 +80,6 @@ const validContext = {
     requestedTools: ["list_documents"],
     enabledTools: ["list_documents"],
     ignoredTools: [],
-    legacyToolsets: {
-      provided: false,
-      used: false,
-      ignored: false
-    },
     availableCategories: ["issues", "projects"],
     visibleRegisteredToolCount: 13,
     totalRegisteredToolCount: 120,

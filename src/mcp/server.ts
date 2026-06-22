@@ -76,14 +76,12 @@ export class McpServerService extends Context.Tag("@hulymcp/McpServer")<
         const telemetry = yield* TelemetryService
         const writeError = config.writeError ?? defaultWriteError
 
-        const hulyToolsetsRaw = yield* Effect.orElseSucceed(Config.string("HULY_TOOLSETS"), () => "")
-        const hulyToolsRaw = yield* Effect.orElseSucceed(Config.string("HULY_TOOLS"), () => "")
-        const legacyToolsetsRaw = yield* Effect.orElseSucceed(Config.string("TOOLSETS"), () => "")
+        const toolsetsRaw = yield* Effect.orElseSucceed(Config.string("TOOLSETS"), () => "")
+        const toolsRaw = yield* Effect.orElseSucceed(Config.string("TOOLS"), () => "")
         const toolScope = resolveToolScope(
           {
-            hulyToolsets: hulyToolsetsRaw,
-            hulyTools: hulyToolsRaw,
-            legacyToolsets: legacyToolsetsRaw
+            toolsets: toolsetsRaw,
+            tools: toolsRaw
           },
           toolRegistry.definitions,
           writeError

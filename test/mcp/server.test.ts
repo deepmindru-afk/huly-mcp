@@ -1805,7 +1805,9 @@ describe("McpServerService.layer operations", () => {
     it.scoped("sessionStart includes toolsets when TOOLSETS env is set", () => {
       let capturedProps: SessionStartProps | null = null
       return Effect.gen(function*() {
+        const originalTools = process.env.TOOLS
         process.env.TOOLSETS = "issues,documents"
+        delete process.env.TOOLS
         const telemetryLayer = TelemetryService.testLayer({
           sessionStart: (props) => {
             capturedProps = props
@@ -1824,13 +1826,20 @@ describe("McpServerService.layer operations", () => {
         expect(capturedProps).not.toBeNull()
         expect(capturedProps!.toolsets).toEqual(expect.arrayContaining(["issues", "documents"]))
         delete process.env.TOOLSETS
+        if (originalTools === undefined) {
+          delete process.env.TOOLS
+        } else {
+          process.env.TOOLS = originalTools
+        }
       })
     })
 
     it.scoped("sessionStart toolsets is null when no TOOLSETS env", () => {
       let capturedProps: SessionStartProps | null = null
       return Effect.gen(function*() {
+        const originalTools = process.env.TOOLS
         delete process.env.TOOLSETS
+        delete process.env.TOOLS
         const telemetryLayer = TelemetryService.testLayer({
           sessionStart: (props) => {
             capturedProps = props
@@ -1848,6 +1857,11 @@ describe("McpServerService.layer operations", () => {
         yield* Layer.build(serverLayer)
         expect(capturedProps).not.toBeNull()
         expect(capturedProps!.toolsets).toBeNull()
+        if (originalTools === undefined) {
+          delete process.env.TOOLS
+        } else {
+          process.env.TOOLS = originalTools
+        }
       })
     })
 
@@ -2060,7 +2074,9 @@ describe("McpServerService.layer operations", () => {
       Effect.gen(function*() {
         capturedHandlers.clear()
         const originalToolsets = process.env.TOOLSETS
+        const originalTools = process.env.TOOLS
         process.env.TOOLSETS = "issues"
+        delete process.env.TOOLS
         const fiber = yield* buildAndRunWithResolveClients(
           async () => {
             throw new Error("client resolution should be skipped")
@@ -2114,6 +2130,11 @@ describe("McpServerService.layer operations", () => {
           delete process.env.TOOLSETS
         } else {
           process.env.TOOLSETS = originalToolsets
+        }
+        if (originalTools === undefined) {
+          delete process.env.TOOLS
+        } else {
+          process.env.TOOLS = originalTools
         }
         yield* cleanup(fiber)
       }), { timeout: 5000 })

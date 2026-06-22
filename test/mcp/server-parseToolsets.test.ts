@@ -133,6 +133,7 @@ describe("McpServerService.layer with TOOLSETS env", () => {
   it.scoped("builds successfully with no TOOLSETS env", () =>
     Effect.gen(function*() {
       delete process.env.TOOLSETS
+      delete process.env.TOOLS
       const serverLayer = buildTestServerLayer({ transport: "stdio" }, baseLayers)
       yield* Layer.build(serverLayer)
     }))
@@ -140,12 +141,13 @@ describe("McpServerService.layer with TOOLSETS env", () => {
   it.scoped("builds successfully with valid TOOLSETS", () =>
     Effect.gen(function*() {
       process.env.TOOLSETS = "issues"
+      delete process.env.TOOLS
       const serverLayer = buildTestServerLayer({ transport: "stdio" }, baseLayers)
       yield* Layer.build(serverLayer)
       delete process.env.TOOLSETS
     }))
 
-  it.scoped("builds scoped registry from HULY_TOOLSETS and HULY_TOOLS", () => {
+  it.scoped("builds scoped registry from TOOLSETS and TOOLS", () => {
     let capturedToolCount = 0
     let capturedToolsets: ReadonlyArray<string> | null = null
     const expectedRegistry = createScopedRegistry({
@@ -154,8 +156,8 @@ describe("McpServerService.layer with TOOLSETS env", () => {
       toolNames: new Set(["list_documents"])
     })
     return Effect.gen(function*() {
-      process.env.HULY_TOOLSETS = "issues"
-      process.env.HULY_TOOLS = "list_documents"
+      process.env.TOOLSETS = "issues"
+      process.env.TOOLS = "list_documents"
       const telemetryLayer = TelemetryService.testLayer({
         sessionStart: (props) => {
           capturedToolCount = props.toolCount
@@ -175,8 +177,8 @@ describe("McpServerService.layer with TOOLSETS env", () => {
       expect(capturedToolsets).toEqual(["issues"])
       expect(capturedToolCount).toBe(expectedRegistry.definitions.length)
       expect(expectedRegistry.tools.get("list_documents")).toBe(toolRegistry.tools.get("list_documents"))
-      delete process.env.HULY_TOOLSETS
-      delete process.env.HULY_TOOLS
+      delete process.env.TOOLSETS
+      delete process.env.TOOLS
     })
   })
 
@@ -184,6 +186,7 @@ describe("McpServerService.layer with TOOLSETS env", () => {
     const writeError = mockFn()
     return Effect.gen(function*() {
       process.env.TOOLSETS = "nonexistent_category"
+      delete process.env.TOOLS
       const serverLayer = buildTestServerLayer({ transport: "stdio" }, baseLayers, writeError)
       yield* Layer.build(serverLayer)
       expect(writeError.mock.calls).toContainEqual([
@@ -197,6 +200,7 @@ describe("McpServerService.layer with TOOLSETS env", () => {
     let capturedProps: unknown = null
     return Effect.gen(function*() {
       delete process.env.TOOLSETS
+      delete process.env.TOOLS
       const telemetryLayer = TelemetryService.testLayer({
         sessionStart: (props) => {
           capturedProps = props

@@ -1,6 +1,6 @@
 import { Schema } from "effect"
 
-import { ApprovalRequestNotFoundError } from "./errors-approval-requests.js"
+import * as ApprovalRequestErrors from "./errors-approval-requests.js"
 import { HulyAuthError, HulyConnectionError, HulyError, NoUpdateFieldsError } from "./errors-base.js"
 import {
   BoardArchivedCardDeleteError,
@@ -219,7 +219,13 @@ export const HulyDomainError = Schema.Union(
   NoUpdateFieldsError,
   HulyConnectionError,
   HulyAuthError,
-  ApprovalRequestNotFoundError,
+  ApprovalRequestErrors.ApprovalRequestNotFoundError,
+  ApprovalRequestErrors.ApprovalRequestTargetNotFoundError,
+  ApprovalRequestErrors.ApprovalRequestInvalidApprovalThresholdError,
+  ApprovalRequestErrors.ApprovalRequestMutationUnsupportedError,
+  ApprovalRequestErrors.ApprovalRequestNotActiveError,
+  ApprovalRequestErrors.ApprovalRequestApproverNotRequestedError,
+  ApprovalRequestErrors.ApprovalRequestCancelUnauthorizedError,
   BoardNotFoundError,
   BoardIdentifierAmbiguousError,
   BoardCardNotFoundError,

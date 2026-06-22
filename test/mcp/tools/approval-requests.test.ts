@@ -1,7 +1,18 @@
 import { describe, it } from "@effect/vitest"
 import type { Channel, Person as HulyPerson } from "@hcengineering/contact"
 import { AvatarType } from "@hcengineering/contact"
-import type { AccountUuid, Class, Doc, DocumentQuery, PersonId, Ref, Tx } from "@hcengineering/core"
+import type {
+  AccountUuid,
+  AttachedData,
+  AttachedDoc,
+  Class,
+  Doc,
+  DocumentQuery,
+  PersonId,
+  Ref,
+  Space,
+  Tx
+} from "@hcengineering/core"
 import { toFindResult } from "@hcengineering/core"
 import type { Request as HulyApprovalRequest } from "@hcengineering/request"
 import { RequestStatus as HulyRequestStatus } from "@hcengineering/request"
@@ -9,7 +20,7 @@ import { Effect } from "effect"
 import { expect } from "vitest"
 
 import type { HulyClientOperations } from "../../../src/huly/client.js"
-import { contact, core, request as requestPlugin } from "../../../src/huly/huly-plugins.js"
+import { chunter, contact, core, request as requestPlugin } from "../../../src/huly/huly-plugins.js"
 import { testMarkupUrlConfig } from "../../../src/huly/operations/markup.js"
 import { toAccountUuid, toClassRef, toRef } from "../../../src/huly/operations/sdk-boundary.js"
 import type { HulyStorageOperations } from "../../../src/huly/storage.js"
@@ -93,6 +104,8 @@ const docsForSdkClass = <T extends Doc>(classId: Ref<Class<T>>): Array<T> => {
   return docs as Array<T>
 }
 
+const addCaptures: Array<{ readonly classId: string; readonly collection: string }> = []
+
 const hulyClient: HulyClientOperations = {
   getAccountUuid: () => accountUuid,
   getPrimarySocialId: () => actor,
@@ -104,7 +117,18 @@ const hulyClient: HulyClientOperations = {
     (<T extends Doc>(classId: Ref<Class<T>>, _query: DocumentQuery<T>) => Effect.succeed(docsForSdkClass(classId)[0])),
   createDoc: () => Effect.die(new Error("not implemented")),
   updateDoc: () => Effect.die(new Error("not implemented")),
-  addCollection: () => Effect.die(new Error("not implemented")),
+  addCollection: (<T extends Doc, P extends AttachedDoc>(
+    classId: Ref<Class<P>>,
+    _space: Ref<Space>,
+    _attachedTo: Ref<T>,
+    _attachedToClass: Ref<Class<T>>,
+    collection: string,
+    _attributes: AttachedData<P>,
+    id?: Ref<P>
+  ) => {
+    addCaptures.push({ classId: String(classId), collection })
+    return Effect.succeed(id ?? toRef<P>("generated-id"))
+  }) as HulyClientOperations["addCollection"],
   removeDoc: () => Effect.die(new Error("not implemented")),
   uploadMarkup: () => Effect.die(new Error("not implemented")),
   fetchMarkup: () => Effect.succeed(""),
@@ -130,13 +154,25 @@ describe("approvalRequestTools", () => {
     Effect.gen(function*() {
       expect(approvalRequestTools.map((tool) => tool.name)).toEqual([
         "list_approval_requests",
-        "get_approval_request"
+        "get_approval_request",
+        "add_approval_request",
+        "add_approval_request_comment",
+        "approve_approval_request",
+        "reject_approval_request",
+        "cancel_approval_request"
       ])
       for (const tool of approvalRequestTools) {
         expect(tool.category).toBe("approvals")
         expect(TOOL_DEFINITIONS[tool.name]).toBe(tool)
-        expect(resolveAnnotations(tool).readOnlyHint).toBe(true)
       }
+      expect(resolveAnnotations(findTool("list_approval_requests")).readOnlyHint).toBe(true)
+      expect(resolveAnnotations(findTool("get_approval_request")).readOnlyHint).toBe(true)
+      expect(resolveAnnotations(findTool("add_approval_request")).readOnlyHint).toBe(false)
+      expect(resolveAnnotations(findTool("approve_approval_request")).destructiveHint).toBe(false)
+      expect(resolveAnnotations(findTool("approve_approval_request")).idempotentHint).toBe(false)
+      expect(resolveAnnotations(findTool("reject_approval_request")).idempotentHint).toBe(false)
+      expect(resolveAnnotations(findTool("cancel_approval_request")).destructiveHint).toBe(false)
+      expect(resolveAnnotations(findTool("cancel_approval_request")).idempotentHint).toBe(false)
     }))
 
   it.effect("list_approval_requests handler encodes successful structured output", () =>
@@ -166,5 +202,26 @@ describe("approvalRequestTools", () => {
 
       expect(result.isError).toBe(true)
       expect(assertAt(result.content, 0).text).toContain("Invalid parameters for get_approval_request")
+    }))
+
+  it.effect("add_approval_request_comment handler encodes mutation output", () =>
+    Effect.gen(function*() {
+      addCaptures.length = 0
+      const result = yield* Effect.promise(() =>
+        findTool("add_approval_request_comment").handler(
+          { request: "request-1", body: "Looks good" },
+          hulyClient,
+          storageClient
+        )
+      )
+
+      expect(result.isError).toBeUndefined()
+      expect(result.structuredContent?.result).toMatchObject({
+        request: "request-1",
+        action: "comment_added",
+        changed: true,
+        comment: expect.any(String)
+      })
+      expect(addCaptures).toEqual([{ classId: chunter.class.ChatMessage, collection: "comments" }])
     }))
 })

@@ -629,6 +629,11 @@ SDK upgrade revisit:
 |------|-------------|
 | `list_approval_requests` | List generic Huly approval Request documents from the published @hcengineering/request SDK package. This is read-only discovery: filter by status, raw attachedTo document id, and/or raw attachedToClass class id when you know the target document. Omit filters to inspect recent approval requests across modules. |
 | `get_approval_request` | Read one generic Huly approval Request document by raw request _id. Returns person refs with best-effort contact metadata plus the opaque SDK tx/rejectedTx payloads for inspection; approval mutations are intentionally not exposed by this read-only tool. |
+| `add_approval_request` | Create a generic Huly approval Request attached to any target document. Provide raw attachedTo and attachedToClass from the target, requested people as Person ids or exact email/name identifiers, and a real opaque Huly SDK tx payload. Omit space to resolve it from the target; collection defaults to requests. Returns the new request id without doing an immediate stale-prone read-after-write. |
+| `add_approval_request_comment` | Add a plain markdown comment to an approval Request by request _id. This does not approve, reject, cancel, or create a decision comment mixin. |
+| `approve_approval_request` | Approve an active approval Request as the current Huly user. The current user's Employee/Person ref must be in the request's requested list. Optionally attach a markdown decision comment before approval. If the current user already approved it, returns changed=false. |
+| `reject_approval_request` | Reject an active approval Request as the current Huly user and attach the required markdown rejection decision comment. Huly applies rejectedTx when present. |
+| `cancel_approval_request` | Cancel an active approval Request created by the current Huly user. This is the safe removal-from-workflow operation; hard delete is intentionally not exposed. |
 
 ### Boards
 

@@ -2,4 +2,4 @@
 "@firfi/huly-mcp": minor
 ---
 
-Add read-only generic approval request tools backed by `@hcengineering/request`: `list_approval_requests` and `get_approval_request`.
+Add generic approval request tools backed by `@hcengineering/request`: `list_approval_requests`, `get_approval_request`, `add_approval_request`, `add_approval_request_comment`, `approve_approval_request`, `reject_approval_request`, and `cancel_approval_request`.

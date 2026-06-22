@@ -101,6 +101,11 @@ describe("CATEGORY_NAMES", () => {
     Effect.gen(function*() {
       expect(toolDefinition("list_approval_requests").category).toBe("approvals")
       expect(toolDefinition("get_approval_request").category).toBe("approvals")
+      expect(toolDefinition("add_approval_request").category).toBe("approvals")
+      expect(toolDefinition("add_approval_request_comment").category).toBe("approvals")
+      expect(toolDefinition("approve_approval_request").category).toBe("approvals")
+      expect(toolDefinition("reject_approval_request").category).toBe("approvals")
+      expect(toolDefinition("cancel_approval_request").category).toBe("approvals")
     }))
 })
 

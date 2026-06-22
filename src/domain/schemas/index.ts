@@ -83,16 +83,32 @@ export {
 } from "./tool-warnings.js"
 
 export {
+  type AddApprovalRequestCommentParams,
+  addApprovalRequestCommentParamsJsonSchema,
+  AddApprovalRequestCommentParamsSchema,
+  type AddApprovalRequestParams,
+  addApprovalRequestParamsJsonSchema,
+  AddApprovalRequestParamsSchema,
   type ApprovalPersonRef,
   ApprovalPersonRefSchema,
   ApprovalRequestCollection,
   type ApprovalRequestDetail,
   ApprovalRequestDetailSchema,
   ApprovalRequestId,
+  type ApprovalRequestMutationAction,
+  ApprovalRequestMutationActionSchema,
+  type ApprovalRequestMutationResult,
+  ApprovalRequestMutationResultSchema,
   type ApprovalRequestStatus,
   ApprovalRequestStatusSchema,
   type ApprovalRequestSummary,
   ApprovalRequestSummarySchema,
+  type ApproveApprovalRequestParams,
+  approveApprovalRequestParamsJsonSchema,
+  ApproveApprovalRequestParamsSchema,
+  type CancelApprovalRequestParams,
+  cancelApprovalRequestParamsJsonSchema,
+  CancelApprovalRequestParamsSchema,
   type GetApprovalRequestParams,
   getApprovalRequestParamsJsonSchema,
   GetApprovalRequestParamsSchema,
@@ -103,8 +119,16 @@ export {
   ListApprovalRequestsParamsSchema,
   type ListApprovalRequestsResult,
   ListApprovalRequestsResultSchema,
+  parseAddApprovalRequestCommentParams,
+  parseAddApprovalRequestParams,
+  parseApproveApprovalRequestParams,
+  parseCancelApprovalRequestParams,
   parseGetApprovalRequestParams,
-  parseListApprovalRequestsParams
+  parseListApprovalRequestsParams,
+  parseRejectApprovalRequestParams,
+  type RejectApprovalRequestParams,
+  rejectApprovalRequestParamsJsonSchema,
+  RejectApprovalRequestParamsSchema
 } from "./approval-requests.js"
 
 export {

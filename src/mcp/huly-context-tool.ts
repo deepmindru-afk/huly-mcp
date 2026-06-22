@@ -5,7 +5,8 @@ import { Count, NonEmptyString } from "../domain/schemas/index.js"
 import { VERSION } from "../version.js"
 import { DEFAULT_HTTP_PORT } from "./http-transport.js"
 import { createToolOutputSchema, hulyContextToolOutputSchema } from "./tool-output-schema.js"
-import { CATEGORY_NAMES, type ToolRegistry, toolRegistry } from "./tools/index.js"
+import { resolveToolScope, type ToolScopeSummary } from "./tool-scope.js"
+import { type ToolRegistry, toolRegistry } from "./tools/index.js"
 
 const NPM_PACKAGE_NAME = "@firfi/huly-mcp"
 export const VERSION_TOOL_NAME = "get_version"
@@ -41,7 +42,7 @@ export const versionToolDefinition = {
 export const getHulyContextToolDefinition = {
   name: GET_HULY_CONTEXT_TOOL_NAME,
   description:
-    "Returns sanitized runtime and configuration context for this Huly MCP session, including package version, transport, auth mode, Huly URL origin/host, workspace, timeout, and toolset filtering. Does not connect to Huly. Secret values such as tokens, passwords, and credential headers are never returned.",
+    "Returns sanitized runtime and configuration context for this Huly MCP session, including package version, transport, auth mode, Huly URL origin/host, workspace, timeout, and native tool scope filtering. Does not connect to Huly. Secret values such as tokens, passwords, and credential headers are never returned.",
   inputSchema: emptyInputSchema,
   outputSchema: hulyContextToolOutputSchema,
   annotations: {
@@ -53,54 +54,19 @@ export const getHulyContextToolDefinition = {
   }
 }
 
-interface ToolsetFilterSummary {
-  readonly enabledCategories: ReadonlySet<string> | undefined
-  readonly requestedCategories: ReadonlyArray<string>
-  readonly ignoredCategories: ReadonlyArray<string>
-}
-
 export const parseToolsets = (
   raw: string | undefined,
   writeError: (message: string) => void
-): ToolsetFilterSummary => {
-  if (raw === undefined || raw.trim() === "") {
-    return {
-      enabledCategories: undefined,
-      requestedCategories: [],
-      ignoredCategories: []
-    }
-  }
-  const requested = raw.split(",").map((s) => s.trim().toLowerCase()).filter(Boolean)
-  const parsed = requested.reduce<{
-    readonly enabledCategories: ReadonlyArray<string>
-    readonly ignoredCategories: ReadonlyArray<string>
-  }>((acc, category) => {
-    if (CATEGORY_NAMES.has(category)) {
-      return {
-        ...acc,
-        enabledCategories: [...acc.enabledCategories, category]
-      }
-    }
-
-    writeError(
-      `Warning: unknown toolset category "${category}", ignoring. Valid categories: ${[...CATEGORY_NAMES].join(", ")}`
-    )
-    return {
-      ...acc,
-      ignoredCategories: [...acc.ignoredCategories, category]
-    }
-  }, {
-    enabledCategories: [],
-    ignoredCategories: []
-  })
-  const enabled = new Set(parsed.enabledCategories)
-
-  return {
-    enabledCategories: enabled.size > 0 ? enabled : undefined,
-    requestedCategories: requested,
-    ignoredCategories: parsed.ignoredCategories
-  }
-}
+): ToolScopeSummary =>
+  resolveToolScope(
+    {
+      hulyToolsets: raw ?? "",
+      hulyTools: "",
+      legacyToolsets: ""
+    },
+    toolRegistry.definitions,
+    writeError
+  )
 
 const builtinToolNames: ReadonlyArray<BuiltinToolName> = [VERSION_TOOL_NAME, GET_HULY_CONTEXT_TOOL_NAME]
 
@@ -116,7 +82,7 @@ export const buildHulyContext = (
     readonly httpHost?: string
   },
   registry: ToolRegistry,
-  toolsetSummary: ToolsetFilterSummary,
+  toolScope: ToolScopeSummary,
   runtimeConfig: SanitizedHulyRuntimeConfigContext
 ): GetHulyContextResult => ({
   package: {
@@ -138,13 +104,27 @@ export const buildHulyContext = (
   auth: runtimeConfig.auth,
   configSources: runtimeConfig.configSources,
   toolsets: {
-    filteringActive: toolsetSummary.enabledCategories !== undefined,
-    requestedCategories: toolsetSummary.requestedCategories,
-    enabledCategories: toolsetSummary.enabledCategories === undefined ? [] : [...toolsetSummary.enabledCategories],
-    ignoredCategories: toolsetSummary.ignoredCategories,
-    availableCategories: [...CATEGORY_NAMES],
+    filteringActive: toolScope.filteringActive,
+    requestedCategories: toolScope.requestedToolsets,
+    enabledCategories: toolScope.enabledToolsets,
+    ignoredCategories: toolScope.ignoredToolsets,
+    availableCategories: toolScope.availableCategories,
     visibleRegisteredToolCount: Count.make(registry.definitions.length),
-    totalRegisteredToolCount: Count.make(toolRegistry.definitions.length),
+    totalRegisteredToolCount: Count.make(toolScope.totalRegisteredToolCount),
+    builtinTools: builtinToolNames
+  },
+  toolScope: {
+    active: toolScope.filteringActive,
+    requestedToolsets: toolScope.requestedToolsets,
+    enabledToolsets: toolScope.enabledToolsets,
+    ignoredToolsets: toolScope.ignoredToolsets,
+    requestedTools: toolScope.requestedTools,
+    enabledTools: toolScope.enabledTools,
+    ignoredTools: toolScope.ignoredTools,
+    legacyToolsets: toolScope.legacyToolsets,
+    availableCategories: toolScope.availableCategories,
+    visibleRegisteredToolCount: Count.make(registry.definitions.length),
+    totalRegisteredToolCount: Count.make(toolScope.totalRegisteredToolCount),
     builtinTools: builtinToolNames
   }
 })

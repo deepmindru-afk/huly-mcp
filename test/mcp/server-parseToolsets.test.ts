@@ -6,6 +6,7 @@ import { HulyStorageClient } from "../../src/huly/storage.js"
 import { WorkspaceClient } from "../../src/huly/workspace-client.js"
 import { HttpServerFactoryService } from "../../src/mcp/http-transport.js"
 import { type ClientBundle, McpServerError, McpServerService } from "../../src/mcp/server.js"
+import { createScopedRegistry, toolRegistry } from "../../src/mcp/tools/index.js"
 import { TelemetryService } from "../../src/telemetry/telemetry.js"
 import { mockFn } from "../helpers/mock-fn.js"
 
@@ -143,6 +144,41 @@ describe("McpServerService.layer with TOOLSETS env", () => {
       yield* Layer.build(serverLayer)
       delete process.env.TOOLSETS
     }))
+
+  it.scoped("builds scoped registry from HULY_TOOLSETS and HULY_TOOLS", () => {
+    let capturedToolCount = 0
+    let capturedToolsets: ReadonlyArray<string> | null = null
+    const expectedRegistry = createScopedRegistry({
+      filteringActive: true,
+      categories: new Set(["issues"]),
+      toolNames: new Set(["list_documents"])
+    })
+    return Effect.gen(function*() {
+      process.env.HULY_TOOLSETS = "issues"
+      process.env.HULY_TOOLS = "list_documents"
+      const telemetryLayer = TelemetryService.testLayer({
+        sessionStart: (props) => {
+          capturedToolCount = props.toolCount
+          capturedToolsets = props.toolsets
+        }
+      })
+      const layers = Layer.mergeAll(
+        HulyClient.testLayer({}),
+        HulyStorageClient.testLayer({}),
+        WorkspaceClient.testLayer({}),
+        telemetryLayer
+      )
+
+      const serverLayer = buildTestServerLayer({ transport: "stdio" }, layers)
+      yield* Layer.build(serverLayer)
+
+      expect(capturedToolsets).toEqual(["issues"])
+      expect(capturedToolCount).toBe(expectedRegistry.definitions.length)
+      expect(expectedRegistry.tools.get("list_documents")).toBe(toolRegistry.tools.get("list_documents"))
+      delete process.env.HULY_TOOLSETS
+      delete process.env.HULY_TOOLS
+    })
+  })
 
   it.scoped("ignores unknown toolset categories and still builds", () => {
     const writeError = mockFn()

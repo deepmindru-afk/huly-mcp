@@ -373,7 +373,7 @@ const generateToolsSection = () => {
     ...[...toolsByCategory.keys()].filter((category) => !categoryOrder.includes(category))
   ]
   let output = "## Available Tools\n\n"
-  output += `**\`TOOLSETS\` categories:** ${categories.map((category) => `\`${category}\``).join(", ")}\n\n`
+  output += `**\`HULY_TOOLSETS\` categories:** ${categories.map((category) => `\`${category}\``).join(", ")}\n\n`
 
   for (const categoryName of categoryOrder) {
     const tools = toolsByCategory.get(categoryName)

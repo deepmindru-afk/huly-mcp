@@ -239,7 +239,9 @@ For a Smithery publish schema example, see [docs/SMITHERY_URL_PUBLISH.md](docs/S
 | `MCP_HTTP_PORT` | No | HTTP server port (falls back to `PORT`, then 3000) |
 | `MCP_HTTP_HOST` | No | HTTP server host. Omit to bind to the package default loopback host. |
 | `MCP_AUTH_TOKEN` | No | Optional bearer token required by HTTP clients for `/mcp`. This protects the MCP endpoint only; it is not a Huly API token. |
-| `TOOLSETS` | No | Comma-separated tool categories to expose. If unset, all tools are exposed. Example: `issues,projects,search` |
+| `HULY_TOOLSETS` | No | Comma-separated tool categories to expose. If neither `HULY_TOOLSETS`, `HULY_TOOLS`, nor `TOOLSETS` is set, all native Huly tools are exposed. Example: `issues,projects,search` |
+| `HULY_TOOLS` | No | Comma-separated exact tool names to expose in addition to selected toolsets. Example: `list_documents,create_issue` |
+| `TOOLSETS` | No | Deprecated alias for `HULY_TOOLSETS`. Ignored when `HULY_TOOLSETS` is set. |
 
 *Auth: Provide either `HULY_EMAIL` + `HULY_PASSWORD` or `HULY_TOKEN`.
 
@@ -247,7 +249,7 @@ For a Smithery publish schema example, see [docs/SMITHERY_URL_PUBLISH.md](docs/S
 
 `get_version` returns the current server version and latest npm version.
 
-`get_huly_context` returns sanitized runtime/configuration context for the current MCP session without connecting to Huly. It reports package version, transport, auth mode, sanitized Huly URL origin/host/protocol, workspace, timeout, config sources, and toolset filtering. Tokens, passwords, email values, credential headers, URL paths, URL query strings, and URL credentials are never returned.
+`get_huly_context` returns sanitized runtime/configuration context for the current MCP session without connecting to Huly. It reports package version, transport, auth mode, sanitized Huly URL origin/host/protocol, workspace, timeout, config sources, and native tool scope filtering. Tokens, passwords, email values, credential headers, URL paths, URL query strings, and URL credentials are never returned.
 
 ## MCP Resources
 
@@ -323,7 +325,7 @@ SDK upgrade revisit:
 <!-- AUTO-GENERATED from src/mcp/tools/ descriptions. Do not edit manually. Run `pnpm update-readme` to regenerate. -->
 ## Available Tools
 
-**`TOOLSETS` categories:** `projects`, `issues`, `comments`, `milestones`, `documents`, `storage`, `attachments`, `contacts`, `channels`, `calendar`, `time tracking`, `search`, `associations`, `activity`, `notifications`, `workspace`, `approvals`, `boards`, `cards`, `collaborators`, `custom-fields`, `drive`, `inventory`, `labels`, `leads`, `templates`, `planner`, `preferences`, `processes`, `recruiting`, `sdk-discovery`, `spaces`, `tag-categories`, `tags`, `task-management`, `test-management`, `user-statuses`, `views`, `virtual-office`
+**`HULY_TOOLSETS` categories:** `projects`, `issues`, `comments`, `milestones`, `documents`, `storage`, `attachments`, `contacts`, `channels`, `calendar`, `time tracking`, `search`, `associations`, `activity`, `notifications`, `workspace`, `approvals`, `boards`, `cards`, `collaborators`, `custom-fields`, `drive`, `inventory`, `labels`, `leads`, `templates`, `planner`, `preferences`, `processes`, `recruiting`, `sdk-discovery`, `spaces`, `tag-categories`, `tags`, `task-management`, `test-management`, `user-statuses`, `views`, `virtual-office`
 
 ### Projects
 

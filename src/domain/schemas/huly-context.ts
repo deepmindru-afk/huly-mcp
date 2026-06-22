@@ -84,6 +84,27 @@ const ToolsetsContextSchema = Schema.Struct({
   builtinTools: Schema.Array(Schema.Literal("get_version", "get_huly_context"))
 })
 
+const LegacyToolsetsAliasUsageSchema = Schema.Struct({
+  provided: Schema.Boolean,
+  used: Schema.Boolean,
+  ignored: Schema.Boolean
+})
+
+const ToolScopeContextSchema = Schema.Struct({
+  active: Schema.Boolean,
+  requestedToolsets: Schema.Array(NonEmptyTrimmedString),
+  enabledToolsets: Schema.Array(NonEmptyTrimmedString),
+  ignoredToolsets: Schema.Array(NonEmptyTrimmedString),
+  requestedTools: Schema.Array(NonEmptyTrimmedString),
+  enabledTools: Schema.Array(NonEmptyTrimmedString),
+  ignoredTools: Schema.Array(NonEmptyTrimmedString),
+  legacyToolsets: LegacyToolsetsAliasUsageSchema,
+  availableCategories: Schema.Array(NonEmptyTrimmedString),
+  visibleRegisteredToolCount: Count,
+  totalRegisteredToolCount: Count,
+  builtinTools: Schema.Array(Schema.Literal("get_version", "get_huly_context"))
+})
+
 export const GetHulyContextResultSchema = Schema.Struct({
   package: Schema.Struct({
     name: Schema.Literal("@firfi/huly-mcp"),
@@ -99,7 +120,8 @@ export const GetHulyContextResultSchema = Schema.Struct({
   huly: HulyRuntimeContextSchema,
   auth: AuthContextSchema,
   configSources: ConfigSourcesSchema,
-  toolsets: ToolsetsContextSchema
+  toolsets: ToolsetsContextSchema,
+  toolScope: ToolScopeContextSchema
 })
 
 export type GetHulyContextResult = Schema.Schema.Type<typeof GetHulyContextResultSchema>

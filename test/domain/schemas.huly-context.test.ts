@@ -71,6 +71,24 @@ const validContext = {
     visibleRegisteredToolCount: 12,
     totalRegisteredToolCount: 120,
     builtinTools: ["get_version", "get_huly_context"]
+  },
+  toolScope: {
+    active: true,
+    requestedToolsets: ["issues"],
+    enabledToolsets: ["issues"],
+    ignoredToolsets: [],
+    requestedTools: ["list_documents"],
+    enabledTools: ["list_documents"],
+    ignoredTools: [],
+    legacyToolsets: {
+      provided: false,
+      used: false,
+      ignored: false
+    },
+    availableCategories: ["issues", "projects"],
+    visibleRegisteredToolCount: 13,
+    totalRegisteredToolCount: 120,
+    builtinTools: ["get_version", "get_huly_context"]
   }
 }
 
@@ -81,6 +99,7 @@ describe("GetHulyContextResultSchema", () => {
       expect(decoded.package.name).toBe("@firfi/huly-mcp")
       expect(decoded.transport.type).toBe("http")
       expect(decoded.toolsets.builtinTools).toEqual(["get_version", "get_huly_context"])
+      expect(decoded.toolScope.enabledTools).toEqual(["list_documents"])
     }))
 
   it.effect("rejects non-sanitized URL origin values", () =>
@@ -134,9 +153,9 @@ describe("GetHulyContextResultSchema", () => {
           },
           {
             ...validContext,
-            toolsets: {
-              ...validContext.toolsets,
-              requestedCategories: [""]
+            toolScope: {
+              ...validContext.toolScope,
+              requestedTools: [""]
             }
           }
         ]
@@ -155,7 +174,8 @@ describe("GetHulyContextResultSchema", () => {
           huly: expect.any(Object),
           auth: expect.any(Object),
           configSources: expect.any(Object),
-          toolsets: expect.any(Object)
+          toolsets: expect.any(Object),
+          toolScope: expect.any(Object)
         }
       })
     }))

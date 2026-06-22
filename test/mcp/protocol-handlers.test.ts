@@ -492,6 +492,24 @@ const makeValidContext = (): GetHulyContextResult =>
       visibleRegisteredToolCount: 1,
       totalRegisteredToolCount: 1,
       builtinTools: ["get_version", "get_huly_context"]
+    },
+    toolScope: {
+      active: false,
+      requestedToolsets: [],
+      enabledToolsets: [],
+      ignoredToolsets: [],
+      requestedTools: [],
+      enabledTools: [],
+      ignoredTools: [],
+      legacyToolsets: {
+        provided: false,
+        used: false,
+        ignored: false
+      },
+      availableCategories: ["issues"],
+      visibleRegisteredToolCount: 1,
+      totalRegisteredToolCount: 1,
+      builtinTools: ["get_version", "get_huly_context"]
     }
   })
 

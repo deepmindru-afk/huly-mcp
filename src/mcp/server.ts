@@ -11,13 +11,14 @@ import type { Request } from "express"
 import { type ClientBundle, createMcpServer } from "./create-mcp-server.js"
 import type { HttpServerFactoryService, HttpTransportDependencies, HttpTransportError } from "./http-transport.js"
 import { DEFAULT_HTTP_PORT, startHttpTransport } from "./http-transport.js"
-import { buildHulyContext, parseToolsets } from "./huly-context-tool.js"
+import { buildHulyContext } from "./huly-context-tool.js"
 import { createMcpProtocolHandlers } from "./protocol-handlers.js"
 
 import { type SanitizedHulyRuntimeConfigContext, sanitizeHulyRuntimeConfigFromEnv } from "../config/config.js"
 import type { GetHulyContextResult } from "../domain/schemas/index.js"
 import { TelemetryService } from "../telemetry/telemetry.js"
-import { createFilteredRegistry, toolRegistry } from "./tools/index.js"
+import { resolveToolScope } from "./tool-scope.js"
+import { createScopedRegistry, toolRegistry } from "./tools/index.js"
 
 export type { ClientBundle } from "./create-mcp-server.js"
 
@@ -75,18 +76,28 @@ export class McpServerService extends Context.Tag("@hulymcp/McpServer")<
         const telemetry = yield* TelemetryService
         const writeError = config.writeError ?? defaultWriteError
 
-        const toolsetsRaw = yield* Effect.orElseSucceed(Config.string("TOOLSETS"), () => "")
-        const toolsetSummary = parseToolsets(toolsetsRaw || undefined, writeError)
-        const enabledCategories = toolsetSummary.enabledCategories
-
-        const toolsets = enabledCategories ? [...enabledCategories] : null
-        const registry = enabledCategories
-          ? createFilteredRegistry(enabledCategories)
-          : toolRegistry
+        const hulyToolsetsRaw = yield* Effect.orElseSucceed(Config.string("HULY_TOOLSETS"), () => "")
+        const hulyToolsRaw = yield* Effect.orElseSucceed(Config.string("HULY_TOOLS"), () => "")
+        const legacyToolsetsRaw = yield* Effect.orElseSucceed(Config.string("TOOLSETS"), () => "")
+        const toolScope = resolveToolScope(
+          {
+            hulyToolsets: hulyToolsetsRaw,
+            hulyTools: hulyToolsRaw,
+            legacyToolsets: legacyToolsetsRaw
+          },
+          toolRegistry.definitions,
+          writeError
+        )
+        const toolsets = toolScope.filteringActive ? toolScope.enabledToolsets : null
+        const registry = createScopedRegistry({
+          filteringActive: toolScope.filteringActive,
+          categories: toolScope.enabledCategories,
+          toolNames: toolScope.enabledToolNames
+        })
         const getRuntimeConfigContext = config.getRuntimeConfigContext
           ?? (() => sanitizeHulyRuntimeConfigFromEnv(process.env))
         const getHulyContext = (runtimeConfig: SanitizedHulyRuntimeConfigContext): GetHulyContextResult =>
-          buildHulyContext(config, registry, toolsetSummary, runtimeConfig)
+          buildHulyContext(config, registry, toolScope, runtimeConfig)
 
         telemetry.sessionStart({
           transport: config.transport,

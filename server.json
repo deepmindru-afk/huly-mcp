@@ -61,6 +61,27 @@
           "isRequired": false,
           "format": "string",
           "isSecret": false
+        },
+        {
+          "name": "HULY_TOOLSETS",
+          "description": "Comma-separated native Huly tool categories to expose, such as issues,projects,search. If unset with HULY_TOOLS and TOOLSETS, all native tools are exposed.",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false
+        },
+        {
+          "name": "HULY_TOOLS",
+          "description": "Comma-separated exact native Huly tool names to expose in addition to selected HULY_TOOLSETS, such as list_documents,create_issue.",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false
+        },
+        {
+          "name": "TOOLSETS",
+          "description": "Deprecated alias for HULY_TOOLSETS. Ignored when HULY_TOOLSETS is set.",
+          "isRequired": false,
+          "format": "string",
+          "isSecret": false
         }
       ]
     }

@@ -126,6 +126,12 @@ type ToolRegistryMethods = {
 
 export type ToolRegistry = ToolRegistryData & ToolRegistryMethods
 
+interface ToolRegistryScope {
+  readonly filteringActive: boolean
+  readonly categories: ReadonlySet<string>
+  readonly toolNames: ReadonlySet<string>
+}
+
 const buildRegistry = (tools: ReadonlyArray<RegisteredTool>): ToolRegistry => {
   const map = new Map<string, RegisteredTool>(
     tools.map((t) => [t.name, t])
@@ -147,10 +153,22 @@ const buildRegistry = (tools: ReadonlyArray<RegisteredTool>): ToolRegistry => {
   }
 }
 
-export const createFilteredRegistry = (categories: ReadonlySet<string>): ToolRegistry =>
-  buildRegistry(allTools.filter((t) => categories.has(t.category)))
-
 export const toolRegistry: ToolRegistry = buildRegistry(allTools)
+
+export const createScopedRegistry = (scope: ToolRegistryScope): ToolRegistry => {
+  if (!scope.filteringActive) return toolRegistry
+
+  return buildRegistry(
+    allTools.filter((t) => scope.categories.has(t.category) || scope.toolNames.has(t.name))
+  )
+}
+
+export const createFilteredRegistry = (categories: ReadonlySet<string>): ToolRegistry =>
+  createScopedRegistry({
+    filteringActive: true,
+    categories,
+    toolNames: new Set<string>()
+  })
 
 export { resolveAnnotations }
 

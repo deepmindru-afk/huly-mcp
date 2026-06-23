@@ -232,7 +232,50 @@ const toolParamSummary = (
   }
 }
 
-const categoryDescription = (category: string): string => `Huly ${category} tools.`
+const CATEGORY_DESCRIPTIONS: Readonly<Record<string, string>> = {
+  projects: "Project discovery, project metadata, project target preferences, and project-level settings.",
+  issues: "Issue tracking: create, read, update, move, delete, relate, label, and organize Huly issues.",
+  labels: "Issue and workspace labels for classification and filtering.",
+  tags: "Generic tags that can be created, updated, attached, detached, and listed.",
+  "tag-categories": "Tag category administration and tag grouping metadata.",
+  templates: "Issue and message templates, including template fields, categories, children, and rendering.",
+  comments: "Comments and discussion content attached to Huly objects.",
+  collaborators: "Collaborator discovery and participation metadata for documents and other shared objects.",
+  milestones: "Issue milestone lifecycle and milestone assignment.",
+  documents: "Teamspaces and documents: create, read, edit, snapshot, inline comment, and delete document content.",
+  drive: "Drive spaces, folders, files, versions, comments, and drive membership administration.",
+  associations: "Generic associations and relations between Huly documents, issues, cards, and raw objects.",
+  inventory: "Inventory products, categories, variants, product media, comments, and attachments.",
+  spaces: "Generic Huly spaces, space types, space permissions, members, owners, roles, and preferences.",
+  "sdk-discovery": "SDK and model discovery helpers for Huly platform classes, attributes, mixins, and enums.",
+  storage: "Storage diagnostics and storage-backed object helpers.",
+  attachments: "Issue, document, and generic attachment upload, download, pinning, updating, and deletion.",
+  contacts: "People, employees, organizations, contact channels, channel providers, and contact ownership.",
+  channels: "Messaging: channels, direct messages, group messages, thread replies, reactions, and saved messages.",
+  boards: "Board administration, board labels, board cards, board views, menus, and archive workflows.",
+  views: "Saved and filtered views across boards and other view-capable Huly modules.",
+  cards: "Generic cards, card spaces, card relations, master tags, and card metadata.",
+  leads: "CRM funnels and leads discovery.",
+  recruiting: "Recruiting vacancies, applicants, reviews, opinions, candidate skills, and recruiting media.",
+  "custom-fields": "Custom field definitions and custom field values on Huly documents.",
+  calendar: "Calendar events, recurring events, schedules, meeting rooms, and availability.",
+  "time tracking": "Time tracking, work logs, time reports, detailed time summaries, and estimates.",
+  planner: "Planner todos, schedules, work slots, priorities, and completion workflows.",
+  preferences: "User and project preferences, notification preferences, and preference diagnostics.",
+  approvals: "Approval request lifecycle, approval comments, approve/reject/cancel actions, and approval status.",
+  search: "Workspace-wide full-text and structured search across Huly content.",
+  activity: "Activity timelines and activity messages for Huly objects.",
+  notifications: "Inbox notifications, notification counts, read state, and notification actions.",
+  "user-statuses": "User status and online/presence status discovery.",
+  "virtual-office": "Virtual office rooms, members, presence, and office room state.",
+  processes: "Huly process definitions, executions, process cards, and process state transitions.",
+  workspace: "Workspace metadata, members, settings, access links, invites, and administrative context.",
+  "task-management":
+    "Task management project types, task types, issue statuses, workflow references, and process setup.",
+  "test-management": "Test management projects, suites, cases, plans, runs, results, and plan execution."
+}
+
+const categoryDescription = (category: string): string => CATEGORY_DESCRIPTIONS[category] ?? `Huly ${category} tools.`
 
 const listCategories = (registry: ToolRegistry): McpToolResponse => {
   const counts = new Map<string, number>()
@@ -259,10 +302,11 @@ const tokenHitCount = (tokens: ReadonlyArray<string>, text: string): number => {
 const toolScore = (tool: ToolDefinition, tokens: ReadonlyArray<string>, normalizedQuery: string): number => {
   const params = toolParamSummary(tool)
   const paramText = [...params.requiredParams, ...params.optionalParams].join(" ")
+  const categoryText = `${tool.category} ${categoryDescription(tool.category)}`
   const exactScore = tool.name.toLowerCase() === normalizedQuery ? 10_000 : 0
   return exactScore
     + tokenHitCount(tokens, tool.name) * 1_000
-    + tokenHitCount(tokens, tool.category) * 100
+    + tokenHitCount(tokens, categoryText) * 100
     + tokenHitCount(tokens, tool.description) * 10
     + tokenHitCount(tokens, paramText)
 }

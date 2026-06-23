@@ -946,6 +946,37 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
     })
   })
 
+  it("uses descriptive category metadata for category listing and search", async () => {
+    const handlers = createMcpProtocolHandlers(
+      unusedResolveClients,
+      createTelemetryProbe().telemetry,
+      protocolRegistries(toolRegistry),
+      makeValidContext,
+      liveNowClock,
+      () => Promise.resolve("0.0.0"),
+      proxyExposureOptions()
+    )
+
+    const categories = await handlers.callTool({ params: { name: "list_tool_categories", arguments: {} } })
+    const search = await handlers.callTool({ params: { name: "search_tools", arguments: { query: "messaging" } } })
+    const categoryResult = categories.structuredContent?.result
+    const searchResult = search.structuredContent?.result
+
+    if (!isJsonObject(categoryResult) || !Array.isArray(categoryResult.categories)) {
+      throw new Error("expected category result")
+    }
+    const channelsCategory = categoryResult.categories.find((category) =>
+      isJsonObject(category) && category.name === "channels"
+    )
+    if (!isJsonObject(channelsCategory)) throw new Error("expected channels category")
+    expect(channelsCategory.description).toContain("Messaging")
+
+    if (!isJsonObject(searchResult) || !Array.isArray(searchResult.matches)) {
+      throw new Error("expected search result")
+    }
+    expect(searchResult.matches.some((match) => isJsonObject(match) && match.category === "channels")).toBe(true)
+  })
+
   it("rejects direct calls to hidden native tools but exposes them through proxy search and schema lookup", async () => {
     const handlers = createMcpProtocolHandlers(
       unusedResolveClients,

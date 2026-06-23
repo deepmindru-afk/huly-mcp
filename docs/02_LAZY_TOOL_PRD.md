@@ -127,9 +127,10 @@ This remains useful as an opt-in mode for known-compatible stdio/session clients
 
 ### Approach E: Static Meta-Tool Proxy (RECOMMENDED DEFAULT)
 
-A static 3-tool approach (like [Stainless dynamic tools](https://www.stainless.com/changelog/mcp-dynamic-tools)):
+A static 4-tool approach (like [Stainless dynamic tools](https://www.stainless.com/changelog/mcp-dynamic-tools)):
 - `list_tool_categories` — browse categories
 - `search_tools` — find tools by query
+- `get_tool_schema` — fetch exact input/output schemas for selected tools
 - `invoke_tool` — proxy: takes `toolName` + `args`, dispatches to real handler
 
 This works with every client but loses native tool call UX (all calls go through `invoke_tool`).

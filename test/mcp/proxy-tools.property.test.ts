@@ -4,30 +4,39 @@ import { describe, expect, it } from "vitest"
 
 import { createSuccessResponse } from "../../src/mcp/error-mapping.js"
 import { resolveProtocolExposure } from "../../src/mcp/protocol-tool-exposure.js"
-import { searchToolDefinitions } from "../../src/mcp/proxy-tools.js"
+import { makeSearchToolLimit, makeToolSearchQuery, searchToolDefinitions } from "../../src/mcp/proxy-tools.js"
+import { parseMcpClientInfo } from "../../src/mcp/tool-mode.js"
 import { createToolOutputSchema } from "../../src/mcp/tool-output-schema.js"
 import { CATEGORY_NAMES, createScopedRegistry, type ToolRegistry, toolRegistry } from "../../src/mcp/tools/index.js"
-import type { RegisteredTool } from "../../src/mcp/tools/registry.js"
+import {
+  createToolDefinition,
+  makeToolCategory,
+  makeToolName,
+  type RegisteredTool
+} from "../../src/mcp/tools/registry.js"
 import { propertyTestParameters } from "../helpers/property.js"
 
 const knownCategories = [...CATEGORY_NAMES]
 const knownToolNames = toolRegistry.definitions.map((tool) => tool.name)
 const knownCategoryArbitrary = fc.constantFrom(...knownCategories)
 const knownToolNameArbitrary = fc.constantFrom(...knownToolNames)
-const queryArbitrary = fc.string({ minLength: 1, maxLength: 40 })
+const queryArbitrary = fc.stringMatching(/^[a-z][a-z0-9_-]{0,39}$/).map(makeToolSearchQuery)
+const searchLimitArbitrary = fc.integer({ min: 1, max: 50 }).map(makeSearchToolLimit)
 
 const generatedOutputSchema = createToolOutputSchema(Schema.Struct({ ok: Schema.Boolean }))
 
 const generatedTool = (name: string): RegisteredTool => ({
-  name,
-  description: "alpha generated tool",
-  inputSchema: {
-    type: "object",
-    properties: { shared: { type: "string" } },
-    additionalProperties: false
-  },
-  outputSchema: generatedOutputSchema,
-  category: "generated",
+  ...createToolDefinition({
+    name,
+    description: "alpha generated tool",
+    inputSchema: {
+      type: "object",
+      properties: { shared: { type: "string" } },
+      additionalProperties: false
+    },
+    outputSchema: generatedOutputSchema,
+    category: "generated"
+  }),
   handler: async () => createSuccessResponse({ ok: true })
 })
 
@@ -40,11 +49,11 @@ const registryFromDefinitions = (definitions: ReadonlyArray<RegisteredTool>): To
 describe("proxy tool search properties", () => {
   it("returns only tools from the searched candidate registry", () => {
     fc.assert(
-      fc.property(queryArbitrary, fc.integer({ min: 1, max: 50 }), (query, limit) => {
+      fc.property(queryArbitrary, searchLimitArbitrary, (query, limit) => {
         const scoped = createScopedRegistry({
           filteringActive: true,
-          categories: new Set(["issues"]),
-          toolNames: new Set(["list_documents"])
+          categories: new Set([makeToolCategory("issues")]),
+          toolNames: new Set([makeToolName("list_documents")])
         })
         const resultNames = searchToolDefinitions(scoped, query, limit).map((tool) => tool.name)
 
@@ -73,7 +82,7 @@ describe("proxy tool search properties", () => {
             {
               exposureConfig: { configuredMode: "proxy", proxyOutputStrict: true },
               toolScopeFilteringActive: active,
-              currentClientInfo: () => ({ name: "codex" })
+              currentClientInfo: () => parseMcpClientInfo({ name: "codex" })
             }
           )
 
@@ -93,7 +102,7 @@ describe("proxy tool search properties", () => {
         (suffixes) => {
           const definitions = suffixes.map((suffix) => generatedTool(`alpha_${suffix}`))
           const registry = registryFromDefinitions(definitions)
-          const matches = searchToolDefinitions(registry, "alpha", 50)
+          const matches = searchToolDefinitions(registry, makeToolSearchQuery("alpha"), makeSearchToolLimit(50))
 
           expect(matches.map((tool) => tool.name)).toEqual(definitions.map((tool) => tool.name))
         }

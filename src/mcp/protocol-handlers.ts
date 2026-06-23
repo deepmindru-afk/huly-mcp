@@ -1,8 +1,10 @@
 import type {
+  CallToolRequestParams,
   CallToolResult,
   ListResourcesResult,
   ListResourceTemplatesResult,
   ListToolsResult,
+  ReadResourceRequestParams,
   ReadResourceResult
 } from "@modelcontextprotocol/sdk/types.js"
 import { Clock, Effect, Schema } from "effect"
@@ -42,6 +44,7 @@ import {
   createUnexpectedArgumentsError,
   isEmptyArgumentsObject,
   isNoArgumentTool,
+  parseToolName,
   requiresArgumentsObject
 } from "./tools/registry.js"
 
@@ -53,15 +56,13 @@ export interface ClientBundle {
 
 interface ToolCallRequest {
   readonly params: {
-    readonly name: string
+    readonly name: CallToolRequestParams["name"]
     readonly arguments?: unknown
   }
 }
 
 interface ResourceReadRequest {
-  readonly params: {
-    readonly uri: string
-  }
+  readonly params: ReadResourceRequestParams
 }
 
 type ListToolsProtocolResult = ListToolsResult
@@ -226,7 +227,7 @@ export const createMcpProtocolHandlers = (
       }
 
       if (name === VERSION_TOOL_NAME) {
-        if (!isEmptyArgumentsObject(args)) return returnError(createUnexpectedArgumentsError(name))
+        if (!isEmptyArgumentsObject(args)) return returnError(createUnexpectedArgumentsError(VERSION_TOOL_NAME))
 
         const latest = await fetchLatestVersion()
         let versionResult: Schema.Schema.Type<typeof VersionToolResultSchema>
@@ -248,7 +249,9 @@ export const createMcpProtocolHandlers = (
       }
 
       if (name === GET_HULY_CONTEXT_TOOL_NAME) {
-        if (!isEmptyArgumentsObject(args)) return returnError(createUnexpectedArgumentsError(name))
+        if (!isEmptyArgumentsObject(args)) {
+          return returnError(createUnexpectedArgumentsError(GET_HULY_CONTEXT_TOOL_NAME))
+        }
 
         let context: GetHulyContextResult
         try {
@@ -317,18 +320,21 @@ export const createMcpProtocolHandlers = (
         return toMcpResponse(response)
       }
 
-      const tool = exposure.visibleNativeRegistry.tools.get(name)
+      const hulyToolName = parseToolName(name)
+      if (hulyToolName === undefined) return returnError(createUnknownToolError(name))
+
+      const tool = exposure.visibleNativeRegistry.tools.get(hulyToolName)
       if (tool === undefined) return returnError(createUnknownToolError(name))
 
       if (isNoArgumentTool(tool) && !isEmptyArgumentsObject(args)) {
-        return returnError(createUnexpectedArgumentsError(name))
+        return returnError(createUnexpectedArgumentsError(hulyToolName))
       }
 
       if (args === undefined && requiresArgumentsObject(tool)) {
-        return returnError(createMissingArgumentsError(name))
+        return returnError(createMissingArgumentsError(hulyToolName))
       }
 
-      const editMode = deriveEditMode(name, args)
+      const editMode = deriveEditMode(hulyToolName, args)
 
       let clients: ClientBundle
       try {
@@ -341,7 +347,7 @@ export const createMcpProtocolHandlers = (
       }
 
       const response = await exposure.visibleNativeRegistry.handleToolCall(
-        name,
+        hulyToolName,
         args,
         clients.hulyClient,
         clients.storageClient,
@@ -351,7 +357,7 @@ export const createMcpProtocolHandlers = (
       if (response === null) return returnError(createUnknownToolError(name), editMode)
 
       telemetry.toolCalled({
-        toolName: name,
+        toolName: hulyToolName,
         status: response.isError === true ? "error" : "success",
         errorTag: response._meta?.errorTag,
         durationMs,

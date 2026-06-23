@@ -1,4 +1,8 @@
-import type { ListResourcesResult, ReadResourceResult } from "@modelcontextprotocol/sdk/types.js"
+import type {
+  ListResourcesResult,
+  ReadResourceRequestParams,
+  ReadResourceResult
+} from "@modelcontextprotocol/sdk/types.js"
 import { ErrorCode, McpError } from "@modelcontextprotocol/sdk/types.js"
 import { Cause, Chunk, Effect, Exit, Runtime } from "effect"
 
@@ -17,9 +21,7 @@ interface ClientBundle {
 }
 
 interface ResourceReadRequest {
-  readonly params: {
-    readonly uri: string
-  }
+  readonly params: ReadResourceRequestParams
 }
 
 interface ResourceHandlerInput {

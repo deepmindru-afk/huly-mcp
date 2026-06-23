@@ -13,15 +13,18 @@ import type { ToolExposureContext } from "./huly-context-tool.js"
 import { type ClientBundle, createMcpProtocolHandlers } from "./protocol-handlers.js"
 import { type ProtocolExposureOptions, type ProtocolToolRegistries } from "./protocol-tool-exposure.js"
 import { createDefaultMcpSdkServer } from "./sdk-server.js"
+import { parseMcpClientInfo } from "./tool-mode.js"
 import type { ToolRegistry } from "./tools/index.js"
 
 export type { ClientBundle } from "./protocol-handlers.js"
 
 type McpServerHandle = readonly [server: Server, drainInflight: () => Promise<void>]
 
-const currentClientInfoFromServer = (server: Server): ReturnType<Server["getClientVersion"]> => {
+const currentClientInfoFromServer = (
+  server: Server
+): ReturnType<NonNullable<ProtocolExposureOptions["currentClientInfo"]>> => {
   const maybeServer: { readonly getClientVersion?: () => ReturnType<Server["getClientVersion"]> } = server
-  return maybeServer.getClientVersion?.()
+  return parseMcpClientInfo(maybeServer.getClientVersion?.())
 }
 
 export const createMcpServer = (

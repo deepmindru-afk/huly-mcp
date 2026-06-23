@@ -11,6 +11,7 @@ import {
 } from "./tool-mode.js"
 import type { ToolRegistry } from "./tools/index.js"
 import { resolveAnnotations } from "./tools/index.js"
+import type { RegisteredTool, ToolDescription, ToolName } from "./tools/registry.js"
 
 export interface ProtocolToolRegistries {
   readonly fullRegistry: ToolRegistry
@@ -32,6 +33,7 @@ interface ResolvedProtocolExposure {
 
 interface ProtocolObjectSchemaSource {
   readonly type: "object"
+  // JSON Schema property names are string keys by protocol definition.
   readonly properties?: Record<string, unknown> | undefined
   readonly required?: ReadonlyArray<string> | undefined
   readonly [key: string]: unknown
@@ -41,8 +43,8 @@ type ProtocolObjectSchema = ListToolsResult["tools"][number]["inputSchema"]
 type ListedTool = ListToolsResult["tools"][number]
 
 interface ListedToolSource {
-  readonly name: string
-  readonly description: string
+  readonly name: ToolName
+  readonly description: ToolDescription
   readonly inputSchema: ProtocolObjectSchemaSource
   readonly outputSchema?: ProtocolObjectSchemaSource
   readonly annotations?: ListedTool["annotations"]
@@ -55,7 +57,7 @@ const DEFAULT_HANDLER_EXPOSURE_CONFIG: ToolExposureConfig = {
 }
 
 const emptyToolRegistry: ToolRegistry = {
-  tools: new Map(),
+  tools: new Map<ToolName, RegisteredTool>(),
   definitions: [],
   handleToolCall: async () => null
 }

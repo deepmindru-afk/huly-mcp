@@ -227,6 +227,13 @@ const expressionValue = (node, filePath, localBindings = new Map()) => {
       return Array.isArray(values) ? values.join(", ") : undefined
     }
 
+    if (
+      ["makeToolCategory", "makeToolDescription", "makeToolName"].includes(node.expression.text)
+      && node.arguments.length === 1
+    ) {
+      return expressionValue(node.arguments[0], filePath, localBindings)
+    }
+
     const fn = functionValue(node.expression, filePath, localBindings)
     if (fn !== undefined) {
       return fn(...node.arguments.map((argument) => expressionValue(argument, filePath, localBindings)))
@@ -236,6 +243,15 @@ const expressionValue = (node, filePath, localBindings = new Map()) => {
   if (ts.isCallExpression(node) && ts.isPropertyAccessExpression(node.expression)) {
     const target = expressionValue(node.expression.expression, filePath, localBindings)
     const method = node.expression.name.text
+
+    if (
+      method === "make"
+      && node.arguments.length === 1
+      && ts.isIdentifier(node.expression.expression)
+      && ["ToolCategory", "ToolDescription", "ToolName"].includes(node.expression.expression.text)
+    ) {
+      return expressionValue(node.arguments[0], filePath, localBindings)
+    }
 
     if (method === "join" && Array.isArray(target)) {
       const separator = node.arguments.length > 0

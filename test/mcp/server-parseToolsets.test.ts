@@ -7,6 +7,7 @@ import { WorkspaceClient } from "../../src/huly/workspace-client.js"
 import { HttpServerFactoryService } from "../../src/mcp/http-transport.js"
 import { type ClientBundle, McpServerError, McpServerService } from "../../src/mcp/server.js"
 import { createScopedRegistry, toolRegistry } from "../../src/mcp/tools/index.js"
+import { makeToolCategory, makeToolName } from "../../src/mcp/tools/registry.js"
 import { TelemetryService } from "../../src/telemetry/telemetry.js"
 import { mockFn } from "../helpers/mock-fn.js"
 
@@ -156,8 +157,8 @@ describe("McpServerService.layer with TOOLSETS env", () => {
     let capturedToolsets: ReadonlyArray<string> | null = null
     const expectedRegistry = createScopedRegistry({
       filteringActive: true,
-      categories: new Set(["issues"]),
-      toolNames: new Set(["list_documents"])
+      categories: new Set([makeToolCategory("issues")]),
+      toolNames: new Set([makeToolName("list_documents")])
     })
     return Effect.gen(function*() {
       process.env.TOOLSETS = "issues"
@@ -182,7 +183,9 @@ describe("McpServerService.layer with TOOLSETS env", () => {
 
       expect(capturedToolsets).toEqual(["issues"])
       expect(capturedToolCount).toBe(expectedRegistry.definitions.length)
-      expect(expectedRegistry.tools.get("list_documents")).toBe(toolRegistry.tools.get("list_documents"))
+      expect(expectedRegistry.tools.get(makeToolName("list_documents"))).toBe(
+        toolRegistry.tools.get(makeToolName("list_documents"))
+      )
       delete process.env.TOOLSETS
       delete process.env.TOOLS
     })

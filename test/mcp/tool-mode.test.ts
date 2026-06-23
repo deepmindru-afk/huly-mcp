@@ -5,6 +5,7 @@ import {
   type ClientKind,
   DEFAULT_MODE_BY_CLIENT_KIND,
   type McpClientInfoLike,
+  parseMcpClientInfo,
   parseToolExposureConfig,
   resolveToolExposureMode,
   type ResolveToolExposureModeInput,
@@ -12,24 +13,30 @@ import {
   type ToolModeConfig
 } from "../../src/mcp/tool-mode.js"
 
+const clientInfo = (name: string): McpClientInfoLike => {
+  const parsed = parseMcpClientInfo({ name })
+  if (parsed === undefined) throw new Error(`expected valid client info for ${name}`)
+  return parsed
+}
+
 describe("classifyMcpClient", () => {
   it("classifies known client names after trimming and case normalization", () => {
     const cases: ReadonlyArray<{
       readonly clientInfo: McpClientInfoLike
       readonly expected: ClientKind
     }> = [
-      { clientInfo: { name: " claude-code " }, expected: "claude-code" },
-      { clientInfo: { name: "Claude-AI" }, expected: "claude-ai" },
-      { clientInfo: { name: "cursor-vscode" }, expected: "cursor" },
-      { clientInfo: { name: "Cursor Desktop" }, expected: "cursor" },
-      { clientInfo: { name: "windsurf-ide" }, expected: "windsurf" },
-      { clientInfo: { name: "cascade" }, expected: "windsurf" },
-      { clientInfo: { name: "github-copilot-chat" }, expected: "github-copilot" },
-      { clientInfo: { name: "copilot" }, expected: "github-copilot" },
-      { clientInfo: { name: "vscode" }, expected: "github-copilot" },
-      { clientInfo: { name: "codex-cli" }, expected: "codex" },
-      { clientInfo: { name: "openai-codex" }, expected: "codex" },
-      { clientInfo: { name: "opencode" }, expected: "opencode" }
+      { clientInfo: clientInfo(" claude-code "), expected: "claude-code" },
+      { clientInfo: clientInfo("Claude-AI"), expected: "claude-ai" },
+      { clientInfo: clientInfo("cursor-vscode"), expected: "cursor" },
+      { clientInfo: clientInfo("Cursor Desktop"), expected: "cursor" },
+      { clientInfo: clientInfo("windsurf-ide"), expected: "windsurf" },
+      { clientInfo: clientInfo("cascade"), expected: "windsurf" },
+      { clientInfo: clientInfo("github-copilot-chat"), expected: "github-copilot" },
+      { clientInfo: clientInfo("copilot"), expected: "github-copilot" },
+      { clientInfo: clientInfo("vscode"), expected: "github-copilot" },
+      { clientInfo: clientInfo("codex-cli"), expected: "codex" },
+      { clientInfo: clientInfo("openai-codex"), expected: "codex" },
+      { clientInfo: clientInfo("opencode"), expected: "opencode" }
     ]
 
     for (const testCase of cases) {
@@ -38,21 +45,21 @@ describe("classifyMcpClient", () => {
   })
 
   it("classifies remote-wrapper names by their base client", () => {
-    expect(classifyMcpClient({ name: "claude-ai (via mcp-remote)" })).toBe("claude-ai")
-    expect(classifyMcpClient({ name: " Cursor-vscode (via mcp-remote) " })).toBe("cursor")
+    expect(classifyMcpClient(clientInfo("claude-ai (via mcp-remote)"))).toBe("claude-ai")
+    expect(classifyMcpClient(clientInfo(" Cursor-vscode (via mcp-remote) "))).toBe("cursor")
   })
 
   it("keeps wrapped claude-code out of the exact native-only classification", () => {
-    expect(classifyMcpClient({ name: "claude-code (via mcp-remote)" })).toBe("unknown")
-    expect(resolveToolExposureMode({ configuredMode: "auto", clientInfo: { name: "claude-code (via mcp-remote)" } }))
+    expect(classifyMcpClient(clientInfo("claude-code (via mcp-remote)"))).toBe("unknown")
+    expect(resolveToolExposureMode({ configuredMode: "auto", clientInfo: clientInfo("claude-code (via mcp-remote)") }))
       .toBe("proxy")
   })
 
   it("defaults missing and unknown client names to unknown", () => {
     expect(classifyMcpClient(undefined)).toBe("unknown")
     expect(classifyMcpClient({})).toBe("unknown")
-    expect(classifyMcpClient({ name: "  " })).toBe("unknown")
-    expect(classifyMcpClient({ name: "some-new-client" })).toBe("unknown")
+    expect(classifyMcpClient(parseMcpClientInfo({ name: "  " }))).toBe("unknown")
+    expect(classifyMcpClient(clientInfo("some-new-client"))).toBe("unknown")
   })
 })
 
@@ -69,13 +76,13 @@ describe("resolveToolExposureMode", () => {
     const defaults: Record<ClientKind, ToolExposureMode> = DEFAULT_MODE_BY_CLIENT_KIND
     const input: ResolveToolExposureModeInput = {
       configuredMode: "auto",
-      clientInfo: { name: "claude-code" }
+      clientInfo: clientInfo("claude-code")
     }
 
     expect(defaults["claude-code"]).toBe("native")
     expect(defaults.unknown).toBe("proxy")
     expect(resolveToolExposureMode(input)).toBe("native")
-    expect(resolveToolExposureMode({ configuredMode: "auto", clientInfo: { name: "claude-ai" } })).toBe("proxy")
+    expect(resolveToolExposureMode({ configuredMode: "auto", clientInfo: clientInfo("claude-ai") })).toBe("proxy")
     expect(resolveToolExposureMode({ configuredMode: "auto" })).toBe("proxy")
   })
 })
@@ -113,6 +120,34 @@ describe("parseToolExposureConfig", () => {
     expect(parseToolExposureConfig({ hulyToolMode: " " })).toMatchObject({
       _tag: "Failure",
       field: "HULY_TOOL_MODE"
+    })
+  })
+
+  it("rejects invalid exposure env shapes instead of defaulting", () => {
+    expect(parseToolExposureConfig({ hulyToolMode: 123 })).toMatchObject({
+      _tag: "Failure",
+      field: "HULY_TOOL_MODE",
+      message: expect.stringContaining("must be a string")
+    })
+    expect(parseToolExposureConfig({ proxyOutputStrict: true })).toMatchObject({
+      _tag: "Failure",
+      field: "PROXY_OUTPUT_STRICT",
+      message: expect.stringContaining("must be a string")
+    })
+    expect(parseToolExposureConfig(null)).toMatchObject({
+      _tag: "Failure",
+      field: "HULY_TOOL_MODE",
+      message: expect.stringContaining("string environment values")
+    })
+    expect(parseToolExposureConfig([])).toMatchObject({
+      _tag: "Failure",
+      field: "HULY_TOOL_MODE",
+      message: expect.stringContaining("string environment values")
+    })
+    expect(parseToolExposureConfig({ hulyToolMode: "auto", proxyOutputStrict: undefined })).toMatchObject({
+      _tag: "Failure",
+      field: "HULY_TOOL_MODE",
+      message: expect.stringContaining("string environment values")
     })
   })
 })

@@ -43,15 +43,26 @@ import {
 } from "../../src/mcp/protocol-handlers.js"
 import { resolveProtocolExposure, toListedTool } from "../../src/mcp/protocol-tool-exposure.js"
 import { handleProxyToolCall } from "../../src/mcp/proxy-tools.js"
+import { parseMcpClientInfo } from "../../src/mcp/tool-mode.js"
 import { createToolOutputSchema } from "../../src/mcp/tool-output-schema.js"
 import { createFilteredRegistry, type ToolRegistry, toolRegistry } from "../../src/mcp/tools/index.js"
-import { defineTool, isNoArgumentTool, requiresArgumentsObject } from "../../src/mcp/tools/registry.js"
+import {
+  createToolDefinition,
+  defineTool,
+  isNoArgumentTool,
+  makeToolCategory,
+  makeToolDescription,
+  makeToolName,
+  type RegisteredTool,
+  requiresArgumentsObject
+} from "../../src/mcp/tools/registry.js"
 import { createNoopTelemetry } from "../../src/telemetry/noop.js"
 import type { TelemetryOperations, ToolCalledProps } from "../../src/telemetry/telemetry.js"
 import { VERSION } from "../../src/version.js"
 
 // A real, empty tool registry (no category tools) — used for the builtin-only paths.
-const emptyRegistry = createFilteredRegistry(new Set<string>())
+const categorySet = (...categories: ReadonlyArray<string>) => new Set(categories.map(makeToolCategory))
+const emptyRegistry = createFilteredRegistry(categorySet())
 
 // Clients/context are never reached on the paths under test; throwing makes accidental
 // use loud instead of silently passing.
@@ -196,8 +207,8 @@ describe("createMcpProtocolHandlers", () => {
 
     it("omits optional output schema and annotations when converting a bare listed tool", () => {
       const listed = toListedTool({
-        name: "bare_tool",
-        description: "Tool used to exercise protocol schema conversion.",
+        name: makeToolName("bare_tool"),
+        description: makeToolDescription("Tool used to exercise protocol schema conversion."),
         inputSchema: {
           type: "object",
           properties: {
@@ -417,32 +428,22 @@ const makeContextFromEnv = (env: Record<string, string>): GetHulyContextResult =
   )
 
 const propertylessToolOutputSchema = createToolOutputSchema(Schema.Struct({ ok: Schema.String }))
+const propertylessTool: RegisteredTool = {
+  ...createToolDefinition({
+    name: "propertyless_tool",
+    description: "Tool with an object schema that does not declare properties.",
+    inputSchema: { type: "object" },
+    outputSchema: propertylessToolOutputSchema,
+    category: "test"
+  }),
+  handler: async () => ({
+    content: [{ type: "text", text: "ok" }]
+  })
+}
 
 const propertylessObjectRegistry: ToolRegistry = {
-  tools: new Map([
-    [
-      "propertyless_tool",
-      {
-        name: "propertyless_tool",
-        description: "Tool with an object schema that does not declare properties.",
-        inputSchema: { type: "object" },
-        outputSchema: propertylessToolOutputSchema,
-        category: "test",
-        handler: async () => ({
-          content: [{ type: "text", text: "ok" }]
-        })
-      }
-    ]
-  ]),
-  definitions: [
-    {
-      name: "propertyless_tool",
-      description: "Tool with an object schema that does not declare properties.",
-      inputSchema: { type: "object" },
-      outputSchema: propertylessToolOutputSchema,
-      category: "test"
-    }
-  ],
+  tools: new Map([[propertylessTool.name, propertylessTool]]),
+  definitions: [propertylessTool],
   handleToolCall: async () => null
 }
 
@@ -534,7 +535,8 @@ const proxyExposureOptions = (config?: {
     proxyOutputStrict: config?.proxyOutputStrict ?? false
   },
   toolScopeFilteringActive: config?.toolScopeFilteringActive ?? false,
-  currentClientInfo: () => (config?.clientName === undefined ? undefined : { name: config.clientName })
+  currentClientInfo: () =>
+    config?.clientName === undefined ? undefined : parseMcpClientInfo({ name: config.clientName })
 })
 
 // Narrow the MCP content union to the text variant (no cast).
@@ -892,7 +894,7 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
     const clients = await buildStubClients()()
 
     const response = await exposure.visibleNativeRegistry.handleToolCall(
-      "list_projects",
+      makeToolName("list_projects"),
       {},
       clients.hulyClient,
       clients.storageClient
@@ -1233,13 +1235,13 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
   it("returns target proxy errors and null dispatches without wrapping them as successes", async () => {
     const clients = await buildStubClients()()
     const errorResponse = await handleProxyToolCall({
-      toolName: "invoke_tool",
+      toolName: makeToolName("invoke_tool"),
       args: { toolName: "diagnostic_probe", arguments: {} },
       proxyCandidateRegistry: errorProxyRegistry,
       clients
     })
     const nullResponse = await handleProxyToolCall({
-      toolName: "invoke_tool",
+      toolName: makeToolName("invoke_tool"),
       args: { toolName: "diagnostic_probe", arguments: {} },
       proxyCandidateRegistry: nullDispatchProxyRegistry,
       clients
@@ -1253,17 +1255,17 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
 
   it("reports missing proxy clients and unknown proxy meta-tool names", async () => {
     const invalidListCategories = await handleProxyToolCall({
-      toolName: "list_tool_categories",
+      toolName: makeToolName("list_tool_categories"),
       args: "not an object",
       proxyCandidateRegistry: diagnosticProbeRegistry
     })
     const missingClients = await handleProxyToolCall({
-      toolName: "invoke_tool",
+      toolName: makeToolName("invoke_tool"),
       args: { toolName: "diagnostic_probe", arguments: {} },
       proxyCandidateRegistry: diagnosticProbeRegistry
     })
     const unknown = await handleProxyToolCall({
-      toolName: "missing_proxy_meta_tool",
+      toolName: makeToolName("missing_proxy_meta_tool"),
       args: {},
       proxyCandidateRegistry: diagnosticProbeRegistry
     })
@@ -1276,7 +1278,7 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
   })
 
   it("lists scoped native pins in non-strict proxy mode while keeping full proxy discovery", async () => {
-    const scopedIssuesRegistry = createFilteredRegistry(new Set(["issues"]))
+    const scopedIssuesRegistry = createFilteredRegistry(categorySet("issues"))
     const handlers = createMcpProtocolHandlers(
       unusedResolveClients,
       createTelemetryProbe().telemetry,
@@ -1296,7 +1298,7 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
   })
 
   it("uses active scope as a hard allow-list when proxy output strict is true", async () => {
-    const scopedIssuesRegistry = createFilteredRegistry(new Set(["issues"]))
+    const scopedIssuesRegistry = createFilteredRegistry(categorySet("issues"))
     const handlers = createMcpProtocolHandlers(
       unusedResolveClients,
       createTelemetryProbe().telemetry,
@@ -1323,7 +1325,7 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
     const handlers = createMcpProtocolHandlers(
       buildStubClients(),
       createTelemetryProbe().telemetry,
-      protocolRegistries(diagnosticProbeRegistry, createFilteredRegistry(new Set(["missing_category"]))),
+      protocolRegistries(diagnosticProbeRegistry, createFilteredRegistry(categorySet("missing_category"))),
       makeValidContext,
       liveNowClock,
       () => Promise.resolve("0.0.0"),

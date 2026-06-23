@@ -18,7 +18,12 @@ import type { ProtocolExposureOptions } from "./protocol-tool-exposure.js"
 import { type SanitizedHulyRuntimeConfigContext, sanitizeHulyRuntimeConfigFromEnv } from "../config/config.js"
 import type { GetHulyContextResult } from "../domain/schemas/index.js"
 import { TelemetryService } from "../telemetry/telemetry.js"
-import { type McpClientInfoLike, parseToolExposureConfig, type ToolExposureConfig } from "./tool-mode.js"
+import {
+  type McpClientInfoLike,
+  parseMcpClientInfo,
+  parseToolExposureConfig,
+  type ToolExposureConfig
+} from "./tool-mode.js"
 import { resolveToolScope } from "./tool-scope.js"
 import { createScopedRegistry, toolRegistry } from "./tools/index.js"
 
@@ -71,20 +76,17 @@ const parseToolExposureConfigEffect = (
 const isRecord = (value: unknown): value is Record<string, unknown> =>
   typeof value === "object" && value !== null && !Array.isArray(value)
 
-const clientInfoFromRecord = (value: unknown): McpClientInfoLike | undefined =>
-  isRecord(value) && typeof value.name === "string" ? { name: value.name } : undefined
-
 const clientInfoFromMcp2026Request = (req: Request): McpClientInfoLike | undefined => {
   const body = req.body
   if (!isRecord(body) || !isRecord(body.params) || !isRecord(body.params._meta)) return undefined
   const clientInfo = body.params._meta["io.modelcontextprotocol/clientInfo"]
-  return clientInfoFromRecord(clientInfo)
+  return parseMcpClientInfo(clientInfo)
 }
 
 const clientInfoFromLegacyHttpRequest = (req: Request): McpClientInfoLike | undefined => {
   const body = req.body
   if (!isRecord(body) || !isRecord(body.params)) return undefined
-  return clientInfoFromRecord(body.params.clientInfo) ?? clientInfoFromMcp2026Request(req)
+  return parseMcpClientInfo(body.params.clientInfo) ?? clientInfoFromMcp2026Request(req)
 }
 
 interface McpServerOperations {

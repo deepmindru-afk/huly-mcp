@@ -11,7 +11,10 @@ import {
   toolRegistry
 } from "../../src/mcp/tools/index.js"
 import {
+  createToolDefinition,
   isNoArgumentTool,
+  makeToolCategory,
+  makeToolName,
   requiresArgumentsObject,
   resolveAnnotations,
   type ToolDefinition
@@ -22,10 +25,10 @@ const knownCategories = [...CATEGORY_NAMES]
 const knownToolNames = toolRegistry.definitions.map((tool) => tool.name)
 const knownCategoryArbitrary = fc.constantFrom(...knownCategories)
 const knownToolNameArbitrary = fc.constantFrom(...knownToolNames)
-const unknownCategoryArbitrary = fc.stringMatching(/^[a-z][a-z0-9_-]{1,24}$/).filter(
+const unknownCategoryArbitrary = fc.stringMatching(/^[a-z][a-z0-9_-]{1,24}$/).map(makeToolCategory).filter(
   (category) => !CATEGORY_NAMES.has(category)
 )
-const unknownToolNameArbitrary = fc.stringMatching(/^[a-z][a-z0-9_]{1,32}$/).filter(
+const unknownToolNameArbitrary = fc.stringMatching(/^[a-z][a-z0-9_]{1,32}$/).map(makeToolName).filter(
   (name) => !toolRegistry.tools.has(name)
 )
 
@@ -90,11 +93,13 @@ const prefixCaseArbitrary = fc.constantFrom(
 )
 
 const toolDefinition = (name: string, inputSchema: object, annotations?: ToolAnnotations): ToolDefinition => ({
-  name,
-  description: "generated test tool",
-  inputSchema,
-  outputSchema: createToolOutputSchema(Schema.Struct({ generated: Schema.Boolean })),
-  category: "generated",
+  ...createToolDefinition({
+    name,
+    description: "generated test tool",
+    inputSchema,
+    outputSchema: createToolOutputSchema(Schema.Struct({ generated: Schema.Boolean })),
+    category: "generated"
+  }),
   ...(annotations !== undefined && { annotations })
 })
 
@@ -235,7 +240,7 @@ describe("tool argument schema properties", () => {
       propertyTestParameters
     )
 
-    const listProjectTypes = toolRegistry.tools.get("list_project_types")
+    const listProjectTypes = toolRegistry.tools.get(makeToolName("list_project_types"))
 
     expect(listProjectTypes).toBeDefined()
     if (listProjectTypes !== undefined) {

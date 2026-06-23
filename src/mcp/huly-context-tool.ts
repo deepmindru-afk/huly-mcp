@@ -8,12 +8,14 @@ import type { ClientKind, ToolExposureMode, ToolModeConfig } from "./tool-mode.j
 import { createToolOutputSchema, hulyContextToolOutputSchema } from "./tool-output-schema.js"
 import { resolveToolScope, type ToolScopeSummary } from "./tool-scope.js"
 import { type ToolRegistry, toolRegistry } from "./tools/index.js"
+import { makeToolDescription, makeToolName, type ToolName } from "./tools/registry.js"
 
 const NPM_PACKAGE_NAME = "@firfi/huly-mcp"
-export const VERSION_TOOL_NAME = "get_version"
-export const GET_HULY_CONTEXT_TOOL_NAME = "get_huly_context"
+const BUILTIN_TOOL_NAME_LITERALS = ["get_version", "get_huly_context"] as const
+export const VERSION_TOOL_NAME = makeToolName(BUILTIN_TOOL_NAME_LITERALS[0])
+export const GET_HULY_CONTEXT_TOOL_NAME = makeToolName(BUILTIN_TOOL_NAME_LITERALS[1])
 
-type BuiltinToolName = typeof VERSION_TOOL_NAME | typeof GET_HULY_CONTEXT_TOOL_NAME
+type BuiltinToolName = (typeof BUILTIN_TOOL_NAME_LITERALS)[number]
 
 const emptyInputSchema: {
   readonly type: "object"
@@ -28,7 +30,9 @@ export const VersionToolResultSchema = Schema.Struct({
 
 export const versionToolDefinition = {
   name: VERSION_TOOL_NAME,
-  description: "Returns the current version of this Huly MCP server and the latest version available on npm.",
+  description: makeToolDescription(
+    "Returns the current version of this Huly MCP server and the latest version available on npm."
+  ),
   inputSchema: emptyInputSchema,
   outputSchema: createToolOutputSchema(VersionToolResultSchema),
   annotations: {
@@ -42,8 +46,9 @@ export const versionToolDefinition = {
 
 export const getHulyContextToolDefinition = {
   name: GET_HULY_CONTEXT_TOOL_NAME,
-  description:
-    "Returns sanitized runtime and configuration context for this Huly MCP session, including package version, transport, auth mode, Huly URL origin/host, workspace, timeout, native tool scope filtering, and resolved native/proxy tool exposure. Does not connect to Huly. Secret values such as tokens, passwords, and credential headers are never returned.",
+  description: makeToolDescription(
+    "Returns sanitized runtime and configuration context for this Huly MCP session, including package version, transport, auth mode, Huly URL origin/host, workspace, timeout, native tool scope filtering, and resolved native/proxy tool exposure. Does not connect to Huly. Secret values such as tokens, passwords, and credential headers are never returned."
+  ),
   inputSchema: emptyInputSchema,
   outputSchema: hulyContextToolOutputSchema,
   annotations: {
@@ -68,7 +73,7 @@ export const parseToolsets = (
     writeError
   )
 
-const builtinToolNames: ReadonlyArray<BuiltinToolName> = [VERSION_TOOL_NAME, GET_HULY_CONTEXT_TOOL_NAME]
+const builtinToolNames: ReadonlyArray<BuiltinToolName> = BUILTIN_TOOL_NAME_LITERALS
 
 const nonEmptyOrDefault = (value: string | undefined, fallback: string): string => {
   const trimmed = value?.trim()
@@ -83,7 +88,7 @@ export interface ToolExposureContext {
   readonly visibleToolCount: number
   readonly nativeVisibleToolCount: number
   readonly proxyCandidateToolCount: number
-  readonly proxyToolNames: ReadonlyArray<string>
+  readonly proxyToolNames: ReadonlyArray<ToolName>
 }
 
 const defaultToolExposureContext = (registry: ToolRegistry): ToolExposureContext => ({

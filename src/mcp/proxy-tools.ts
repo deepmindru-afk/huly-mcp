@@ -11,78 +11,91 @@ import {
   mapParseErrorToMcp,
   type McpToolResponse
 } from "./error-mapping.js"
+import {
+  listCategories,
+  SEARCH_DEFAULT_LIMIT_VALUE,
+  SEARCH_MAX_LIMIT,
+  searchToolDefinitions,
+  SearchToolLimit,
+  ToolParameterName,
+  toolParamSummary,
+  ToolSearchQuery
+} from "./proxy-tool-catalog.js"
 import { createToolOutputSchema } from "./tool-output-schema.js"
 import type { ToolRegistry } from "./tools/index.js"
 import { resolveAnnotations } from "./tools/index.js"
-import type { ToolDefinition } from "./tools/registry.js"
+import {
+  createToolDefinition,
+  makeToolCategory,
+  ToolCategory,
+  type ToolDefinition,
+  ToolDescription,
+  ToolName
+} from "./tools/registry.js"
 
-const LIST_TOOL_CATEGORIES_TOOL_NAME = "list_tool_categories"
-const SEARCH_TOOLS_TOOL_NAME = "search_tools"
-const GET_TOOL_SCHEMA_TOOL_NAME = "get_tool_schema"
-export const INVOKE_TOOL_TOOL_NAME = "invoke_tool"
+export { makeSearchToolLimit, makeToolSearchQuery, searchToolDefinitions } from "./proxy-tool-catalog.js"
 
-export const PROXY_TOOL_NAMES: ReadonlyArray<string> = [
+const LIST_TOOL_CATEGORIES_TOOL_NAME = ToolName.make("list_tool_categories")
+const SEARCH_TOOLS_TOOL_NAME = ToolName.make("search_tools")
+const GET_TOOL_SCHEMA_TOOL_NAME = ToolName.make("get_tool_schema")
+export const INVOKE_TOOL_TOOL_NAME = ToolName.make("invoke_tool")
+const PROXY_TOOL_CATEGORY = makeToolCategory("proxy")
+
+export const PROXY_TOOL_NAMES: ReadonlyArray<ToolName> = [
   LIST_TOOL_CATEGORIES_TOOL_NAME,
   SEARCH_TOOLS_TOOL_NAME,
   GET_TOOL_SCHEMA_TOOL_NAME,
   INVOKE_TOOL_TOOL_NAME
 ]
 
-const SEARCH_DEFAULT_LIMIT = 10
-const SEARCH_MAX_LIMIT = 50
-
 const EmptyProxyParamsSchema = Schema.Record({ key: Schema.String, value: Schema.Never })
-const NonEmptyToolString = Schema.NonEmptyTrimmedString
 const SearchToolsParamsSchema = Schema.Struct({
-  query: NonEmptyToolString,
-  limit: Schema.optionalWith(
-    Schema.Number.pipe(Schema.int(), Schema.positive(), Schema.lessThanOrEqualTo(SEARCH_MAX_LIMIT)),
-    { exact: true }
-  )
+  query: ToolSearchQuery,
+  limit: Schema.optionalWith(SearchToolLimit, { exact: true })
 })
 const ToolNameParamsSchema = Schema.Struct({
-  toolName: NonEmptyToolString
+  toolName: ToolName
 })
 const InvokeToolParamsSchema = Schema.Struct({
-  toolName: NonEmptyToolString,
+  toolName: ToolName,
   arguments: Schema.optionalWith(Schema.Unknown, { exact: true })
 })
 
 const ProxyToolCategorySchema = Schema.Struct({
-  name: NonEmptyToolString,
-  description: NonEmptyToolString,
+  name: ToolCategory,
+  description: ToolDescription,
   toolCount: Count
 })
 const ListToolCategoriesResultSchema = Schema.Struct({
   categories: Schema.Array(ProxyToolCategorySchema)
 })
 const ToolSearchMatchSchema = Schema.Struct({
-  name: NonEmptyToolString,
-  category: NonEmptyToolString,
-  description: NonEmptyToolString,
-  requiredParams: Schema.Array(NonEmptyToolString),
-  optionalParams: Schema.Array(NonEmptyToolString)
+  name: ToolName,
+  category: ToolCategory,
+  description: ToolDescription,
+  requiredParams: Schema.Array(ToolParameterName),
+  optionalParams: Schema.Array(ToolParameterName)
 })
 const SearchToolsResultSchema = Schema.Struct({
   matches: Schema.Array(ToolSearchMatchSchema)
 })
 const ToolAnnotationsSchema = Schema.Struct({
-  title: Schema.optionalWith(NonEmptyToolString, { exact: true }),
+  title: Schema.optionalWith(Schema.NonEmptyTrimmedString, { exact: true }),
   readOnlyHint: Schema.optionalWith(Schema.Boolean, { exact: true }),
   destructiveHint: Schema.optionalWith(Schema.Boolean, { exact: true }),
   idempotentHint: Schema.optionalWith(Schema.Boolean, { exact: true }),
   openWorldHint: Schema.optionalWith(Schema.Boolean, { exact: true })
 })
 const GetToolSchemaResultSchema = Schema.Struct({
-  name: NonEmptyToolString,
-  category: NonEmptyToolString,
-  description: NonEmptyToolString,
+  name: ToolName,
+  category: ToolCategory,
+  description: ToolDescription,
   inputSchema: Schema.Unknown,
   outputSchema: Schema.Unknown,
   annotations: ToolAnnotationsSchema
 })
 const InvokeToolResultSchema = Schema.Struct({
-  toolName: NonEmptyToolString,
+  toolName: ToolName,
   result: Schema.Unknown,
   warnings: Schema.optionalWith(Schema.Array(Schema.Unknown), { exact: true })
 })
@@ -150,40 +163,40 @@ const readOnlyProxyAnnotations = (title: string): ToolAnnotations => ({
 })
 
 export const proxyToolDefinitions: ReadonlyArray<ToolDefinition> = [
-  {
+  createToolDefinition({
     name: LIST_TOOL_CATEGORIES_TOOL_NAME,
     description:
       "Lists Huly tool categories available through this proxy. Use this first when you need a broad map of capabilities before searching for a specific Huly tool.",
     inputSchema: emptyInputSchema,
     outputSchema: createToolOutputSchema(ListToolCategoriesResultSchema),
-    category: "proxy",
+    category: PROXY_TOOL_CATEGORY,
     annotations: readOnlyProxyAnnotations("List Tool Categories")
-  },
-  {
+  }),
+  createToolDefinition({
     name: SEARCH_TOOLS_TOOL_NAME,
     description:
       "Searches the current proxy-visible Huly tool catalog by tool name, category, description, and parameter names. Returns exact tool names plus required and optional parameter names for single-call follow-up with get_tool_schema or invoke_tool.",
     inputSchema: searchToolsInputSchema,
     outputSchema: createToolOutputSchema(SearchToolsResultSchema),
-    category: "proxy",
+    category: PROXY_TOOL_CATEGORY,
     annotations: readOnlyProxyAnnotations("Search Tools")
-  },
-  {
+  }),
+  createToolDefinition({
     name: GET_TOOL_SCHEMA_TOOL_NAME,
     description:
       "Returns the exact input and output schema for one proxy-visible Huly tool. Use this before invoke_tool when you are not certain about required argument names or result shape.",
     inputSchema: toolNameInputSchema,
     outputSchema: createToolOutputSchema(GetToolSchemaResultSchema),
-    category: "proxy",
+    category: PROXY_TOOL_CATEGORY,
     annotations: readOnlyProxyAnnotations("Get Tool Schema")
-  },
-  {
+  }),
+  createToolDefinition({
     name: INVOKE_TOOL_TOOL_NAME,
     description:
       "Invokes one proxy-visible Huly tool by exact name with its arguments. This tool can call read or write Huly operations; check get_tool_schema and the target tool annotations when safety matters.",
     inputSchema: invokeToolInputSchema,
     outputSchema: createToolOutputSchema(InvokeToolResultSchema),
-    category: "proxy",
+    category: PROXY_TOOL_CATEGORY,
     annotations: {
       title: "Invoke Tool",
       readOnlyHint: false,
@@ -191,15 +204,16 @@ export const proxyToolDefinitions: ReadonlyArray<ToolDefinition> = [
       idempotentHint: false,
       openWorldHint: false
     }
-  }
+  })
 ]
 
-export const isProxyToolName = (name: string): boolean => PROXY_TOOL_NAMES.includes(name)
+export const isProxyToolName = (name: string): name is ToolName =>
+  PROXY_TOOL_NAMES.some((toolName) => toolName === name)
 
 const decodeOrError = <A, I>(
   schema: Schema.Schema<A, I, never>,
   input: unknown,
-  toolName: string
+  toolName: ToolName
 ): A | McpToolResponse => {
   const decoded = Schema.decodeUnknownEither(schema)(input ?? {})
   if (Either.isRight(decoded)) return decoded.right
@@ -211,127 +225,10 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const isMcpToolResponse = (value: unknown): value is McpToolResponse => isRecord(value) && Array.isArray(value.content)
 
-const stringArray = (value: unknown): ReadonlyArray<string> =>
-  Array.isArray(value) && value.every((item) => typeof item === "string") ? value : []
-
-const schemaProperties = (schema: object): ReadonlyArray<string> => {
-  const properties = isRecord(schema) ? schema.properties : undefined
-  return isRecord(properties) ? Object.keys(properties) : []
-}
-
-const schemaRequired = (schema: unknown): ReadonlyArray<string> => isRecord(schema) ? stringArray(schema.required) : []
-
-const toolParamSummary = (
-  tool: ToolDefinition
-): { readonly requiredParams: ReadonlyArray<string>; readonly optionalParams: ReadonlyArray<string> } => {
-  const required = new Set(schemaRequired(tool.inputSchema))
-  const properties = schemaProperties(tool.inputSchema)
-  return {
-    requiredParams: properties.filter((name) => required.has(name)),
-    optionalParams: properties.filter((name) => !required.has(name))
-  }
-}
-
-const CATEGORY_DESCRIPTIONS: Readonly<Record<string, string>> = {
-  projects: "Project discovery, project metadata, project target preferences, and project-level settings.",
-  issues: "Issue tracking: create, read, update, move, delete, relate, label, and organize Huly issues.",
-  labels: "Issue and workspace labels for classification and filtering.",
-  tags: "Generic tags that can be created, updated, attached, detached, and listed.",
-  "tag-categories": "Tag category administration and tag grouping metadata.",
-  templates: "Issue and message templates, including template fields, categories, children, and rendering.",
-  comments: "Comments and discussion content attached to Huly objects.",
-  collaborators: "Collaborator discovery and participation metadata for documents and other shared objects.",
-  milestones: "Issue milestone lifecycle and milestone assignment.",
-  documents: "Teamspaces and documents: create, read, edit, snapshot, inline comment, and delete document content.",
-  drive: "Drive spaces, folders, files, versions, comments, and drive membership administration.",
-  associations: "Generic associations and relations between Huly documents, issues, cards, and raw objects.",
-  inventory: "Inventory products, categories, variants, product media, comments, and attachments.",
-  spaces: "Generic Huly spaces, space types, space permissions, members, owners, roles, and preferences.",
-  "sdk-discovery": "SDK and model discovery helpers for Huly platform classes, attributes, mixins, and enums.",
-  storage: "Storage diagnostics and storage-backed object helpers.",
-  attachments: "Issue, document, and generic attachment upload, download, pinning, updating, and deletion.",
-  contacts: "People, employees, organizations, contact channels, channel providers, and contact ownership.",
-  channels: "Messaging: channels, direct messages, group messages, thread replies, reactions, and saved messages.",
-  boards: "Board administration, board labels, board cards, board views, menus, and archive workflows.",
-  views: "Saved and filtered views across boards and other view-capable Huly modules.",
-  cards: "Generic cards, card spaces, card relations, master tags, and card metadata.",
-  leads: "CRM funnels and leads discovery.",
-  recruiting: "Recruiting vacancies, applicants, reviews, opinions, candidate skills, and recruiting media.",
-  "custom-fields": "Custom field definitions and custom field values on Huly documents.",
-  calendar: "Calendar events, recurring events, schedules, meeting rooms, and availability.",
-  "time tracking": "Time tracking, work logs, time reports, detailed time summaries, and estimates.",
-  planner: "Planner todos, schedules, work slots, priorities, and completion workflows.",
-  preferences: "User and project preferences, notification preferences, and preference diagnostics.",
-  approvals: "Approval request lifecycle, approval comments, approve/reject/cancel actions, and approval status.",
-  search: "Workspace-wide full-text and structured search across Huly content.",
-  activity: "Activity timelines and activity messages for Huly objects.",
-  notifications: "Inbox notifications, notification counts, read state, and notification actions.",
-  "user-statuses": "User status and online/presence status discovery.",
-  "virtual-office": "Virtual office rooms, members, presence, and office room state.",
-  processes: "Huly process definitions, executions, process cards, and process state transitions.",
-  workspace: "Workspace metadata, members, settings, access links, invites, and administrative context.",
-  "task-management":
-    "Task management project types, task types, issue statuses, workflow references, and process setup.",
-  "test-management": "Test management projects, suites, cases, plans, runs, results, and plan execution."
-}
-
-const categoryDescription = (category: string): string => CATEGORY_DESCRIPTIONS[category] ?? `Huly ${category} tools.`
-
-const listCategories = (registry: ToolRegistry): McpToolResponse => {
-  const counts = new Map<string, number>()
-  for (const tool of registry.definitions) {
-    counts.set(tool.category, (counts.get(tool.category) ?? 0) + 1)
-  }
-  return createSuccessResponse({
-    categories: [...counts.entries()].map(([name, toolCount]) => ({
-      name,
-      description: categoryDescription(name),
-      toolCount: Count.make(toolCount)
-    }))
-  })
-}
-
-const queryTokens = (query: string): ReadonlyArray<string> =>
-  query.toLowerCase().split(/[^a-z0-9]+/u).filter((token) => token !== "")
-
-const tokenHitCount = (tokens: ReadonlyArray<string>, text: string): number => {
-  const lower = text.toLowerCase()
-  return tokens.filter((token) => lower.includes(token)).length
-}
-
-const toolScore = (tool: ToolDefinition, tokens: ReadonlyArray<string>, normalizedQuery: string): number => {
-  const params = toolParamSummary(tool)
-  const paramText = [...params.requiredParams, ...params.optionalParams].join(" ")
-  const categoryText = `${tool.category} ${categoryDescription(tool.category)}`
-  const exactScore = tool.name.toLowerCase() === normalizedQuery ? 10_000 : 0
-  return exactScore
-    + tokenHitCount(tokens, tool.name) * 1_000
-    + tokenHitCount(tokens, categoryText) * 100
-    + tokenHitCount(tokens, tool.description) * 10
-    + tokenHitCount(tokens, paramText)
-}
-
-export const searchToolDefinitions = (
-  registry: ToolRegistry,
-  query: string,
-  limit: number = SEARCH_DEFAULT_LIMIT
-): ReadonlyArray<ToolDefinition> => {
-  const normalizedQuery = query.trim().toLowerCase()
-  const tokens = queryTokens(normalizedQuery)
-  if (tokens.length === 0) return []
-
-  return registry.definitions
-    .map((tool, index) => ({ index, score: toolScore(tool, tokens, normalizedQuery), tool }))
-    .filter((match) => match.score > 0)
-    .sort((a, b) => b.score - a.score || a.index - b.index)
-    .slice(0, limit)
-    .map((match) => match.tool)
-}
-
 const searchTools = (registry: ToolRegistry, args: unknown): McpToolResponse => {
   const params = decodeOrError(SearchToolsParamsSchema, args, SEARCH_TOOLS_TOOL_NAME)
   if (isMcpToolResponse(params)) return params
-  const limit = Math.min(params.limit ?? SEARCH_DEFAULT_LIMIT, SEARCH_MAX_LIMIT)
+  const limit = params.limit ?? SEARCH_DEFAULT_LIMIT_VALUE
   const matches = searchToolDefinitions(registry, params.query, limit).map((tool) => {
     const paramSummary = toolParamSummary(tool)
     return {
@@ -399,7 +296,7 @@ const invokeTool = async (
 }
 
 interface ProxyToolCallInput {
-  readonly toolName: string
+  readonly toolName: ToolName
   readonly args: unknown
   readonly proxyCandidateRegistry: ToolRegistry
   readonly clients?: InvokeToolClients

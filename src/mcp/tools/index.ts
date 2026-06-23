@@ -32,7 +32,7 @@ import { processTools } from "./processes.js"
 import { projectTargetPreferenceTools } from "./project-target-preferences.js"
 import { projectTools } from "./projects.js"
 import { recruitingTools } from "./recruiting.js"
-import type { RegisteredTool, ToolDefinition } from "./registry.js"
+import type { RegisteredTool, ToolCategory, ToolDefinition, ToolName } from "./registry.js"
 import {
   createMissingArgumentsError,
   createUnexpectedArgumentsError,
@@ -105,18 +105,18 @@ const allTools: ReadonlyArray<RegisteredTool> = [
   ...testManagementPlansTools
 ]
 
-export const CATEGORY_NAMES: ReadonlySet<string> = new Set(
+export const CATEGORY_NAMES: ReadonlySet<ToolCategory> = new Set(
   allTools.map((t) => t.category)
 )
 
 type ToolRegistryData = {
-  readonly tools: ReadonlyMap<string, RegisteredTool>
+  readonly tools: ReadonlyMap<ToolName, RegisteredTool>
   readonly definitions: ReadonlyArray<ToolDefinition>
 }
 
 type ToolRegistryMethods = {
   readonly handleToolCall: (
-    toolName: string,
+    toolName: ToolName,
     args: unknown,
     hulyClient: HulyClient["Type"],
     storageClient: HulyStorageClient["Type"],
@@ -128,12 +128,12 @@ export type ToolRegistry = ToolRegistryData & ToolRegistryMethods
 
 interface ToolRegistryScope {
   readonly filteringActive: boolean
-  readonly categories: ReadonlySet<string>
-  readonly toolNames: ReadonlySet<string>
+  readonly categories: ReadonlySet<ToolCategory>
+  readonly toolNames: ReadonlySet<ToolName>
 }
 
 const buildRegistry = (tools: ReadonlyArray<RegisteredTool>): ToolRegistry => {
-  const map = new Map<string, RegisteredTool>(
+  const map = new Map<ToolName, RegisteredTool>(
     tools.map((t) => [t.name, t])
   )
   return {
@@ -163,11 +163,11 @@ export const createScopedRegistry = (scope: ToolRegistryScope): ToolRegistry => 
   )
 }
 
-export const createFilteredRegistry = (categories: ReadonlySet<string>): ToolRegistry =>
+export const createFilteredRegistry = (categories: ReadonlySet<ToolCategory>): ToolRegistry =>
   createScopedRegistry({
     filteringActive: true,
     categories,
-    toolNames: new Set<string>()
+    toolNames: new Set<ToolName>()
   })
 
 export { resolveAnnotations }

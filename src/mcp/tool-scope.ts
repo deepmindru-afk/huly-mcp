@@ -1,9 +1,12 @@
+import type { ToolCategory, ToolName } from "./tools/registry.js"
+
 interface ToolScopeToolDefinition {
-  readonly name: string
-  readonly category: string
+  readonly name: ToolName
+  readonly category: ToolCategory
 }
 
 interface ToolScopeRawEnv {
+  // Raw environment values before CSV parsing and known-value resolution.
   readonly toolsets: string
   readonly tools: string
 }
@@ -11,14 +14,14 @@ interface ToolScopeRawEnv {
 export interface ToolScopeSummary {
   readonly filteringActive: boolean
   readonly requestedToolsets: ReadonlyArray<string>
-  readonly enabledToolsets: ReadonlyArray<string>
+  readonly enabledToolsets: ReadonlyArray<ToolCategory>
   readonly ignoredToolsets: ReadonlyArray<string>
   readonly requestedTools: ReadonlyArray<string>
-  readonly enabledTools: ReadonlyArray<string>
+  readonly enabledTools: ReadonlyArray<ToolName>
   readonly ignoredTools: ReadonlyArray<string>
-  readonly enabledCategories: ReadonlySet<string>
-  readonly enabledToolNames: ReadonlySet<string>
-  readonly availableCategories: ReadonlyArray<string>
+  readonly enabledCategories: ReadonlySet<ToolCategory>
+  readonly enabledToolNames: ReadonlySet<ToolName>
+  readonly availableCategories: ReadonlyArray<ToolCategory>
   readonly visibleRegisteredToolCount: number
   readonly totalRegisteredToolCount: number
 }
@@ -30,25 +33,29 @@ const normalizeCsv = (raw: string): ReadonlyArray<string> => {
 
 const orderedCategories = (
   definitions: ReadonlyArray<ToolScopeToolDefinition>
-): ReadonlyArray<string> => [...new Set(definitions.map((definition) => definition.category))]
+): ReadonlyArray<ToolCategory> => [...new Set(definitions.map((definition) => definition.category))]
 
-const resolveRequested = (
+const knownValueMap = <T extends string>(values: ReadonlyArray<T>): ReadonlyMap<string, T> =>
+  new Map(values.map((value) => [value, value]))
+
+const resolveRequested = <T extends string>(
   requested: ReadonlyArray<string>,
-  known: ReadonlySet<string>,
+  known: ReadonlyMap<string, T>,
   unknownMessage: (name: string) => string,
   writeError: (message: string) => void
 ): {
-  readonly enabled: ReadonlyArray<string>
+  readonly enabled: ReadonlyArray<T>
   readonly ignored: ReadonlyArray<string>
 } =>
   requested.reduce<{
-    readonly enabled: ReadonlyArray<string>
+    readonly enabled: ReadonlyArray<T>
     readonly ignored: ReadonlyArray<string>
   }>((acc, name) => {
-    if (known.has(name)) {
+    const knownValue = known.get(name)
+    if (knownValue !== undefined) {
       return {
         ...acc,
-        enabled: [...acc.enabled, name]
+        enabled: [...acc.enabled, knownValue]
       }
     }
 
@@ -70,8 +77,8 @@ export const resolveToolScope = (
   const requestedToolsets = normalizeCsv(rawEnv.toolsets)
   const requestedTools = normalizeCsv(rawEnv.tools)
   const availableCategories = orderedCategories(definitions)
-  const knownCategories = new Set(availableCategories)
-  const knownToolNames = new Set(definitions.map((definition) => definition.name))
+  const knownCategories = knownValueMap(availableCategories)
+  const knownToolNames = knownValueMap(definitions.map((definition) => definition.name))
 
   const toolsets = resolveRequested(
     requestedToolsets,

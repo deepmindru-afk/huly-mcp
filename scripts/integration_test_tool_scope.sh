@@ -145,7 +145,7 @@ assert_tool_names_exact "$default_proxy_output" \
 assert_context "$default_proxy_output" '.toolExposure.configuredMode == "auto"'
 assert_context "$default_proxy_output" '.toolExposure.resolvedMode == "proxy"'
 assert_context "$default_proxy_output" '.toolExposure.clientKind == "codex"'
-assert_call_error "$default_proxy_output" 4
+assert_call_success "$default_proxy_output" 4
 assert_search_has "$default_proxy_output" "list_projects"
 assert_call_success "$default_proxy_output" 7
 assert_call_success "$default_proxy_output" 8
@@ -172,7 +172,7 @@ assert_tool_names_exact "$proxy_override_output" \
   "get_version" "get_huly_context" "list_tool_categories" "search_tools" "get_tool_schema" "invoke_tool"
 assert_context "$proxy_override_output" '.toolExposure.configuredMode == "proxy"'
 assert_context "$proxy_override_output" '.toolExposure.resolvedMode == "proxy"'
-assert_call_error "$proxy_override_output" 4
+assert_call_success "$proxy_override_output" 4
 assert_call_success "$proxy_override_output" 8
 
 pins_output="$(run_case "proxy-pins" "codex-cli" "projects" "" "" "")"
@@ -181,7 +181,7 @@ assert_tool_absent "$pins_output" "list_teamspaces"
 assert_context "$pins_output" '.toolScope.enabledToolsets == ["projects"]'
 assert_context "$pins_output" '.toolExposure.proxyOutputStrict == false'
 assert_call_success "$pins_output" 4
-assert_call_error "$pins_output" 5
+assert_call_success "$pins_output" 5
 assert_call_success "$pins_output" 9
 
 tools_pin_output="$(run_case "proxy-tools-pin" "codex-cli" "" "list_teamspaces" "" "")"
@@ -189,7 +189,7 @@ assert_tool_present "$tools_pin_output" "list_teamspaces"
 assert_tool_absent "$tools_pin_output" "list_projects"
 assert_context "$tools_pin_output" '.toolScope.enabledTools == ["list_teamspaces"]'
 assert_context "$tools_pin_output" '.toolExposure.proxyOutputStrict == false'
-assert_call_error "$tools_pin_output" 4
+assert_call_success "$tools_pin_output" 4
 assert_call_success "$tools_pin_output" 5
 assert_call_success "$tools_pin_output" 7
 assert_call_success "$tools_pin_output" 8
@@ -199,7 +199,7 @@ strict_output="$(run_case "proxy-strict" "codex-cli" "projects" "" "" "true")"
 assert_tool_names_exact "$strict_output" \
   "get_version" "get_huly_context" "list_tool_categories" "search_tools" "get_tool_schema" "invoke_tool"
 assert_context "$strict_output" '.toolExposure.proxyOutputStrict == true'
-assert_call_error "$strict_output" 4
+assert_call_success "$strict_output" 4
 assert_call_success "$strict_output" 7
 assert_call_success "$strict_output" 8
 assert_call_error "$strict_output" 9
@@ -210,7 +210,7 @@ assert_tool_names_exact "$strict_tools_output" \
 assert_context "$strict_tools_output" '.toolScope.enabledTools == ["list_teamspaces"]'
 assert_context "$strict_tools_output" '.toolExposure.proxyOutputStrict == true'
 assert_call_error "$strict_tools_output" 4
-assert_call_error "$strict_tools_output" 5
+assert_call_success "$strict_tools_output" 5
 assert_search_absent "$strict_tools_output" "list_projects"
 assert_search_has "$strict_tools_output" "list_teamspaces"
 assert_call_error "$strict_tools_output" 7

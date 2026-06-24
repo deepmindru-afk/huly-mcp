@@ -979,9 +979,9 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
     expect(searchResult.matches.some((match) => isJsonObject(match) && match.category === "channels")).toBe(true)
   })
 
-  it("rejects direct calls to hidden native tools but exposes them through proxy search and schema lookup", async () => {
+  it("dispatches direct hidden native calls through proxy candidates for compatibility", async () => {
     const handlers = createMcpProtocolHandlers(
-      unusedResolveClients,
+      buildStubClients(),
       createTelemetryProbe().telemetry,
       protocolRegistries(toolRegistry),
       makeValidContext,
@@ -996,8 +996,7 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
       params: { name: "get_tool_schema", arguments: { toolName: "list_projects" } }
     })
 
-    expect(direct.isError).toBe(true)
-    expect(firstText(direct.content)).toContain("Unknown tool")
+    expect(direct.isError).not.toBe(true)
     expect(firstText(search.content)).toContain("list_projects")
     expect(schema.isError).not.toBe(true)
     expect(firstText(schema.content)).toContain("\"name\":\"list_projects\"")
@@ -1280,7 +1279,7 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
   it("lists scoped native pins in non-strict proxy mode while keeping full proxy discovery", async () => {
     const scopedIssuesRegistry = createFilteredRegistry(categorySet("issues"))
     const handlers = createMcpProtocolHandlers(
-      unusedResolveClients,
+      buildStubClients(),
       createTelemetryProbe().telemetry,
       protocolRegistries(toolRegistry, scopedIssuesRegistry),
       makeValidContext,
@@ -1291,18 +1290,20 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
 
     const listed = await handlers.listTools()
     const search = await handlers.callTool({ params: { name: "search_tools", arguments: { query: "documents" } } })
+    const directHidden = await handlers.callTool({ params: { name: "list_projects", arguments: {} } })
 
     expect(listed.tools.map((tool) => tool.name)).toContain("list_issues")
     expect(listed.tools.map((tool) => tool.name)).not.toContain("list_documents")
     expect(firstText(search.content)).toContain("list_documents")
+    expect(directHidden.isError).not.toBe(true)
   })
 
   it("uses active scope as a hard allow-list when proxy output strict is true", async () => {
-    const scopedIssuesRegistry = createFilteredRegistry(categorySet("issues"))
+    const scopedProjectsRegistry = createFilteredRegistry(categorySet("projects"))
     const handlers = createMcpProtocolHandlers(
-      unusedResolveClients,
+      buildStubClients(),
       createTelemetryProbe().telemetry,
-      protocolRegistries(toolRegistry, scopedIssuesRegistry),
+      protocolRegistries(toolRegistry, scopedProjectsRegistry),
       makeValidContext,
       liveNowClock,
       () => Promise.resolve("0.0.0"),
@@ -1310,15 +1311,19 @@ describe("createMcpProtocolHandlers — proxy mode", () => {
     )
 
     const listed = await handlers.listTools()
-    const search = await handlers.callTool({ params: { name: "search_tools", arguments: { query: "documents" } } })
+    const search = await handlers.callTool({ params: { name: "search_tools", arguments: { query: "projects" } } })
     const schema = await handlers.callTool({
       params: { name: "get_tool_schema", arguments: { toolName: "list_documents" } }
     })
+    const directScoped = await handlers.callTool({ params: { name: "list_projects", arguments: {} } })
+    const directHidden = await handlers.callTool({ params: { name: "list_documents", arguments: {} } })
 
-    expect(listed.tools.map((tool) => tool.name)).not.toContain("list_issues")
+    expect(listed.tools.map((tool) => tool.name)).not.toContain("list_projects")
     expect(firstText(search.content)).not.toContain("list_documents")
-    expect(firstText(search.content)).toContain("\"category\":\"issues\"")
+    expect(firstText(search.content)).toContain("\"category\":\"projects\"")
     expect(schema.isError).toBe(true)
+    expect(directScoped.isError).not.toBe(true)
+    expect(directHidden.isError).toBe(true)
   })
 
   it("blocks search, schema, and invocation candidates when strict active scope resolves to no tools", async () => {

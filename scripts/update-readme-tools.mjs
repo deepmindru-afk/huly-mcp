@@ -397,7 +397,7 @@ const generateToolsSection = () => {
   ]
   let output = "## Available Tools\n\n"
   output +=
-    "When resolved tool exposure is `proxy`, clients see the built-in tools plus these proxy meta-tools. Native Huly tools are then discovered and invoked through the proxy candidate catalog.\n\n"
+    "When resolved tool exposure is `proxy`, clients see the built-in tools plus these proxy meta-tools. Native Huly tools are then discovered and invoked through the proxy candidate catalog. Exact native tool names also dispatch when a client calls them directly, subject to `PROXY_OUTPUT_STRICT` scope rules, but hidden native tools are not advertised through `tools/list`.\n\n"
   output += "### Proxy Meta-Tools\n\n"
   output += "| Tool | Description |\n"
   output += "|------|-------------|\n"

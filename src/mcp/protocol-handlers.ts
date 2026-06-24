@@ -323,7 +323,12 @@ export const createMcpProtocolHandlers = (
       const hulyToolName = parseToolName(name)
       if (hulyToolName === undefined) return returnError(createUnknownToolError(name))
 
-      const tool = exposure.visibleNativeRegistry.tools.get(hulyToolName)
+      const nativeCallRegistry = exposure.visibleNativeRegistry.tools.has(hulyToolName)
+        ? exposure.visibleNativeRegistry
+        : exposure.context.resolvedMode === "proxy"
+        ? exposure.proxyCandidateRegistry
+        : exposure.visibleNativeRegistry
+      const tool = nativeCallRegistry.tools.get(hulyToolName)
       if (tool === undefined) return returnError(createUnknownToolError(name))
 
       if (isNoArgumentTool(tool) && !isEmptyArgumentsObject(args)) {
@@ -346,7 +351,7 @@ export const createMcpProtocolHandlers = (
         return returnError(errorResponse, editMode)
       }
 
-      const response = await exposure.visibleNativeRegistry.handleToolCall(
+      const response = await nativeCallRegistry.handleToolCall(
         hulyToolName,
         args,
         clients.hulyClient,

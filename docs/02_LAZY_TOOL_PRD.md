@@ -155,7 +155,7 @@ Initial auto-selection rule should be conservative:
 | `claude-ai`, including `claude-ai (via ...)` | `proxy` | Ambiguous between Claude Desktop / Claude.ai / remote bridges; do not assume Claude Code tool search |
 | `cursor-vscode`, `cursor*` | `proxy` | Cursor eagerly loads/caps MCP tools |
 | `windsurf*`, `cascade*` | `proxy` | Cascade/Windsurf caps MCP tools |
-| `github-copilot*`, `copilot*`, `vscode*` | `proxy` | GitHub Copilot / VS Code has finite tool limits; proxy avoids truncation |
+| `github-copilot*`, `copilot*`, `visual studio code*`, `visual-studio-code*` | `proxy` | GitHub Copilot / VS Code has finite tool limits; proxy avoids truncation |
 | `codex*`, `openai-codex*` | `proxy` | Treat as eager unless/until Codex advertises client-side tool search |
 | `opencode*` | `proxy` | Treat as eager unless/until opencode advertises client-side tool search |
 | unknown / missing clientInfo | `proxy` | Avoid exposing a 470-tool, ~170K-token surface by default |

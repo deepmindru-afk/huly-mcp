@@ -194,7 +194,12 @@ export const classifyMcpClient = (
   if (name === "claude-ai") return makeClientKind("claude-ai")
   if (name === "cursor-vscode" || name.startsWith("cursor")) return makeClientKind("cursor")
   if (name.startsWith("windsurf") || name.startsWith("cascade")) return makeClientKind("windsurf")
-  if (name.startsWith("github-copilot") || name.startsWith("copilot") || name.startsWith("vscode")) {
+  if (
+    name.startsWith("github-copilot")
+    || name.startsWith("copilot")
+    || name.startsWith("visual studio code")
+    || name.startsWith("visual-studio-code")
+  ) {
     return makeClientKind("github-copilot")
   }
   if (name.startsWith("codex") || name.startsWith("openai-codex")) return makeClientKind("codex")

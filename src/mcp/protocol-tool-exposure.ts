@@ -2,6 +2,7 @@ import type { ListToolsResult } from "@modelcontextprotocol/sdk/types.js"
 
 import type { ToolExposureContext } from "./huly-context-tool.js"
 import { toClientCompatibleInputSchema } from "./input-schema-compat.js"
+import { stripCollidingSchemaIdsProperties, stripCollidingSchemaIdsRecord } from "./json-schema-refs.js"
 import { PROXY_TOOL_NAMES, proxyToolDefinitions } from "./proxy-tools.js"
 import {
   classifyMcpClient,
@@ -80,9 +81,9 @@ const toProtocolObjectSchema = (schema: ProtocolObjectSchemaSource): ProtocolObj
   const { properties, required, ...rest } = schema
   const convertedProperties = objectProperties(properties)
   return {
-    ...rest,
+    ...stripCollidingSchemaIdsRecord(rest),
     type: "object",
-    ...(convertedProperties === undefined ? {} : { properties: convertedProperties }),
+    ...(convertedProperties === undefined ? {} : { properties: stripCollidingSchemaIdsProperties(convertedProperties) }),
     ...(required === undefined ? {} : { required: [...required] })
   }
 }

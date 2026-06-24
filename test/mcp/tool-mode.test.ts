@@ -33,7 +33,9 @@ describe("classifyMcpClient", () => {
       { clientInfo: clientInfo("cascade"), expected: "windsurf" },
       { clientInfo: clientInfo("github-copilot-chat"), expected: "github-copilot" },
       { clientInfo: clientInfo("copilot"), expected: "github-copilot" },
-      { clientInfo: clientInfo("vscode"), expected: "github-copilot" },
+      { clientInfo: clientInfo("github-copilot-developer"), expected: "github-copilot" },
+      { clientInfo: clientInfo("Visual Studio Code"), expected: "github-copilot" },
+      { clientInfo: clientInfo("Visual-Studio-Code"), expected: "github-copilot" },
       { clientInfo: clientInfo("codex-cli"), expected: "codex" },
       { clientInfo: clientInfo("openai-codex"), expected: "codex" },
       { clientInfo: clientInfo("opencode"), expected: "opencode" }

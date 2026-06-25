@@ -6,6 +6,14 @@ The goal is to make the version installable for testers as `@firfi/huly-mcp@next
 
 Do not use `pnpm local-release` for this flow. That script publishes without a dist-tag override and creates the GitHub release with `--latest`.
 
+The one-command flow is:
+
+```bash
+pnpm local-release:next
+```
+
+That command versions the package from the pending changeset, validates the release, publishes with `--tag next`, pushes the release commit and tag, and creates a prerelease GitHub release. It fails before changing files if npm auth is not available.
+
 ## Preflight
 
 - Start from the branch or release commit you want to publish. For the tool-scope filtering PR, that is `codex/tool-scope-filtering`.

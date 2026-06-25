@@ -1,5 +1,11 @@
 # @firfi/huly-mcp
 
+## 0.44.0
+
+### Minor Changes
+
+- 698257e: Add client-aware tool exposure for large MCP clients, including proxy tool discovery, toolset/category filtering, Huly context discovery, direct native calls in proxy mode, and telemetry fields for resolved client and mode.
+
 ## 0.43.0
 
 ### Minor Changes
